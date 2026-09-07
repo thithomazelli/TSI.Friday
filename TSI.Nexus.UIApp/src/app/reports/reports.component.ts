@@ -219,69 +219,56 @@ export class ReportsComponent implements OnInit {
       return;
     }
     const element = document.getElementById('print-section');
-    if (!element) {
+    const table = element?.querySelector('#report-data-table');
+    const theadEl = table?.querySelector('thead');
+    if (!element || !table || !theadEl) {
       return;
     }
+    const totalsEl = element.querySelector('#report-totals-row');
+
     this.generatingPdf = true;
-    // A report is captured as a single canvas (unlike the per-page contract/quote/order exports),
-    // so there's no natural page count to report progress against - the indeterminate striped bar
-    // still tells the user work is happening instead of the button just going quiet for several
-    // seconds.
     const progress = this.modalService.showPdfProgress(
       this.translationService.instant('PDF_EXPORT.PREPARING_TITLE'),
     );
-    progress.setIndeterminate();
 
-    // Clona o conteúdo do relatório
-    const clone = element.cloneNode(true) as HTMLElement;
-
-    // Remove os app-date-field do clone
-    const dateFields = clone.querySelectorAll('app-date-field');
-    dateFields.forEach((field) => field.remove());
-
-    // Cria linha única de datas
     const startDate = this.filterStartDate
       ? this.formatDate(this.filterStartDate)
       : '';
     const endDate = this.filterEndDate
       ? this.formatDate(this.filterEndDate)
       : '';
-    const dateRow = document.createElement('div');
-    dateRow.style.fontWeight = 'bold';
-    dateRow.style.marginBottom = '0.5rem';
-    dateRow.textContent = this.translationService.instant('REPORTS.DATE_RANGE', { start: startDate || '-', end: endDate || '-' });
+    const reportTitle = this.translationService.instant('REPORTS.TITLE');
+    const dateRangeText = this.translationService.instant('REPORTS.DATE_RANGE', { start: startDate || '-', end: endDate || '-' });
+    const fullHeaderHtml = `
+      <h4 style="margin: 0 0 4px;">${reportTitle}</h4>
+      <div style="font-weight: bold; margin-bottom: 12px;">${dateRangeText}</div>
+    `;
 
-    // Insere a linha de datas no topo da área de filtros
-    const appContent = clone.querySelector('.app-content');
-    if (appContent) {
-      appContent.insertBefore(dateRow, appContent.firstChild);
-    }
+    const rowsHtml = Array.from(table.querySelectorAll('tbody > tr')).map(
+      (row) => (row as HTMLElement).outerHTML,
+    );
 
-    // Oculta elementos .no-print apenas no clone
-    clone.querySelectorAll('.no-print').forEach((el) => {
-      (el as HTMLElement).classList.add('pdf-hide');
-    });
+    // Dynamic import: report-pdf.ts pulls in jsPDF/html2canvas (~1MB) that only this button
+    // actually needs, so it's loaded on click rather than in the app's initial bundle - see
+    // core/utilities/index.ts for why it isn't re-exported via @nexus/core.
+    const { downloadReportPdf } = await import('../core/utilities/report-pdf');
 
-    // Cria um container temporário fora da tela
-    const tempDiv = document.createElement('div');
-    tempDiv.style.position = 'fixed';
-    tempDiv.style.left = '-9999px';
-    tempDiv.appendChild(clone);
-    document.body.appendChild(tempDiv);
-
-    // Dynamic import: html2pdf.js drags in jsPDF/html2canvas (~1MB) that only this button
-    // actually needs, so it's loaded on click rather than in the app's initial bundle.
-    const { default: html2pdf } = await import('html2pdf.js');
-
-    html2pdf()
-      .from(clone)
-      .set({
-        margin: 0.5,
-        filename: 'relatorio.pdf',
-        html2canvas: { scale: 1.5 },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
-      })
-      .save()
+    downloadReportPdf(
+      {
+        fullHeaderHtml,
+        continuationTitle: reportTitle,
+        theadHtml: theadEl.outerHTML,
+        rowsHtml,
+        totalsHtml: totalsEl ? (totalsEl as HTMLElement).outerHTML : '',
+        pageLabel: (current, total) =>
+          this.translationService.instant('PDF_EXPORT.PAGE_PROGRESS', {
+            current: String(current),
+            total: String(total),
+          }),
+      },
+      'relatorio.pdf',
+      (completed: number, total: number) => progress.setProgress(completed, total),
+    )
       .then(() => {
         progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
       })
@@ -289,8 +276,6 @@ export class ReportsComponent implements OnInit {
         progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
       })
       .finally(() => {
-        // Remove o container temporário
-        document.body.removeChild(tempDiv);
         this.generatingPdf = false;
       });
   }

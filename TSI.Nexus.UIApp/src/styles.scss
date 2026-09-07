@@ -26,11 +26,6 @@
   }
 }
 
-// Oculta elementos no PDF (usado em conjunto com generatePDF)
-.pdf-hide {
-  display: none !important;
-}
-
 /* Estilo para área agrupada de filtros (tipo fieldset/tab visual) */
 .filter-group-box {
   border: 1px solid #ced4da;
