@@ -102,19 +102,6 @@ export function buildLetterheadDocument(pagesHtml: string[]): string {
 }
 
 /**
- * Preloads an image URL into the browser cache and waits for it to finish loading (or fail),
- * so a subsequent CSS background-image paint of the same URL is guaranteed to have pixels ready.
- */
-function preloadImage(src: string): Promise<void> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve();
-    img.onerror = () => resolve();
-    img.src = src;
-  });
-}
-
-/**
  * Waits for every <img> inside the container to finish loading (or fail), so html2canvas doesn't
  * capture a page before its images have decoded.
  */
@@ -136,19 +123,67 @@ function waitForImages(container: HTMLElement): Promise<void> {
 }
 
 /**
+ * Paints the letterhead JPEG once onto its own canvas, sized to exactly match how html2canvas
+ * will size a `.pdf-page` element (measured from a throwaway blank page, at the same `scale`) -
+ * this is later drawn under each page's own content canvas instead of every page independently
+ * asking html2canvas to decode and repaint the same 400KB+ background image via CSS. That
+ * redundant per-page decode+paint was the single largest cost in a multi-page export: it was
+ * being paid once per page for a background that's byte-for-byte identical every time.
+ */
+async function buildLetterheadBackgroundCanvas(
+  hiddenWrapper: HTMLElement,
+  scale: number,
+): Promise<HTMLCanvasElement> {
+  const probeContainer = document.createElement('div');
+  probeContainer.innerHTML = buildLetterheadDocument(['']);
+  hiddenWrapper.appendChild(probeContainer);
+  const probeElement = probeContainer.querySelector('.pdf-page') as HTMLElement;
+  const rect = probeElement.getBoundingClientRect();
+  hiddenWrapper.removeChild(probeContainer);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(rect.width * scale);
+  canvas.height = Math.round(rect.height * scale);
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const img = new Image();
+  img.src = SERODIO_COMPANY.letterheadPath;
+  await new Promise<void>((resolve) => {
+    if (img.complete && img.naturalWidth > 0) {
+      resolve();
+      return;
+    }
+    img.addEventListener('load', () => resolve(), { once: true });
+    img.addEventListener('error', () => resolve(), { once: true });
+  });
+  if (img.naturalWidth > 0) {
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  }
+  return canvas;
+}
+
+/**
  * Renders each page separately (its own html2canvas capture) and downloads the result as a PDF.
  *
- * Pages are captured one at a time - rather than rendering the whole multi-page document at once
+ * Pages are captured individually - rather than rendering the whole multi-page document at once
  * and letting html2pdf.js slice it into pages by CSS page-break position - because that slicing
  * isn't pixel-precise: when a page's real content is a fraction taller than the nominal 297mm, the
  * overflow spills into an extra, mostly-blank page instead of just making that one page slightly
  * taller. Capturing and placing each page's canvas individually avoids that class of bug entirely:
  * a page's content is never split, and any legitimate overflow just makes that one PDF page a bit
  * taller than standard A4 instead of losing or duplicating content.
+ *
+ * Each page's own html2canvas capture renders only its content, with `background-image: none`
+ * and a transparent canvas background (`backgroundColor: null`) - the letterhead itself is drawn
+ * underneath separately from `buildLetterheadBackgroundCanvas`'s single pre-rendered canvas, so
+ * the expensive JPEG decode/paint happens once for the whole document instead of once per page.
  */
 export async function downloadLetterheadPdf(
   pagesHtml: string[],
   filename: string,
+  onProgress?: (completed: number, total: number) => void,
 ): Promise<void> {
   // html2canvas measures the source element's own layout size to decide what to capture. Hiding
   // it via `position: fixed/absolute` (even off-screen) makes that measurement collapse to zero
@@ -160,22 +195,44 @@ export async function downloadLetterheadPdf(
   document.body.appendChild(hiddenWrapper);
 
   try {
-    await preloadImage(SERODIO_COMPANY.letterheadPath);
+    const scale = 1.5;
+    const letterheadCanvas = await buildLetterheadBackgroundCanvas(hiddenWrapper, scale);
 
     const widthMm = 210;
+    const total = pagesHtml.length;
     let pdf: jsPDF | null = null;
 
-    for (const pageHtml of pagesHtml) {
+    for (let i = 0; i < pagesHtml.length; i++) {
       const pageContainer = document.createElement('div');
-      pageContainer.innerHTML = buildLetterheadDocument([pageHtml]);
+      pageContainer.innerHTML = buildLetterheadDocument([pagesHtml[i]]);
       hiddenWrapper.appendChild(pageContainer);
 
       await waitForImages(pageContainer);
 
       const pageElement = pageContainer.querySelector('.pdf-page') as HTMLElement;
-      const canvas = await html2canvas(pageElement, { scale: 2, useCORS: true });
-      const heightMm = Math.max(297, (canvas.height / canvas.width) * widthMm);
-      const imageData = canvas.toDataURL('image/jpeg', 0.92);
+      // The letterhead is composited in separately below - skip painting it here entirely.
+      pageElement.style.backgroundImage = 'none';
+      const contentCanvas = await html2canvas(pageElement, {
+        scale,
+        useCORS: true,
+        backgroundColor: null,
+      });
+      hiddenWrapper.removeChild(pageContainer);
+
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = contentCanvas.width;
+      finalCanvas.height = contentCanvas.height;
+      const ctx = finalCanvas.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+      // letterheadCanvas only covers the nominal 210x297mm area - drawn top-left, it naturally
+      // leaves any overflow below that (a page taller than standard A4) as plain white, matching
+      // real paper run past the printed letterhead art.
+      ctx.drawImage(letterheadCanvas, 0, 0);
+      ctx.drawImage(contentCanvas, 0, 0);
+
+      const heightMm = Math.max(297, (finalCanvas.height / finalCanvas.width) * widthMm);
+      const imageData = finalCanvas.toDataURL('image/jpeg', 0.92);
 
       if (!pdf) {
         pdf = new jsPDF({ unit: 'mm', format: [widthMm, heightMm], orientation: 'portrait' });
@@ -184,7 +241,7 @@ export async function downloadLetterheadPdf(
       }
       pdf.addImage(imageData, 'JPEG', 0, 0, widthMm, heightMm);
 
-      hiddenWrapper.removeChild(pageContainer);
+      onProgress?.(i + 1, total);
     }
 
     pdf?.save(filename);
