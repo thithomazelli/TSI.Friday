@@ -617,6 +617,13 @@ export const EN = {
     NO_TEMPLATES_FOUND: 'No templates found.',
     UPDATE_ERROR: 'Could not update the template.',
   },
+  PDF_EXPORT: {
+    PREPARING_TITLE: 'Generating document...',
+    PAGE_PROGRESS: 'Page {current} of {total}',
+    PROCESSING: 'Processing...',
+    SUCCESS: 'Document generated successfully!',
+    ERROR: 'Could not generate the document. Please try again.',
+  },
   ALERT_CONFIGS: {
     UPDATE_ERROR: 'Could not update the alert.',
     UPDATE_THRESHOLD_ERROR: 'Could not update the alert lead time.',

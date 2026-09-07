@@ -617,6 +617,13 @@ export const PT_BR = {
     NO_TEMPLATES_FOUND: 'Nenhum template encontrado.',
     UPDATE_ERROR: 'Não foi possível atualizar o template.',
   },
+  PDF_EXPORT: {
+    PREPARING_TITLE: 'Gerando documento...',
+    PAGE_PROGRESS: 'Página {current} de {total}',
+    PROCESSING: 'Processando...',
+    SUCCESS: 'Documento gerado com sucesso!',
+    ERROR: 'Não foi possível gerar o documento. Tente novamente.',
+  },
   ALERT_CONFIGS: {
     UPDATE_ERROR: 'Não foi possível atualizar o alerta.',
     UPDATE_THRESHOLD_ERROR: 'Não foi possível atualizar o prazo do alerta.',

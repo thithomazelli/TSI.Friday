@@ -13,6 +13,8 @@ import {
   PassengerService,
   ServiceOrderService,
   DocumentTemplateService,
+  TranslationService,
+  ModalService,
 } from '@nexus/core';
 import {
   combineLatest,
@@ -111,6 +113,8 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
     private serviceOrderService: ServiceOrderService,
     private documentTemplateService: DocumentTemplateService,
     private featureFlagService: FeatureFlagService,
+    private modalService: ModalService,
+    private translationService: TranslationService,
   ) {
     this.isAgendaEnabled$ = combineLatest([
       this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
@@ -158,6 +162,10 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
     const trip = this.data;
     this.emittingContract = true;
 
+    const progress = this.modalService.showPdfProgress(
+      this.translationService.instant('PDF_EXPORT.PREPARING_TITLE'),
+    );
+
     forkJoin({
       businessPartner: trip.businessPartnerId
         ? this.businessPartnerService
@@ -174,7 +182,6 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
         .pipe(catchError(() => of({ data: [] } as WebApiResponse<any>))),
     }).subscribe({
       next: ({ businessPartner, vehicle, tripLegs }) => {
-        this.emittingContract = false;
         buildContractPages(
           this.documentTemplateService,
           trip,
@@ -186,11 +193,24 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
           // this button actually needs, so it's loaded on click rather than in the app's initial
           // bundle - see core/utilities/index.ts for why it isn't re-exported via @nexus/core.
           import('../../../core/utilities/letterhead-pdf').then(({ downloadLetterheadPdf }) => {
-            downloadLetterheadPdf(pages, `contrato-${trip.tripNumber}.pdf`);
+            downloadLetterheadPdf(
+              pages,
+              `contrato-${trip.tripNumber}.pdf`,
+              (completed: number, total: number) => progress.setProgress(completed, total),
+            )
+              .then(() => {
+                progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
+                this.emittingContract = false;
+              })
+              .catch(() => {
+                progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
+                this.emittingContract = false;
+              });
           });
         });
       },
       error: () => {
+        progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
         this.emittingContract = false;
       },
     });
@@ -202,6 +222,10 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
     }
     const trip = this.data;
     this.emittingServiceOrder = true;
+
+    const progress = this.modalService.showPdfProgress(
+      this.translationService.instant('PDF_EXPORT.PREPARING_TITLE'),
+    );
 
     forkJoin({
       vehicle: trip.vehicleId
@@ -224,7 +248,6 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
         : of({ data: [] } as WebApiResponse<any>),
     }).subscribe({
       next: ({ vehicle, driver, passengers, serviceOrders }) => {
-        this.emittingServiceOrder = false;
         const matchingServiceOrder = (serviceOrders.data ?? []).find(
           (so: any) => so.tripId === trip.id,
         );
@@ -241,11 +264,24 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
           // this button actually needs, so it's loaded on click rather than in the app's initial
           // bundle - see core/utilities/index.ts for why it isn't re-exported via @nexus/core.
           import('../../../core/utilities/letterhead-pdf').then(({ downloadLetterheadPdf }) => {
-            downloadLetterheadPdf(pages, `os-${trip.tripNumber}.pdf`);
+            downloadLetterheadPdf(
+              pages,
+              `os-${trip.tripNumber}.pdf`,
+              (completed: number, total: number) => progress.setProgress(completed, total),
+            )
+              .then(() => {
+                progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
+                this.emittingServiceOrder = false;
+              })
+              .catch(() => {
+                progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
+                this.emittingServiceOrder = false;
+              });
           });
         });
       },
       error: () => {
+        progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
         this.emittingServiceOrder = false;
       },
     });

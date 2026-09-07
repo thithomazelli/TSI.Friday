@@ -9,6 +9,8 @@ import {
   QuoteProductService,
   BusinessPartnerService,
   DocumentTemplateService,
+  TranslationService,
+  ModalService,
 } from '@nexus/core';
 import { combineLatest, Subject, Subscription, switchMap, takeUntil, merge, map, of, skip, Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -78,6 +80,8 @@ export class QuoteDetailsPageComponent implements OnInit, OnDestroy {
     private businessPartnerService: BusinessPartnerService,
     private documentTemplateService: DocumentTemplateService,
     private featureFlagService: FeatureFlagService,
+    private modalService: ModalService,
+    private translationService: TranslationService,
   ) {
     this.isAgendaEnabled$ = combineLatest([
       this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
@@ -129,6 +133,10 @@ export class QuoteDetailsPageComponent implements OnInit, OnDestroy {
     const quote = this.data;
     this.emittingQuote = true;
 
+    const progress = this.modalService.showPdfProgress(
+      this.translationService.instant('PDF_EXPORT.PREPARING_TITLE'),
+    );
+
     const businessPartner$ = quote.businessPartnerId
       ? this.businessPartnerService
           .getById(quote.businessPartnerId)
@@ -137,7 +145,6 @@ export class QuoteDetailsPageComponent implements OnInit, OnDestroy {
 
     businessPartner$.subscribe({
       next: (response) => {
-        this.emittingQuote = false;
         buildQuotePages(
           this.documentTemplateService,
           quote,
@@ -147,11 +154,24 @@ export class QuoteDetailsPageComponent implements OnInit, OnDestroy {
           // this button actually needs, so it's loaded on click rather than in the app's initial
           // bundle - see core/utilities/index.ts for why it isn't re-exported via @nexus/core.
           import('../../../core/utilities/letterhead-pdf').then(({ downloadLetterheadPdf }) => {
-            downloadLetterheadPdf(pages, `orcamento-${quote.quoteNumber}.pdf`);
+            downloadLetterheadPdf(
+              pages,
+              `orcamento-${quote.quoteNumber}.pdf`,
+              (completed: number, total: number) => progress.setProgress(completed, total),
+            )
+              .then(() => {
+                progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
+                this.emittingQuote = false;
+              })
+              .catch(() => {
+                progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
+                this.emittingQuote = false;
+              });
           });
         });
       },
       error: () => {
+        progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
         this.emittingQuote = false;
       },
     });

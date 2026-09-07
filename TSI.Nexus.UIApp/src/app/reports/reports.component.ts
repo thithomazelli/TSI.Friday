@@ -44,6 +44,7 @@ export class ReportsComponent implements OnInit {
   filterEndDate: string | null = null;
   filterStatus = { Approved: false, Pending: false, Delayed: false };
   filterType = { Incoming: false, Outgoing: false };
+  generatingPdf = false;
 
   private _baseEndPoint = ApiType.Payments;
 
@@ -214,10 +215,22 @@ export class ReportsComponent implements OnInit {
   }
 
   async generatePDF() {
+    if (this.generatingPdf) {
+      return;
+    }
     const element = document.getElementById('print-section');
     if (!element) {
       return;
     }
+    this.generatingPdf = true;
+    // A report is captured as a single canvas (unlike the per-page contract/quote/order exports),
+    // so there's no natural page count to report progress against - the indeterminate striped bar
+    // still tells the user work is happening instead of the button just going quiet for several
+    // seconds.
+    const progress = this.modalService.showPdfProgress(
+      this.translationService.instant('PDF_EXPORT.PREPARING_TITLE'),
+    );
+    progress.setIndeterminate();
 
     // Clona o conteúdo do relatório
     const clone = element.cloneNode(true) as HTMLElement;
@@ -265,13 +278,20 @@ export class ReportsComponent implements OnInit {
       .set({
         margin: 0.5,
         filename: 'relatorio.pdf',
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 1.5 },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
       })
       .save()
+      .then(() => {
+        progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
+      })
+      .catch(() => {
+        progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
+      })
       .finally(() => {
         // Remove o container temporário
         document.body.removeChild(tempDiv);
+        this.generatingPdf = false;
       });
   }
 

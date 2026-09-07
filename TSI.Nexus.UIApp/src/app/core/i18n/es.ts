@@ -617,6 +617,13 @@ export const ES = {
     NO_TEMPLATES_FOUND: 'Ninguna plantilla encontrada.',
     UPDATE_ERROR: 'No fue posible actualizar la plantilla.',
   },
+  PDF_EXPORT: {
+    PREPARING_TITLE: 'Generando documento...',
+    PAGE_PROGRESS: 'Página {current} de {total}',
+    PROCESSING: 'Procesando...',
+    SUCCESS: '¡Documento generado con éxito!',
+    ERROR: 'No fue posible generar el documento. Intente nuevamente.',
+  },
   ALERT_CONFIGS: {
     UPDATE_ERROR: 'No fue posible actualizar la alerta.',
     UPDATE_THRESHOLD_ERROR: 'No fue posible actualizar el plazo de la alerta.',

@@ -9,6 +9,8 @@ import {
   PaymentService,
   BusinessPartnerService,
   DocumentTemplateService,
+  TranslationService,
+  ModalService,
 } from '@nexus/core';
 import { combineLatest, Subject, Subscription, switchMap, takeUntil, merge, map, of, skip, Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -79,6 +81,8 @@ export class OrderDetailsPageComponent implements OnInit, OnDestroy {
     private documentTemplateService: DocumentTemplateService,
     private routerService: Router,
     private featureFlagService: FeatureFlagService,
+    private modalService: ModalService,
+    private translationService: TranslationService,
   ) {
     this.isAgendaEnabled$ = combineLatest([
       this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
@@ -121,6 +125,10 @@ export class OrderDetailsPageComponent implements OnInit, OnDestroy {
     const order = this.data;
     this.emittingSalesOrder = true;
 
+    const progress = this.modalService.showPdfProgress(
+      this.translationService.instant('PDF_EXPORT.PREPARING_TITLE'),
+    );
+
     const businessPartner$ = order.businessPartnerId
       ? this.businessPartnerService
           .getById(order.businessPartnerId)
@@ -129,7 +137,6 @@ export class OrderDetailsPageComponent implements OnInit, OnDestroy {
 
     businessPartner$.subscribe({
       next: (response) => {
-        this.emittingSalesOrder = false;
         buildSalesOrderPages(
           this.documentTemplateService,
           order,
@@ -139,11 +146,24 @@ export class OrderDetailsPageComponent implements OnInit, OnDestroy {
           // this button actually needs, so it's loaded on click rather than in the app's initial
           // bundle - see core/utilities/index.ts for why it isn't re-exported via @nexus/core.
           import('../../../core/utilities/letterhead-pdf').then(({ downloadLetterheadPdf }) => {
-            downloadLetterheadPdf(pages, `pedido-de-venda-${order.orderNumber}.pdf`);
+            downloadLetterheadPdf(
+              pages,
+              `pedido-de-venda-${order.orderNumber}.pdf`,
+              (completed: number, total: number) => progress.setProgress(completed, total),
+            )
+              .then(() => {
+                progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
+                this.emittingSalesOrder = false;
+              })
+              .catch(() => {
+                progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
+                this.emittingSalesOrder = false;
+              });
           });
         });
       },
       error: () => {
+        progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
         this.emittingSalesOrder = false;
       },
     });

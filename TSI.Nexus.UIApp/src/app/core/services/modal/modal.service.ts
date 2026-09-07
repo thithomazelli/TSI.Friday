@@ -5,6 +5,16 @@ import { NotificationComponent } from '../../../shared/components/modals/notific
 import { ConfirmationComponent } from '../../../shared/components/modals/confirmation/confirmation.component';
 import { TranslationService } from '../translation/translation.service';
 
+// Handle returned by ModalService.showPdfProgress() - lets the caller drive the same open modal
+// through its lifecycle (progress updates, then a single terminal success/error state) without
+// reaching back into SweetAlert2 directly.
+export interface PdfProgressHandle {
+  setProgress(current: number, total: number): void;
+  setIndeterminate(): void;
+  success(message: string): void;
+  error(message: string): void;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -91,6 +101,106 @@ export class ModalService {
         cancelButton: 'swal-btn',
       },
     });
+  }
+
+  // PDF/print exports (orçamentos, pedidos, contratos/OS de viagem, relatórios) run client-side
+  // and can take several seconds for multi-page documents - without this, the button's own
+  // disabled state was the only feedback, and it was being cleared well before the actual
+  // rendering work even started (see the *-details-page emit* methods), so the UI looked idle
+  // for the whole duration. This keeps one Swal instance open across the whole operation -
+  // in-progress bar, then flipped to a success/error icon via Swal.update() - instead of a
+  // separate showSweetNotification() call at the end, so the user watches one continuous modal
+  // rather than a loading dialog vanishing and a different one popping up.
+  showPdfProgress(title: string): PdfProgressHandle {
+    let container: HTMLElement | null = null;
+
+    Swal.fire({
+      title,
+      html: `
+        <div class="pdf-progress-track" style="background:#e9ecef;border-radius:6px;height:10px;overflow:hidden;">
+          <div class="pdf-progress-fill" style="background:#198754;height:100%;width:0%;transition:width .2s ease;"></div>
+        </div>
+        <div class="pdf-progress-label" style="margin-top:10px;font-size:0.85rem;color:#6c757d;"></div>
+      `,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        container = Swal.getHtmlContainer();
+      },
+    });
+
+    const fillEl = () => container?.querySelector<HTMLElement>('.pdf-progress-fill');
+    const labelEl = () => container?.querySelector<HTMLElement>('.pdf-progress-label');
+
+    return {
+      setProgress: (current: number, total: number) => {
+        if (!Swal.isVisible()) {
+          return;
+        }
+        const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+        const fill = fillEl();
+        if (fill) {
+          fill.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+        }
+        const label = labelEl();
+        if (label) {
+          label.textContent = this.translationService.instant('PDF_EXPORT.PAGE_PROGRESS', {
+            current: String(current),
+            total: String(total),
+          });
+        }
+      },
+      setIndeterminate: () => {
+        if (!Swal.isVisible()) {
+          return;
+        }
+        const fill = fillEl();
+        if (fill) {
+          fill.style.width = '100%';
+          fill.style.background = 'repeating-linear-gradient(45deg, #198754, #198754 10px, #14653f 10px, #14653f 20px)';
+        }
+        const label = labelEl();
+        if (label) {
+          label.textContent = this.translationService.instant('PDF_EXPORT.PROCESSING');
+        }
+      },
+      success: (message: string) => {
+        if (!Swal.isVisible()) {
+          return;
+        }
+        // Swal.update() treats a falsy `html` as "leave it as-is" rather than clearing it - the
+        // progress bar/label would otherwise keep showing underneath the success icon - so the
+        // container's own content has to be cleared directly instead.
+        if (container) {
+          container.innerHTML = '';
+        }
+        Swal.update({
+          icon: 'success',
+          title: message,
+          showConfirmButton: false,
+        });
+        setTimeout(() => {
+          if (Swal.isVisible()) {
+            Swal.close();
+          }
+        }, 1500);
+      },
+      error: (message: string) => {
+        if (!Swal.isVisible()) {
+          return;
+        }
+        if (container) {
+          container.innerHTML = '';
+        }
+        Swal.update({
+          icon: 'error',
+          title: message,
+          showConfirmButton: true,
+          confirmButtonText: 'OK',
+        });
+      },
+    };
   }
 
   hideModal(dialogRef?: MatDialogRef<any>): void {
