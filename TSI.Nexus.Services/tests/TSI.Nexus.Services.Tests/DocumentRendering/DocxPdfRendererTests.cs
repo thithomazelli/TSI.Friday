@@ -189,6 +189,36 @@ namespace TSI.Nexus.Services.Tests.DocumentRendering
         }
 
         [Fact]
+        public void Render_WithEmptyLetterheadBytes_DoesNotThrow()
+        {
+            // Regression test: an unconfigured IDocumentTemplateService.GetFileBytes mock (or a
+            // genuinely empty file on disk) returns byte[0], not null - the letterhead-drawing
+            // code used to only guard against null, so an empty (but non-null) array reached
+            // XImage.FromStream and threw trying to decode it as an image.
+            var docxBytes = BuildDocx(body => body.Append(new Paragraph(new Run(PlainRun("Olá")))));
+            var input = new DocxPdfInput { TemplateBytes = docxBytes };
+
+            var pdf = DocxPdfRenderer.Render(input, System.Array.Empty<byte>());
+
+            Assert.True(StartsWithPdfMagic(pdf));
+        }
+
+        [Fact]
+        public void Render_WithRealLetterheadBytes_ProducesPdf()
+        {
+            var docxBytes = BuildDocx(body => body.Append(new Paragraph(new Run(PlainRun("Olá")))));
+            var input = new DocxPdfInput { TemplateBytes = docxBytes };
+            var letterheadPath = FindRepoFile(
+                Path.Combine("TSI.Nexus.Data", "src", "TSI.Nexus.Data", "Seed", "DocumentTemplates", "letterhead-a4.jpg")
+            );
+            var letterheadBytes = File.ReadAllBytes(letterheadPath);
+
+            var pdf = DocxPdfRenderer.Render(input, letterheadBytes);
+
+            Assert.True(StartsWithPdfMagic(pdf));
+        }
+
+        [Fact]
         public void Render_RealOrcamentoTemplate_ProducesMultiSectionPdf()
         {
             var templatePath = FindRepoFile(

@@ -16,12 +16,14 @@ namespace TSI.Nexus.Data.Seed
     /// <summary>
     /// Populates the default DocumentTemplate metadata row for each <see
     /// cref="DocumentTemplateType"/> the first time the application runs, and makes sure the
-    /// corresponding .docx file exists on disk (copied from a resource embedded in this assembly -
-    /// see the EmbeddedResource item in TSI.Nexus.Data.csproj). The Quote, Contract and
-    /// ServiceOrder templates reproduce, in Word, the same layout the Angular document builders
-    /// used to hardcode as HTML; that content now lives in the .docx files themselves and is read
-    /// back by DocumentPdfGenerationService (TSI.Nexus.Services), not here. SalesOrder is a new,
-    /// basic template, since Serodio doesn't have one yet.
+    /// corresponding file exists on disk (copied from a resource embedded in this assembly - see
+    /// the EmbeddedResource items in TSI.Nexus.Data.csproj). The Quote, Contract and ServiceOrder
+    /// templates reproduce, in Word, the same layout the Angular document builders used to
+    /// hardcode as HTML; that content now lives in the .docx files themselves and is read back by
+    /// DocumentPdfGenerationService (TSI.Nexus.Services), not here. SalesOrder is a new, basic
+    /// template, since Serodio doesn't have one yet. Letterhead is the one non-.docx type - a JPG
+    /// background image, not text - drawn behind every page of every generated document; an Admin
+    /// can replace it the same way as the other 4, via the Upload endpoint.
     ///
     /// The actual file path (fixed name per type, e.g. "Quote.docx") is resolved the same way
     /// DocumentTemplateService.ResolveFilePath does - a configurable "DocumentTemplates:BasePath"
@@ -84,8 +86,16 @@ namespace TSI.Nexus.Data.Seed
                 (DocumentTemplateType.Contract, "Contrato de Fretamento", "contrato.docx"),
                 (DocumentTemplateType.ServiceOrder, "Ordem de Serviço", "ordem-de-servico.docx"),
                 (DocumentTemplateType.SalesOrder, "Pedido de Venda", "pedido-de-venda.docx"),
+                (DocumentTemplateType.Letterhead, "Papel Timbrado", "letterhead-a4.jpg"),
             ];
         }
+
+        /// <summary>
+        /// Every type is a .docx template except Letterhead, which is the JPG background artwork -
+        /// mirrors DocumentTemplateService.GetFileExtension (TSI.Nexus.Services).
+        /// </summary>
+        private static string GetFileExtension(DocumentTemplateType type) =>
+            type == DocumentTemplateType.Letterhead ? ".jpg" : ".docx";
 
         /// <summary>
         /// Mirrors DocumentTemplateService.ResolveFilePath (TSI.Nexus.Services) - kept as a small,
@@ -126,7 +136,7 @@ namespace TSI.Nexus.Data.Seed
             }
 
             Directory.CreateDirectory(basePath);
-            return Path.Combine(basePath, $"{type}.docx");
+            return Path.Combine(basePath, $"{type}{GetFileExtension(type)}");
         }
 
         /// <summary>

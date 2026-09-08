@@ -330,6 +330,42 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
+        public async Task DocumentTemplateService_UploadContent_ShouldWriteFileWithJpgExtension_WhenTypeIsLetterhead()
+        {
+            // Arrange - Letterhead is the one DocumentTemplateType that isn't a .docx: it's the
+            // JPG background artwork drawn on every page (GetFileExtension branches on this).
+            var documentTemplate = new DocumentTemplate
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
+                Type = DocumentTemplateType.Letterhead,
+                Name = "Papel Timbrado",
+                FileName = "old-letterhead.jpg",
+            };
+
+            _repository
+                .Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<DocumentTemplate, bool>>>()))
+                .ReturnsAsync(documentTemplate);
+            _repository
+                .Setup(r => r.UpdateAsync(It.IsAny<DocumentTemplate>()))
+                .Returns(Task.CompletedTask);
+            var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 };
+
+            // Act
+            var result = await _service.UploadContent(
+                DocumentTemplateType.Letterhead,
+                "novo-timbrado.jpg",
+                jpegBytes
+            );
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.True(File.Exists(Path.Combine(_tempBasePath, "Letterhead.jpg")));
+
+            var writtenBytes = await _service.GetFileBytes(DocumentTemplateType.Letterhead);
+            Assert.Equal(jpegBytes, writtenBytes);
+        }
+
+        [Fact]
         public async Task DocumentTemplateService_UploadContent_ShouldReturnWarning_WhenTypeIsNotRegistered()
         {
             // Arrange

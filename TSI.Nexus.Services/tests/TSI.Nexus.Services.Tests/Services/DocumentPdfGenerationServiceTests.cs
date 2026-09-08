@@ -139,6 +139,10 @@ namespace TSI.Nexus.Services.Tests.Services
             var result = await _service.GenerateQuotePdf(quoteId);
 
             Assert.True(StartsWithPdfMagic(result));
+            // The letterhead background is now an admin-uploadable DocumentTemplate
+            // (DocumentTemplateType.Letterhead) instead of a fixed asset embedded in this
+            // assembly - RenderDocument must fetch it the same way it fetches the .docx itself.
+            _documentTemplateService.Verify(s => s.GetFileBytes(DocumentTemplateType.Letterhead), Times.Once);
         }
 
         [Fact]

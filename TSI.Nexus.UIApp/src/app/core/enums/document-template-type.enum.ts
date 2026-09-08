@@ -3,4 +3,5 @@ export enum DocumentTemplateType {
   Contract = 'Contract',
   ServiceOrder = 'ServiceOrder',
   SalesOrder = 'SalesOrder',
+  Letterhead = 'Letterhead',
 }

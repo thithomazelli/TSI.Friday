@@ -397,6 +397,102 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
         }
 
         [Fact]
+        public async Task Download_ShouldUseJpegContentType_WhenTemplateTypeIsLetterhead()
+        {
+            // Arrange
+            var template = new DocumentTemplate
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000004"),
+                Type = DocumentTemplateType.Letterhead,
+                Name = "Papel Timbrado",
+                FileName = "letterhead-a4.jpg",
+            };
+            var expected = new WebApiResponse<DocumentTemplate>
+            {
+                Data = template,
+                Status = ResponseStatus.Success,
+                Message = $"Template {template.Name} encontrado com sucesso",
+            };
+            var fileBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 };
+
+            _documentTemplateServiceMock
+                .Setup(s => s.FindByType(DocumentTemplateType.Letterhead))
+                .ReturnsAsync(expected);
+            _documentTemplateServiceMock
+                .Setup(s => s.GetFileBytes(DocumentTemplateType.Letterhead))
+                .ReturnsAsync(fileBytes);
+
+            // Act
+            var result = await _controller.Download(DocumentTemplateType.Letterhead);
+
+            // Assert
+            var fileResult = Assert.IsType<FileContentResult>(result);
+            Assert.Equal("image/jpeg", fileResult.ContentType);
+            Assert.Equal(fileBytes, fileResult.FileContents);
+        }
+
+        [Fact]
+        public async Task Upload_ShouldReturnBadRequest_WhenLetterheadFileIsNotJpeg()
+        {
+            // Arrange
+            var bytes = BuildDocxBytes();
+            var fileMock = BuildFileMock(bytes, "papel-timbrado.docx");
+
+            // Act
+            var result = await _controller.Upload(DocumentTemplateType.Letterhead, fileMock.Object);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal("O arquivo enviado não é uma imagem JPG válida.", badRequest.Value);
+
+            _documentTemplateServiceMock.Verify(
+                s => s.UploadContent(It.IsAny<DocumentTemplateType>(), It.IsAny<string>(), It.IsAny<byte[]>()),
+                Times.Never
+            );
+        }
+
+        [Fact]
+        public async Task Upload_ShouldReturnOkWithUpdatedTemplate_WhenLetterheadFileIsValidJpeg()
+        {
+            // Arrange
+            var bytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10 };
+            var fileMock = BuildFileMock(bytes, "novo-timbrado.jpg");
+
+            var template = new DocumentTemplate
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000004"),
+                Type = DocumentTemplateType.Letterhead,
+                Name = "Papel Timbrado",
+                FileName = "novo-timbrado.jpg",
+            };
+            var expected = new WebApiResponse<DocumentTemplate>
+            {
+                Data = template,
+                Status = ResponseStatus.Success,
+                Message = $"Template {template.Name} atualizado com sucesso.",
+            };
+
+            _documentTemplateServiceMock
+                .Setup(s =>
+                    s.UploadContent(DocumentTemplateType.Letterhead, "novo-timbrado.jpg", bytes)
+                )
+                .ReturnsAsync(expected);
+
+            // Act
+            var result = await _controller.Upload(DocumentTemplateType.Letterhead, fileMock.Object);
+
+            // Assert
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<WebApiResponse<DocumentTemplate>>(ok.Value);
+            response.Should().BeEquivalentTo(expected);
+
+            _documentTemplateServiceMock.Verify(
+                s => s.UploadContent(DocumentTemplateType.Letterhead, "novo-timbrado.jpg", bytes),
+                Times.Once
+            );
+        }
+
+        [Fact]
         public async Task Upload_ShouldReturnOkWithUpdatedTemplate_WhenFileIsValid()
         {
             // Arrange

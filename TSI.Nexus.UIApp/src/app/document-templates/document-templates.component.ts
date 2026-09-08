@@ -44,12 +44,19 @@ export class DocumentTemplatesComponent implements OnInit {
       return;
     }
     this.documentTemplateService.download(template.type).subscribe((blob) => {
-      downloadBlob(blob, template.fileName || `${template.type}.docx`);
+      const fallbackExtension = this.isImageType(template.type) ? 'jpg' : 'docx';
+      downloadBlob(blob, template.fileName || `${template.type}.${fallbackExtension}`);
     });
   }
 
   triggerUpload(fileInput: HTMLInputElement): void {
     fileInput.click();
+  }
+
+  // Every DocumentTemplateType is a .docx template except Letterhead, the JPG background artwork
+  // drawn behind every page - used to pick the right file-picker filter and download extension.
+  isImageType(type: DocumentTemplateType | undefined): boolean {
+    return type === DocumentTemplateType.Letterhead;
   }
 
   onFileSelected(event: Event, template: DocumentTemplate): void {

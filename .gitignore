@@ -51,8 +51,10 @@ wwwroot/
 # Upload images
 uploads/
 
-# Document templates (.docx files stored on disk, seeded/overwritten at runtime)
-document-templates/
+# Document templates (.docx/.jpg files stored on disk, seeded/overwritten at runtime) - scoped to
+# the WebAPI's own runtime folder specifically, since a bare "document-templates/" also matches
+# the unrelated TSI.Nexus.UIApp/src/app/document-templates admin-screen feature folder.
+/TSI.Nexus.WebAPI/src/TSI.Nexus.WebAPI/document-templates/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt

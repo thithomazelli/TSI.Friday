@@ -419,7 +419,7 @@ namespace TSI.Nexus.Services.DocumentRendering
 
             public RenderState(byte[]? letterheadBytes)
             {
-                if (letterheadBytes != null)
+                if (letterheadBytes is { Length: > 0 })
                 {
                     var bytesCopy = letterheadBytes;
                     _letterheadImage = XImage.FromStream(() => new MemoryStream(bytesCopy));

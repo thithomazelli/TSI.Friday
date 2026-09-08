@@ -254,12 +254,21 @@ namespace TSI.Nexus.Services
         #region Private methods
 
         /// <summary>
-        /// Full path of the fixed-name .docx file for a given type (e.g. "Quote.docx"), under a
-        /// configurable base directory - same convention as AttachmentService.ResolveBasePath:
-        /// "DocumentTemplates:BasePath" from configuration when set (rooted or relative to the
-        /// content root), otherwise a "document-templates" folder found by walking up from the
-        /// content root to the repo/solution root. Keeping this outside the published output
-        /// means a manual redeploy doesn't wipe an Admin-uploaded template.
+        /// Every type is a .docx template except Letterhead, which is the JPG background artwork
+        /// (see DocumentTemplateType.Letterhead) - same fixed-name-per-type convention, just a
+        /// different file extension.
+        /// </summary>
+        private static string GetFileExtension(DocumentTemplateType type) =>
+            type == DocumentTemplateType.Letterhead ? ".jpg" : ".docx";
+
+        /// <summary>
+        /// Full path of the fixed-name file for a given type (e.g. "Quote.docx",
+        /// "Letterhead.jpg"), under a configurable base directory - same convention as
+        /// AttachmentService.ResolveBasePath: "DocumentTemplates:BasePath" from configuration when
+        /// set (rooted or relative to the content root), otherwise a "document-templates" folder
+        /// found by walking up from the content root to the repo/solution root. Keeping this
+        /// outside the published output means a manual redeploy doesn't wipe an Admin-uploaded
+        /// template.
         /// </summary>
         private string ResolveFilePath(DocumentTemplateType type)
         {
@@ -294,7 +303,7 @@ namespace TSI.Nexus.Services
             }
 
             Directory.CreateDirectory(basePath);
-            return Path.Combine(basePath, $"{type}.docx");
+            return Path.Combine(basePath, $"{type}{GetFileExtension(type)}");
         }
 
         #endregion Private methods

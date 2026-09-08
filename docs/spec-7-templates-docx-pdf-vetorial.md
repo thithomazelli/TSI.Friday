@@ -115,6 +115,16 @@ pra chegar perto do "Arial" atual), alterações rastreadas/comentários do Word
 Isso precisa ficar visível pra quem for editar o template — texto de ajuda ao lado do botão
 "Atualizar" na tela de administração (seção 3.6) listando o que é suportado.
 
+> **Revisão (pós-implementação)**: o papel timbrado (faixa do topo, rodapé, QR code, ícones,
+> contato) era uma imagem JPG **embutida no assembly** de `TSI.Nexus.Services`
+> (`DocumentPdfGenerationService.RenderDocument`), fora do alcance do admin — mesmo editando o
+> `.docx`, essa arte nunca mudava, porque não fazia parte do template. Passou a ser um
+> `DocumentTemplate` como os outros 4, só que do tipo `Letterhead` e conteúdo `.jpg` em vez de
+> `.docx` (mesmo arquivo em disco, mesmo endpoint de Upload/Download, mesma tela de admin) — dá pro
+> admin trocar a arte sem precisar mexer em código. Cabeçalho/rodapé/imagem de fundo *nativos do
+> Word* continuam fora de escopo (seção 3.2) — o que mudou foi só de onde vem a imagem de fundo que
+> o motor já desenhava, não uma nova capacidade de leitura do `.docx`. Detalhes na seção 3.3.
+
 ### 3.3 Onde o `.docx` mora — arquivo em disco, não blob no banco
 
 `DocumentTemplate` continua existindo como registro (`Id`/`Type`/`Name`/`FileName`/datas) pra
@@ -127,8 +137,10 @@ Isso evita duas coisas ao mesmo tempo: builds de banco desnecessariamente grande
 deploy apagar um template customizado (o mesmo cuidado que já existe pra anexos).
 
 - Nome do arquivo em disco é **fixo por tipo** (`Quote.docx`, `Contract.docx`,
-  `ServiceOrder.docx`, `SalesOrder.docx`) — um upload novo **sobrescreve** o arquivo existente,
-  não cria um segundo arquivo.
+  `ServiceOrder.docx`, `SalesOrder.docx`, `Letterhead.jpg`) — um upload novo **sobrescreve** o
+  arquivo existente, não cria um segundo arquivo. `Letterhead` é o único tipo com extensão `.jpg`
+  em vez de `.docx` (`DocumentTemplateService.GetFileExtension`); `DocumentTemplatesController`
+  valida a assinatura JPEG em vez de ZIP/`word/document.xml` só pra esse tipo.
 - `DocumentTemplate.Content` (a coluna `byte[]`/`longblob` introduzida na primeira tentativa desta
   spec) é **removida** — o model volta a não ter conteúdo, só metadados.
 - `IDocumentTemplateService.UploadContent`/`Download` passam a ler/escrever esse arquivo fixo em

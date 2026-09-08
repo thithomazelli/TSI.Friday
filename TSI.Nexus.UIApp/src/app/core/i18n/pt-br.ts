@@ -615,6 +615,7 @@ export const PT_BR = {
     TITLE: 'Templates de Documentos',
     DESCRIPTION: 'Baixe o .docx de cada documento gerado pelo sistema, edite o texto, logotipo ou informações de rodapé no Word e envie de volta. Trechos como tabelas de produtos, totais e assinaturas continuam sendo montados automaticamente pelo sistema a partir dos dados de cada pedido/viagem/orçamento.',
     FORMAT_HELP: 'Suportado: parágrafos de texto, negrito/itálico/sublinhado, tabelas simples, imagens (fora de tabelas) e quebra de página. Colunas de texto, cabeçalho/rodapé nativo do Word, caixas de texto e imagens dentro de células de tabela não aparecem no PDF gerado.',
+    LETTERHEAD_HELP: 'O "Papel Timbrado" é diferente dos demais: é a imagem JPG desenhada como fundo em todas as páginas de todos os documentos (faixa do topo, rodapé, QR code, ícones e contato) - envie um arquivo .jpg no lugar do .docx.',
     NO_TEMPLATES_FOUND: 'Nenhum template encontrado.',
     UPDATE_ERROR: 'Não foi possível atualizar o template.',
   },

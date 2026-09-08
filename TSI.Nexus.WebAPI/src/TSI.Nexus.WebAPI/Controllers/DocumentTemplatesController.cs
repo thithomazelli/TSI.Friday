@@ -119,6 +119,11 @@ namespace TSI.Nexus.WebAPI.Controllers
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
         /// <summary>
+        /// Content-Type used for the Letterhead type's JPG background artwork.
+        /// </summary>
+        private const string JpegContentType = "image/jpeg";
+
+        /// <summary>
         /// Download the current template file for the given type
         /// </summary>
         /// <param name="type">DocumentTemplateType to be downloaded</param>
@@ -139,14 +144,16 @@ namespace TSI.Nexus.WebAPI.Controllers
                 return NotFound($"O arquivo do template do tipo {type} não foi encontrado.");
             }
 
-            return File(bytes, DocxContentType, webApiResponse.Data.FileName);
+            var contentType = type == DocumentTemplateType.Letterhead ? JpegContentType : DocxContentType;
+            return File(bytes, contentType, webApiResponse.Data.FileName);
         }
 
         /// <summary>
-        /// Upload a new template file for the given type, replacing its Content. Only .docx files
-        /// are accepted - the upload is rejected if the file isn't a valid ZIP archive containing
-        /// a word/document.xml entry (the OOXML WordprocessingML signature), which also rejects
-        /// any leftover .html template from before this format switched.
+        /// Upload a new template file for the given type, replacing its Content. Every type is
+        /// validated as a .docx (rejected unless it's a valid ZIP archive containing a
+        /// word/document.xml entry - the OOXML WordprocessingML signature, which also rejects any
+        /// leftover .html template from before this format switched) except Letterhead, which is
+        /// validated as a JPEG (its magic bytes) since it's the background artwork image, not text.
         /// </summary>
         /// <param name="type">DocumentTemplateType being replaced</param>
         /// <param name="file">The uploaded template file</param>
@@ -163,7 +170,14 @@ namespace TSI.Nexus.WebAPI.Controllers
             await file.CopyToAsync(memoryStream);
             var content = memoryStream.ToArray();
 
-            if (!IsDocx(content))
+            if (type == DocumentTemplateType.Letterhead)
+            {
+                if (!IsJpeg(content))
+                {
+                    return BadRequest("O arquivo enviado não é uma imagem JPG válida.");
+                }
+            }
+            else if (!IsDocx(content))
             {
                 return BadRequest("O arquivo enviado não é um documento .docx válido.");
             }
@@ -200,5 +214,13 @@ namespace TSI.Nexus.WebAPI.Controllers
                 return false;
             }
         }
+
+        /// <summary>
+        /// Checks the JPEG magic bytes (SOI marker FF D8 FF) - enough to reject an obviously wrong
+        /// file (a .docx, a PNG, a stray .html) without needing an imaging library on the backend
+        /// just to validate an upload.
+        /// </summary>
+        private static bool IsJpeg(byte[] content) =>
+            content.Length >= 3 && content[0] == 0xFF && content[1] == 0xD8 && content[2] == 0xFF;
     }
 }

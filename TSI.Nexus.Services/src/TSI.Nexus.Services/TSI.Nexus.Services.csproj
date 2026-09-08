@@ -21,10 +21,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Letterhead + signature images (spec-7): embedded so DocumentPdfGenerationService can read
-         their bytes without depending on a file being present next to the deployed DLL. Same
-         source files used by the Angular app (src/assets/img/serodio). -->
-    <EmbeddedResource Include="DocumentRendering\Assets\*.jpg" />
+    <!-- Signature image (spec-7): embedded so DocumentPdfGenerationService can read its bytes
+         without depending on a file being present next to the deployed DLL. Same source file used
+         by the Angular app (src/assets/img/serodio). The letterhead image used to live here too,
+         but it's now an admin-uploadable DocumentTemplate (DocumentTemplateType.Letterhead,
+         defaulted from TSI.Nexus.Data's embedded copy) so an Admin can replace the artwork without
+         a code change - see docs/spec-7-templates-docx-pdf-vetorial.md. -->
     <EmbeddedResource Include="DocumentRendering\Assets\*.png" />
   </ItemGroup>
 

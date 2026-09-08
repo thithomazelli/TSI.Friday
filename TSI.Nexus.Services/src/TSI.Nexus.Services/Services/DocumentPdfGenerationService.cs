@@ -360,7 +360,13 @@ namespace TSI.Nexus.Services
                 Blocks = blocks,
             };
 
-            return DocxPdfRenderer.Render(input, ReadEmbeddedAsset("letterhead-a4.jpg"));
+            // Unlike the signature image below, the letterhead is an admin-uploadable
+            // DocumentTemplate (DocumentTemplateType.Letterhead) rather than a fixed asset
+            // embedded in this assembly - DocxPdfRenderer already tolerates a null background
+            // (renders without one) so a missing file here degrades gracefully instead of failing
+            // every document.
+            var letterheadBytes = await _documentTemplateService.GetFileBytes(DocumentTemplateType.Letterhead);
+            return DocxPdfRenderer.Render(input, letterheadBytes);
         }
 
         private static byte[] ReadEmbeddedAsset(string fileName)
