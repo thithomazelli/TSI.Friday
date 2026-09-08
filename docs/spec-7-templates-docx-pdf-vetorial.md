@@ -55,30 +55,47 @@ conversão continua **inteiramente no navegador**, como hoje.
 
 ## 3. Desenho proposto
 
+> **Revisão** (durante a implementação): o desenho original desta seção 3 previa ler o `.docx` e
+> desenhar o PDF vetorialmente **no navegador** (`jszip` + `jspdf-autotable`). Depois de discutir
+> onde guardar o arquivo de template, o usuário pediu pra também avaliar centralizar a leitura do
+> `.docx` e a geração do PDF **no backend** — decisão tomada e confirmada antes de escrever essa
+> parte do código (nenhuma linha do motor de renderização client-side chegou a ser escrita). A
+> seção abaixo já reflete o desenho revisado. `jszip`/`jspdf-autotable`, instalados durante a
+> primeira tentativa, são removidos do `package.json` por não terem mais uso.
+
 ### 3.1 Princípio geral
 
-Trocar **apenas o final da esteira**: em vez de `.html` → string com tokens substituídos →
-screenshot por página → imagem no PDF, passa a ser `.docx` → tokens substituídos dentro da
-estrutura do Word → **parágrafos/tabelas/imagens desenhados vetorialmente no jsPDF** (texto real,
-sem rasterizar nada). As funções que hoje montam os dados de cada documento
-(`buildQuotePages`/`buildContractPages`/etc.) **não mudam sua lógica de negócio** — continuam
-formatando moeda/data e montando as linhas de produto/trecho exatamente como hoje. Só muda o que
-elas entregam no final: em vez de `string[]` de HTML, entregam o dicionário de tokens direto pro
-novo pipeline `.docx`.
+Trocar **o final da esteira e onde ela roda**: em vez de `.html` → string com tokens substituídos
+→ screenshot por página → imagem no PDF (tudo no navegador), passa a ser `.docx` (lido do disco
+no servidor) → tokens substituídos dentro da estrutura do Word → **parágrafos/tabelas/imagens
+desenhados vetorialmente num PDF, no backend** (texto real, sem rasterizar nada) → o navegador só
+chama um endpoint e baixa o PDF pronto.
+
+A lógica de negócio que hoje monta os dados de cada documento (linhas de produto, linhas de
+trecho, formatação de moeda/data, bloco de assinatura) **migra do Angular pro backend** junto com
+isso — deixa de existir em `quote-documents.ts`/`trip-documents.ts`/`order-documents.ts` e passa a
+viver num serviço novo (`DocumentPdfGenerationService`), já que agora é o backend quem monta o PDF
+e ele já tem a entidade (Quote/Order/Trip) carregada via EF. Isso também é consistente com o
+princípio já seguido no resto do projeto (`WebAPI → IoC → Services → Repository → Data →
+Contracts`): regra de negócio no `Services`, não no cliente.
 
 O resultado visual final deve ficar equivalente ao que existe hoje — como somos nós que
 construímos os 4 `.docx` padrão (substituindo os `.html` padrão semente), garantimos isso na
 prática mantendo layout, textos de cláusula, tabelas e posição do letterhead iguais.
 
+**Bibliotecas usadas no backend, ambas gratuitas e sem instalação no servidor** (só pacote NuGet,
+sem processo externo, sem LibreOffice): `DocumentFormat.OpenXml` (Microsoft, MIT — lê a estrutura
+XML do `.docx`) e `PdfSharpCore` (MIT — desenha texto/tabela/imagem vetorialmente num PDF, o
+equivalente do que seria `jsPDF` no navegador).
+
 ### 3.2 Escopo de formatação suportado (a decisão central desta spec)
 
-Não existe biblioteca gratuita, 100% client-side, capaz de renderizar **qualquer** `.docx`
-(colunas, cabeçalho/rodapé, caixas de texto, WordArt, etc.) como PDF vetorial fielmente — isso é
-essencialmente reimplementar o motor de layout do Word. A saída viável é **restringir o que um
-template `.docx` pode usar** a um subconjunto que cobre 100% do que os 4 documentos atuais já
-usam:
+Não existe biblioteca gratuita capaz de renderizar **qualquer** `.docx` (colunas, cabeçalho/
+rodapé, caixas de texto, WordArt, etc.) como PDF vetorial fielmente — isso é essencialmente
+reimplementar o motor de layout do Word. A saída viável é **restringir o que um template `.docx`
+pode usar** a um subconjunto que cobre 100% do que os 4 documentos atuais já usam:
 
-**Suportado** (o que os parsers abaixo vão interpretar e desenhar):
+**Suportado** (o que o parser abaixo vai interpretar e desenhar):
 - Parágrafos de texto, com negrito / itálico / sublinhado por trecho (`run`).
 - Tabelas simples (linhas/colunas, sem células mescladas nem tabelas aninhadas) — cobre as
   tabelas de produtos/trechos e o bloco de totais.
@@ -91,114 +108,92 @@ usam:
 **Não suportado** (upload com isso não quebra o app, mas o elemento é ignorado ou sai diferente
 do Word): colunas de texto, cabeçalho/rodapé nativo do Word, notas de rodapé, caixas de
 texto/WordArt, tabelas mescladas/aninhadas, fontes customizadas fora de Helvetica/Times/Courier
-(o jsPDF usa essas 3 por padrão — dá pra chegar perto do "Arial" atual com Helvetica), alterações
+(o `PdfSharpCore` usa fontes-base equivalentes — dá pra chegar perto do "Arial" atual), alterações
 rastreadas/comentários do Word.
 
 Isso precisa ficar visível pra quem for editar o template — texto de ajuda ao lado do botão
 "Atualizar" na tela de administração (seção 3.6) listando o que é suportado.
 
-### 3.3 Backend — `DocumentTemplate` passa a guardar binário
+### 3.3 Onde o `.docx` mora — arquivo em disco, não blob no banco
 
-- **Migration EF Core**: coluna `Content` de `longtext` para binário (`LONGBLOB` no MySQL,
-  mapeado como `byte[]` em `DocumentTemplate.cs`). Migração de dados: como o conteúdo muda de
-  formato inteiramente (HTML → docx), não existe conversão automática linha-a-linha — a migration
-  só altera o tipo da coluna; o reseed (seção 3.4) é quem repovoa com os `.docx` novos.
-- `IDocumentTemplateService.UploadContent` passa a receber `byte[]` em vez de `string`.
-- `DocumentTemplatesController`:
-  - `Download/{type}`: `Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
-    `FileName` passa a terminar em `.docx`.
-  - `Upload/{type}`: lê o `IFormFile` como bytes (sem `StreamReader`/`Encoding.UTF8`); **valida
-    que é um `.docx` de fato** antes de salvar — assinatura ZIP (`PK\x03\x04`) + presença de
-    `word/document.xml` dentro do zip (checagem leve, sem precisar abrir a lib de parsing no
-    backend) — rejeita com 400 qualquer outra coisa (incluindo um `.html` — é isso que "trava"
-    o upload só pra Word, conforme pedido). Fica igual pro Admin-only já existente.
-- **Consequência a assumir**: qualquer template já customizado hoje em produção (upload manual
-  anterior de um `.html` alterado) fica obsoleto quando essa mudança for pro ar — o admin precisa
-  recriar manualmente essas edições no novo `.docx` padrão depois do deploy. Não há como
-  converter automaticamente um HTML customizado antigo pro novo `.docx` padrão.
+`DocumentTemplate` continua existindo como registro (`Id`/`Type`/`Name`/`FileName`/datas) pra
+listar na tela de administração, mas **o conteúdo do arquivo sai do banco e vai pro disco**,
+seguindo a mesma convenção já usada por `Attachment`
+(`AttachmentService.ResolveBasePath`/`TSI.Nexus.Services/Services/AttachmentService.cs`): caminho
+base configurável via `appsettings`/variável de ambiente, fora da pasta que o deploy manual por
+FTP substitui, com fallback pra um diretório relativo à raiz do repositório em desenvolvimento.
+Isso evita duas coisas ao mesmo tempo: builds de banco desnecessariamente grandes, e o risco de um
+deploy apagar um template customizado (o mesmo cuidado que já existe pra anexos).
 
-### 3.4 Seed — 4 arquivos `.docx` reais no lugar dos literais de string
+- Nome do arquivo em disco é **fixo por tipo** (`Quote.docx`, `Contract.docx`,
+  `ServiceOrder.docx`, `SalesOrder.docx`) — um upload novo **sobrescreve** o arquivo existente,
+  não cria um segundo arquivo.
+- `DocumentTemplate.Content` (a coluna `byte[]`/`longblob` introduzida na primeira tentativa desta
+  spec) é **removida** — o model volta a não ter conteúdo, só metadados.
+- `IDocumentTemplateService.UploadContent`/`Download` passam a ler/escrever esse arquivo fixo em
+  vez de uma coluna do banco.
+- `DocumentTemplatesController.Upload` mantém a mesma validação de assinatura `.docx` (ZIP +
+  `word/document.xml`) antes de gravar.
+- Seed: em vez de inserir bytes numa coluna, `DocumentTemplateSeeder` garante que o arquivo padrão
+  exista em disco (copia do recurso embutido pro caminho configurado, só se ainda não existir) e
+  garante a linha `DocumentTemplate` (metadados) no banco.
 
-`DocumentTemplateSeeder.cs` para de ter HTML como const string C#; passa a ler 4 arquivos `.docx`
-binários (um por `DocumentTemplateType`) empacotados como recurso embutido/arquivo no projeto
-`TSI.Nexus.Data` (ex.: `Seed/DocumentTemplates/orcamento.docx`, `contrato.docx`,
-`ordem-de-servico.docx`, `pedido-de-venda.docx`) e grava os bytes na coluna `Content` no primeiro
-seed (mesma regra de hoje: só insere se não existir, nunca sobrescreve edição do admin).
+### 3.4 Backend passa a montar E renderizar o PDF (`DocumentPdfGenerationService`)
 
-Esses 4 `.docx` precisam ser **criados como parte da implementação**, replicando fielmente o
-texto/tabelas/posição de logo dos 4 HTML atuais (seção 5 do `DatabaseSeeder`/
-`DocumentTemplateSeeder` tem o conteúdo integral de cada um hoje) — mesmos placeholders, mesma
-ordem de cláusulas, mesmo texto. É o trabalho manual mais sensível da implementação: qualquer
-divergência de texto entre o `.html` antigo e o `.docx` novo é uma regressão visível pro cliente.
+Novo serviço, na camada `Services` (mesma regra de sempre: interface em `Contracts`,
+implementação em `Services`, registrado no `NativeInjector`), com um método por tipo de documento
+— `GenerateQuotePdf(quoteId)`, `GenerateContractPdf(tripId)`, `GenerateServiceOrderPdf(tripId)`,
+`GenerateSalesOrderPdf(orderId)` — cada um:
 
-Placeholders por tipo (sem alteração — mesmos nomes, mesmo significado):
-- **Quote**: `{{QuoteNumber}}`, `{{ClientName}}`, `{{ClientDocument}}`, `{{ClientAddress}}`,
-  `{{QuoteDate}}`, `{{ProductRows}}` *(bloco)*, `{{TotalPrice}}`, `{{PaymentCondition}}`,
-  `{{PaymentMethod}}`, `{{CompanyContactName}}`, `{{CompanyWhatsapp}}`, `{{SignatureBlock}}`
-  *(bloco)*.
-- **Contract**: `{{TripNumber}}`, `{{CompanyLegalName}}`, `{{CompanyCnpj}}`,
-  `{{CompanyAddress}}`, `{{ContratanteName}}`, `{{ContratanteDocument}}`,
-  `{{ContratanteAddress}}`, `{{TotalPrice}}`, `{{LimiteKm}}`, `{{KmExcedente}}`,
-  `{{DiariaExtra}}`, `{{LegRows}}` *(bloco)*, `{{VehicleInfo}}`, `{{TripDate}}`, `{{Sinal}}`,
-  `{{Saldo}}`, `{{SignatureBlock}}` *(bloco)*.
-- **ServiceOrder**: `{{TripNumber}}`, `{{DriverName}}`, `{{VehicleInfo}}`, `{{TripDate}}`,
-  `{{Route}}`, `{{DistanceKm}}`, `{{PassengerCount}}`, `{{CommissionRow}}` *(bloco, pode vir
-  vazio)*, `{{CompanyWhatsapp}}`, `{{CompanyContactName}}`, `{{CompanyLegalName}}` — a imagem de
-  assinatura deixa de ser um placeholder de `src` (`{{CompanySignaturePath}}`) e passa a ser uma
-  imagem real inserida no `.docx`, já que agora o pipeline lê imagens nativamente.
-- **SalesOrder**: `{{OrderNumber}}`, `{{ClientName}}`, `{{ClientDocument}}`,
-  `{{ClientAddress}}`, `{{OrderDate}}`, `{{ProductRows}}` *(bloco)*, `{{TotalPrice}}`,
-  `{{PaymentMethod}}`, `{{CompanyContactName}}`, `{{CompanyWhatsapp}}`, `{{SignatureBlock}}`
-  *(bloco)*.
+1. Carrega a entidade (Quote/Trip/Order) com os relacionamentos necessários via `IRepository<T>`
+   (produtos, trechos, parceiro de negócio, veículo) — a mesma consulta que os componentes Angular
+   fazem hoje pra exibir a tela de detalhes, só que agora no backend.
+2. Monta o dicionário de tokens escalares e os blocos dinâmicos (linhas de produto, linhas de
+   trecho, bloco de assinatura) — **migra a lógica hoje em `quote-documents.ts`/
+   `trip-documents.ts`/`order-documents.ts`** (formatação de moeda/data, rótulos de
+   forma de pagamento etc.) pro C#.
+3. Lê o `.docx` do tipo correspondente (seção 3.3) e usa `DocumentFormat.OpenXml` pra abrir sua
+   estrutura (parágrafos, `run`s, tabelas, imagens) sem precisar reimplementar leitura de ZIP/XML
+   na mão.
+4. Substitui tokens escalares dentro do texto dos `run`s — mesma normalização já prevista
+   (concatenar o texto dos `run`s de um parágrafo antes de procurar `{{Token}}`, pra não perder um
+   token que o Word quebrou em vários `run`s por autocorreção) — e troca cada parágrafo/linha de
+   tabela que seja só um placeholder de bloco (`{{ProductRows}}` etc.) pelo conteúdo montado no
+   passo 2.
+5. Desenha o resultado vetorialmente com `PdfSharpCore` (`XGraphics`): texto com quebra de linha
+   manual (mede cada palavra com `XGraphics.MeasureString` e decide a quebra), tabela com uma
+   rotina própria de layout em colunas (sem equivalente pronto ao `jspdf-autotable` nessa lib,
+   então é código novo, mas o mesmo formato de tabela simples da seção 3.2), imagem via
+   `XGraphics.DrawImage`. Cursor Y por página; ao ultrapassar a altura útil, chama `AddPage()`
+   automaticamente — uma quebra de página explícita do Word (`<w:br w:type="page"/>`) faz o mesmo.
+6. Compõe o letterhead (`assets/img/serodio/letterhead-a4.jpg` — mesmo arquivo de hoje, uma cópia
+   dele acessível ao backend) em cada página via `XGraphics.DrawImage` antes do conteúdo.
+7. Retorna os bytes do PDF pronto.
 
-Os blocos (`ProductRows`, `LegRows`, `SignatureBlock`, `CommissionRow`) continuam sendo montados
-em código, mas agora como **uma tabela/parágrafos OOXML gerados dinamicamente** (função helper no
-novo utilitário do frontend) e inseridos no lugar do parágrafo/tabela-placeholder correspondente
-— não como string HTML.
+Novos endpoints (`Admin`/autenticado, mesma política de autorização das telas de detalhe de cada
+entidade): `GET api/Quotes/{id}/Pdf`, `GET api/Orders/{id}/Pdf`,
+`GET api/Trips/{id}/ContractPdf`, `GET api/Trips/{id}/ServiceOrderPdf` — cada um devolve o PDF
+(`Content-Type: application/pdf`) pronto pra download.
 
-### 3.5 Frontend — novo pipeline vetorial (`core/utilities/docx-pdf.ts`)
+### 3.5 Frontend — só chama o endpoint e baixa o arquivo
 
-Novas dependências (ambas MIT, client-side, sem custo — respeitam a restrição confirmada):
-- **`jszip`** — descompacta o `.docx` (que é só um .zip com XML dentro); não precisa de nenhuma
-  lib de parsing OOXML pesada porque o `DOMParser` nativo do navegador já lê o XML.
-- **`jspdf-autotable`** — desenha tabelas vetoriais direto no `jsPDF` (parceiro oficial do
-  `jspdf`, já usado no projeto).
+`quote-documents.ts`/`trip-documents.ts`/`order-documents.ts` e `letterhead-pdf.ts` são
+**removidos** — não sobra lógica de montagem de documento nem geração de PDF no Angular pros
+quatro fluxos com letterhead. `emitQuote()`/`emitContract()`/`emitServiceOrder()`/
+`emitSalesOrder()` (nos `*-details-page.component.ts`) passam a:
 
-Pipeline de `downloadDocxPdf(docxBytes, tokens, blockBuilders, filename, onProgress?)`:
-1. `jszip` abre os bytes, lê `word/document.xml` (texto do documento) e `word/media/*` (imagens),
-   junto com `word/_rels/document.xml.rels` (pra resolver qual imagem cada `<w:drawing>`
-   referencia).
-2. `DOMParser` percorre `document.xml` parágrafo por parágrafo (`w:p`), *normalizando* os `run`s
-   (`w:r`) de cada parágrafo num texto único antes de procurar `{{Token}}` — o Word
-   frequentemente quebra um único `{{ClientName}}` em vários `w:r` (por causa de autocorreção),
-   então a substitução não pode ser feita `run` a `run` ingenuamente, senão perde o token no
-   meio. Depois de substituído, o texto final do parágrafo é desenhado com a formatação
-   predominante do parágrafo (simplificação assumida: se o parágrafo misturar negrito e não
-   negrito no meio de um token substituído, o resultado usa o estilo que cobre a maior parte do
-   parágrafo — perda aceitável, documentos atuais não fazem isso dentro de um placeholder).
-3. Blocos (`{{ProductRows}}` etc.) são detectados como um parágrafo/tabela-placeholder sozinho
-   numa linha e substituídos pela tabela/parágrafos gerados em código (mesmo dado de hoje:
-   `quote.quoteProducts`, `trip.tripLegs` etc.), não por texto simples.
-4. Cada parágrafo/tabela normalizado é desenhado no `jsPDF`: texto via `pdf.text()` com
-   `pdf.setFont('helvetica', style)`, tabela via `autoTable`, imagem via `pdf.addImage()` — com
-   um cursor Y por página; ao passar da altura útil da página, chama `pdf.addPage()`
-   automaticamente (paginação por conteúdo real, não mais por marcador manual — uma quebra de
-   página explícita do Word força `addPage()` do mesmo jeito).
-5. O letterhead (`SERODIO_COMPANY.letterheadPath`) é colocado uma vez por página via
-   `pdf.addImage()` **antes** do conteúdo de cada página (mesma imagem, sem reprocessar nada —
-   princípio já usado hoje, só que sem precisar de canvas intermediário).
-6. `onProgress?.(current, total)` chamado por página, alimentando o mesmo modal de progresso já
-   existente (`ModalService.showPdfProgress`, sem nenhuma mudança nessa parte).
+1. Abrir o modal de progresso (`ModalService.showPdfProgress`, sem mudança) e chamar
+   `progress.setIndeterminate()` — como a geração agora é uma chamada HTTP única (não mais N
+   capturas por página), não existe um "página X de Y" real pra mostrar; o indicador vira um
+   spinner indeterminado até a resposta chegar, o que é honesto com o que está acontecendo.
+2. Chamar o novo endpoint (`ApiService.get(..., { responseType: 'blob' })`), montar um link de
+   download temporário com o blob retornado (`URL.createObjectURL`) e disparar o download.
+3. `progress.success(...)`/`progress.error(...)` conforme o resultado da chamada.
 
-`letterhead-pdf.ts` (`html2canvas`) é removido depois que os 4 fluxos migrarem — não sobra
-nenhum consumidor.
-
-`buildQuotePages`/`buildContractPages`/`buildServiceOrderPages`/`buildSalesOrderPages` mudam a
-assinatura de retorno (token dictionary em vez de `string[]` de HTML), mas toda a lógica de
-formatação de moeda/data/labels dentro deles fica idêntica.
-
-`document-template-renderer.ts` (`renderDocumentTemplate`/`splitTemplatePages`) é removido — a
-substituição de token passa a viver dentro de `docx-pdf.ts`, específica do formato OOXML.
+Isso é mais simples do que o pipeline client-side original: não tem mais `jszip`/
+`jspdf-autotable`/parsing/desenho no navegador — só uma chamada HTTP e um download de blob,
+exatamente como qualquer outro download de arquivo já feito no app (ex.: `Download/{type}` de
+`document-templates.component.ts`).
 
 ### 3.6 Admin UI — trocar só a extensão aceita
 
@@ -216,36 +211,45 @@ substituição de token passa a viver dentro de `docx-pdf.ts`, específica do fo
 ## 4. Arquivos a criar/alterar
 
 **Backend**
-- `TSI.Nexus.Contracts/Models/DocumentTemplate.cs` — `Content` de `string` para `byte[]`.
-- `TSI.Nexus.Data/Migrations/*` — nova migration (`longtext` → `LONGBLOB`).
+- `TSI.Nexus.Contracts/Models/DocumentTemplate.cs` — remove `Content`; mantém metadados.
+- `TSI.Nexus.Data/Migrations/*` — nova migration removendo a coluna `Content`.
 - `TSI.Nexus.Contracts/Interfaces/IDocumentTemplateService.cs` +
-  `TSI.Nexus.Services/Services/DocumentTemplateService.cs` — `UploadContent(type, fileName,
-  byte[] content)`.
-- `TSI.Nexus.WebAPI/Controllers/DocumentTemplatesController.cs` — `Download`/`Upload` em bytes +
-  validação de assinatura `.docx` no `Upload`.
-- `TSI.Nexus.Data/Seed/DocumentTemplateSeeder.cs` — lê os 4 `.docx` em vez de literais HTML.
+  `TSI.Nexus.Services/Services/DocumentTemplateService.cs` — `UploadContent`/`Download` passam a
+  ler/escrever o arquivo em disco (caminho configurável, nome fixo por tipo) em vez da coluna.
+- `TSI.Nexus.WebAPI/Controllers/DocumentTemplatesController.cs` — mantém a validação de
+  assinatura `.docx` no `Upload`.
+- `TSI.Nexus.Data/Seed/DocumentTemplateSeeder.cs` — garante o arquivo padrão em disco (copiado do
+  recurso embutido) + a linha de metadados no banco.
 - `TSI.Nexus.Data/Seed/DocumentTemplates/{orcamento,contrato,ordem-de-servico,pedido-de-venda}.docx`
-  — novos arquivos binários (autoria manual, replicando o texto/layout do HTML atual).
+  — os 4 arquivos binários já criados (autoria manual, replicando o texto/layout do HTML atual).
+- `TSI.Nexus.Contracts/Interfaces/IDocumentPdfGenerationService.cs` (novo).
+- `TSI.Nexus.Services/Services/DocumentPdfGenerationService.cs` (novo) — parsing OOXML + desenho
+  vetorial (`DocumentFormat.OpenXml` + `PdfSharpCore`), lógica de montagem de tokens/blocos
+  migrada de `quote-documents.ts`/`trip-documents.ts`/`order-documents.ts`.
+- `TSI.Nexus.WebAPI/Controllers/QuotesController.cs`/`OrdersController.cs`/`TripsController.cs` —
+  novos endpoints `GET .../Pdf` (ou `ContractPdf`/`ServiceOrderPdf` pra `Trip`).
+- `TSI.Nexus.IoC/NativeInjector.cs` — registra `IDocumentPdfGenerationService`.
+- `TSI.Nexus.Services.csproj`/`TSI.Nexus.Services.Tests.csproj` — adiciona `DocumentFormat.OpenXml`
+  e `PdfSharpCore` (NuGet, gratuitas, sem instalação no servidor).
 
 **Frontend**
-- `TSI.Nexus.UIApp/src/app/core/utilities/docx-pdf.ts` (novo) — pipeline vetorial completo.
 - `TSI.Nexus.UIApp/src/app/core/utilities/letterhead-pdf.ts` (removido).
 - `TSI.Nexus.UIApp/src/app/core/utilities/document-template-renderer.ts` (removido).
 - `TSI.Nexus.UIApp/src/app/quotes/utilities/quote-documents.ts`,
   `TSI.Nexus.UIApp/src/app/trips/utilities/trip-documents.ts`,
-  `TSI.Nexus.UIApp/src/app/orders/utilities/order-documents.ts` — trocam o retorno de `string[]`
-  pra dicionário de tokens + builders de bloco; chamadores (`quote-details-page`,
-  `trip-details-page`, `order-details-page`) passam a chamar `downloadDocxPdf` em vez de
-  `downloadLetterheadPdf`.
+  `TSI.Nexus.UIApp/src/app/orders/utilities/order-documents.ts` (removidos).
+- `quote-details-page`/`trip-details-page`/`order-details-page` (`.component.ts`) — chamam o novo
+  endpoint e baixam o blob retornado, com `progress.setIndeterminate()`.
 - `TSI.Nexus.UIApp/src/app/document-templates/document-templates.component.html` — `accept` do
   input + texto de ajuda.
-- `TSI.Nexus.UIApp/src/app/core/models/document-template.model.ts` — `content` deixa de ser
-  string (não é mais consumido como texto no frontend; segue só como bytes via download/upload).
-- `TSI.Nexus.UIApp/package.json` — adiciona `jszip`, `jspdf-autotable`.
+- `TSI.Nexus.UIApp/src/app/core/models/document-template.model.ts` — sem campo de conteúdo (nunca
+  foi consumido como texto no frontend; segue só como bytes via download/upload).
+- `TSI.Nexus.UIApp/package.json` — remove `jszip`/`jspdf-autotable` (instaladas na primeira
+  tentativa desta spec, sem uso depois da centralização no backend).
 
 ## 5. Verificação
 
-- Construir os 4 `.docx` padrão e comparar visualmente (mesmo método de spec-6:
+- Construir os 4 `.docx` padrão (já feito) e comparar visualmente (mesmo método de spec-6:
   `pdftoppm` PDF→PNG) o PDF gerado pelo novo pipeline contra o PDF gerado hoje pelo
   `html2canvas`, pra cada um dos 4 tipos — parágrafo de texto, tabela de produtos/trechos,
   bloco de assinatura com imagem, quebra de página.
@@ -256,12 +260,14 @@ substituição de token passa a viver dentro de `docx-pdf.ts`, específica do fo
   o PDF gerado reflete a edição.
 - Testar upload de um arquivo `.html` (ou qualquer não-`.docx`) e confirmar que o backend rejeita
   com 400, sem sobrescrever o template atual.
+- Testar que um redeploy simulado (rebuild/republish da API) não apaga um template já
+  customizado — confirma que o caminho de armazenamento em disco está fora da pasta publicada.
 - Medir tempo de geração antes/depois pros 4 fluxos (mesma ressalva de spec anterior: este
   sandbox tem timing pouco confiável — usar o navegador local real do usuário como referência
   final, não só o container de dev).
-- `dotnet test` limpo (novo teste de validação de upload não-docx no
-  `DocumentTemplateService`/`DocumentTemplatesController`, camada `TSI.Nexus.Services.Tests`/
-  `TSI.Nexus.WebAPI.Tests`).
+- `dotnet test` limpo (testes novos pro `DocumentPdfGenerationService` — substituição de token,
+  detecção de bloco, paginação por quebra explícita — e pro `DocumentTemplateService`/
+  `DocumentTemplatesController` com armazenamento em disco).
 
 ## 6. Fora de escopo (reafirmando o que já estava decidido)
 
@@ -270,4 +276,4 @@ substituição de token passa a viver dentro de `docx-pdf.ts`, específica do fo
 - Suporte a qualquer elemento OOXML fora do subconjunto da seção 3.2 — colunas, cabeçalho/rodapé
   nativo, caixas de texto, tabelas mescladas.
 - Migração automática de um template `.html` já customizado em produção pro novo `.docx` — vira
-  trabalho manual do admin depois do deploy (seção 3.3).
+  trabalho manual do admin depois do deploy.
