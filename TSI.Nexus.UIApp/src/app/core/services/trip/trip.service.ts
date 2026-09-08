@@ -30,6 +30,14 @@ export class TripService {
     );
   }
 
+  getContractPdf(tripId: string): Observable<Blob> {
+    return this.apiService.getBlob(`${this._baseEndPoint}/${tripId}/ContractPdf`);
+  }
+
+  getServiceOrderPdf(tripId: string): Observable<Blob> {
+    return this.apiService.getBlob(`${this._baseEndPoint}/${tripId}/ServiceOrderPdf`);
+  }
+
   getByBusinessPartnerId(
     businessPartnerId: string,
   ): Observable<WebApiResponse<Trip[]>> {

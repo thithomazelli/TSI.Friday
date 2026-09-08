@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
@@ -14,6 +16,8 @@ namespace TSI.Nexus.Services
         /// </summary>
         private readonly IRepository<DocumentTemplate> _repository;
         private readonly ILogService _logService;
+        private readonly IWebHostEnvironment _env;
+        private readonly IConfiguration _config;
 
         #endregion Properties
 
@@ -23,10 +27,17 @@ namespace TSI.Nexus.Services
         /// DocumentTemplateService constructor created to initialize the "_repository" using Dependency Injection.
         /// </summary>
         /// <param name="repository">IRepository<DocumentTemplate> object used to initialize the internal variable using Dependency Injection.</param>
-        public DocumentTemplateService(IRepository<DocumentTemplate> repository, ILogService logService)
+        public DocumentTemplateService(
+            IRepository<DocumentTemplate> repository,
+            ILogService logService,
+            IWebHostEnvironment env,
+            IConfiguration config
+        )
         {
             _repository = repository;
             _logService = logService;
+            _env = env;
+            _config = config;
         }
 
         /// <inheritdoc />
@@ -195,7 +206,7 @@ namespace TSI.Nexus.Services
         public async Task<WebApiResponse<DocumentTemplate>> UploadContent(
             DocumentTemplateType type,
             string fileName,
-            string content
+            byte[] content
         )
         {
             WebApiResponse<DocumentTemplate> result = new();
@@ -212,7 +223,7 @@ namespace TSI.Nexus.Services
                 }
 
                 documentTemplate.FileName = fileName;
-                documentTemplate.Content = content;
+                await File.WriteAllBytesAsync(ResolveFilePath(type), content);
 
                 await _repository.UpdateAsync(documentTemplate);
 
@@ -231,6 +242,61 @@ namespace TSI.Nexus.Services
             return result;
         }
 
+        /// <inheritdoc />
+        public async Task<byte[]?> GetFileBytes(DocumentTemplateType type)
+        {
+            var path = ResolveFilePath(type);
+            return File.Exists(path) ? await File.ReadAllBytesAsync(path) : null;
+        }
+
         #endregion Public methods
+
+        #region Private methods
+
+        /// <summary>
+        /// Full path of the fixed-name .docx file for a given type (e.g. "Quote.docx"), under a
+        /// configurable base directory - same convention as AttachmentService.ResolveBasePath:
+        /// "DocumentTemplates:BasePath" from configuration when set (rooted or relative to the
+        /// content root), otherwise a "document-templates" folder found by walking up from the
+        /// content root to the repo/solution root. Keeping this outside the published output
+        /// means a manual redeploy doesn't wipe an Admin-uploaded template.
+        /// </summary>
+        private string ResolveFilePath(DocumentTemplateType type)
+        {
+            var configuredPath = _config["DocumentTemplates:BasePath"];
+            string basePath;
+
+            if (!string.IsNullOrWhiteSpace(configuredPath))
+            {
+                basePath = Path.IsPathRooted(configuredPath)
+                    ? Path.GetFullPath(configuredPath)
+                    : Path.GetFullPath(Path.Combine(_env.ContentRootPath, configuredPath));
+            }
+            else
+            {
+                var dir = new DirectoryInfo(_env.ContentRootPath);
+                var found = dir.FullName;
+                while (dir != null && dir.FullName != dir.Root.FullName)
+                {
+                    if (
+                        Directory.Exists(Path.Combine(dir.FullName, ".git"))
+                        || dir.GetFiles("*.sln").Any()
+                        || string.Equals(dir.Name, "TSI.Nexus", StringComparison.OrdinalIgnoreCase)
+                    )
+                    {
+                        found = dir.FullName;
+                        break;
+                    }
+                    dir = dir.Parent;
+                }
+
+                basePath = Path.GetFullPath(Path.Combine(found, "document-templates"));
+            }
+
+            Directory.CreateDirectory(basePath);
+            return Path.Combine(basePath, $"{type}.docx");
+        }
+
+        #endregion Private methods
     }
 }

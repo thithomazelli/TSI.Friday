@@ -20,6 +20,15 @@ export class ApiService {
       .pipe(timeout(REQUEST_TIMEOUT_MS));
   }
 
+  // Separate from get<T>() because a binary response (here, a generated PDF) can't go through
+  // HttpClient's default JSON parsing - responseType: 'blob' is what tells it to hand back the
+  // raw bytes instead of trying (and failing) to JSON.parse them.
+  getBlob(apiUrl: string): Observable<Blob> {
+    return this.httpClient
+      .get(`${environment.appUrl}/api/${apiUrl}`, { responseType: 'blob' })
+      .pipe(timeout(REQUEST_TIMEOUT_MS));
+  }
+
   post<T>(apiUrl: string, model: any): Observable<T> {
     return this.httpClient
       .post<T>(`${environment.appUrl}/api/${apiUrl}`, model)

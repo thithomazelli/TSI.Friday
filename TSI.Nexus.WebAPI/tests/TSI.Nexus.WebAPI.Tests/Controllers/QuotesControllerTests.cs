@@ -12,11 +12,13 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
     {
         private readonly QuotesController _controller;
         private readonly Mock<IQuoteService> _serviceMock;
+        private readonly Mock<IDocumentPdfGenerationService> _documentPdfGenerationServiceMock;
 
         public QuotesControllerTests()
         {
             _serviceMock = new Mock<IQuoteService>();
-            _controller = new QuotesController(_serviceMock.Object);
+            _documentPdfGenerationServiceMock = new Mock<IDocumentPdfGenerationService>();
+            _controller = new QuotesController(_serviceMock.Object, _documentPdfGenerationServiceMock.Object);
         }
 
         [Fact]
@@ -369,6 +371,35 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             Assert.Equal(listMock, response.Data);
 
             _serviceMock.Verify(_ => _.FindByProductId(productId), Times.Once);
+        }
+
+        [Fact]
+        public async Task Pdf_ShouldReturnFile_WhenQuoteExists()
+        {
+            var quoteId = Guid.NewGuid();
+            var pdfBytes = new byte[] { 0x25, 0x50, 0x44, 0x46 };
+            _documentPdfGenerationServiceMock
+                .Setup(s => s.GenerateQuotePdf(quoteId))
+                .ReturnsAsync(pdfBytes);
+
+            var result = await _controller.Pdf(quoteId);
+
+            var fileResult = Assert.IsType<FileContentResult>(result);
+            Assert.Equal("application/pdf", fileResult.ContentType);
+            Assert.Equal(pdfBytes, fileResult.FileContents);
+        }
+
+        [Fact]
+        public async Task Pdf_ShouldReturnNotFound_WhenQuoteDoesNotExist()
+        {
+            var quoteId = Guid.NewGuid();
+            _documentPdfGenerationServiceMock
+                .Setup(s => s.GenerateQuotePdf(quoteId))
+                .ReturnsAsync((byte[]?)null);
+
+            var result = await _controller.Pdf(quoteId);
+
+            Assert.IsType<NotFoundObjectResult>(result);
         }
     }
 }

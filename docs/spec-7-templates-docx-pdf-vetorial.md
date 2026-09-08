@@ -99,7 +99,7 @@ pode usar** a um subconjunto que cobre 100% do que os 4 documentos atuais já us
 - Parágrafos de texto, com negrito / itálico / sublinhado por trecho (`run`).
 - Tabelas simples (linhas/colunas, sem células mescladas nem tabelas aninhadas) — cobre as
   tabelas de produtos/trechos e o bloco de totais.
-- Imagens inline (a logo/assinatura da Serodio).
+- Imagens inline (a logo/assinatura da Serodio), desde que fora de tabela — direto num parágrafo.
 - Quebra de página explícita do Word (`Ctrl+Enter` / "Quebra de página") — substitui o marcador
   `<!-- PAGE_BREAK -->` de hoje.
 - Os mesmos placeholders `{{Token}}` de hoje (lista completa abaixo, idêntica à atual), digitados
@@ -107,9 +107,10 @@ pode usar** a um subconjunto que cobre 100% do que os 4 documentos atuais já us
 
 **Não suportado** (upload com isso não quebra o app, mas o elemento é ignorado ou sai diferente
 do Word): colunas de texto, cabeçalho/rodapé nativo do Word, notas de rodapé, caixas de
-texto/WordArt, tabelas mescladas/aninhadas, fontes customizadas fora de Helvetica/Times/Courier
-(o `PdfSharpCore` usa fontes-base equivalentes — dá pra chegar perto do "Arial" atual), alterações
-rastreadas/comentários do Word.
+texto/WordArt, tabelas mescladas/aninhadas, imagens dentro de célula de tabela (o parser de
+tabela só extrai texto — imagem tem que ficar num parágrafo normal, fora da tabela), fontes
+customizadas fora de Helvetica/Times/Courier (o `PdfSharpCore` usa fontes-base equivalentes — dá
+pra chegar perto do "Arial" atual), alterações rastreadas/comentários do Word.
 
 Isso precisa ficar visível pra quem for editar o template — texto de ajuda ao lado do botão
 "Atualizar" na tela de administração (seção 3.6) listando o que é suportado.

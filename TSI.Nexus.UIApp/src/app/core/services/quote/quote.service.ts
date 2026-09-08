@@ -36,6 +36,10 @@ export class QuoteService {
     );
   }
 
+  getPdf(quoteId: string): Observable<Blob> {
+    return this.apiService.getBlob(`${this._baseEndPoint}/${quoteId}/Pdf`);
+  }
+
   getByBusinessPartnerId(
     businessPartnerId: string,
   ): Observable<WebApiResponse<Quote[]>> {

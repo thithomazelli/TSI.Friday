@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using System.Text;
+using System.IO.Compression;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -113,6 +113,12 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         /// <summary>
+        /// Content-Type used for .docx files (Office Open XML WordprocessingML).
+        /// </summary>
+        private const string DocxContentType =
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+        /// <summary>
         /// Download the current template file for the given type
         /// </summary>
         /// <param name="type">DocumentTemplateType to be downloaded</param>
@@ -127,12 +133,20 @@ namespace TSI.Nexus.WebAPI.Controllers
                 return NotFound(webApiResponse.Message);
             }
 
-            var bytes = Encoding.UTF8.GetBytes(webApiResponse.Data.Content);
-            return File(bytes, "text/html", webApiResponse.Data.FileName);
+            var bytes = await _documentTemplateService.GetFileBytes(type);
+            if (bytes == null)
+            {
+                return NotFound($"O arquivo do template do tipo {type} não foi encontrado.");
+            }
+
+            return File(bytes, DocxContentType, webApiResponse.Data.FileName);
         }
 
         /// <summary>
-        /// Upload a new template file for the given type, replacing its Content
+        /// Upload a new template file for the given type, replacing its Content. Only .docx files
+        /// are accepted - the upload is rejected if the file isn't a valid ZIP archive containing
+        /// a word/document.xml entry (the OOXML WordprocessingML signature), which also rejects
+        /// any leftover .html template from before this format switched.
         /// </summary>
         /// <param name="type">DocumentTemplateType being replaced</param>
         /// <param name="file">The uploaded template file</param>
@@ -145,8 +159,14 @@ namespace TSI.Nexus.WebAPI.Controllers
                 return BadRequest("Nenhum arquivo foi enviado.");
             }
 
-            using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8);
-            var content = await reader.ReadToEndAsync();
+            using var memoryStream = new MemoryStream();
+            await file.CopyToAsync(memoryStream);
+            var content = memoryStream.ToArray();
+
+            if (!IsDocx(content))
+            {
+                return BadRequest("O arquivo enviado não é um documento .docx válido.");
+            }
 
             var webApiResponse = await _documentTemplateService.UploadContent(
                 type,
@@ -154,6 +174,31 @@ namespace TSI.Nexus.WebAPI.Controllers
                 content
             );
             return Ok(webApiResponse);
+        }
+
+        /// <summary>
+        /// Checks the ZIP signature and, inside the archive, the presence of word/document.xml -
+        /// the entry every .docx (a ZIP of OOXML parts) must have - without needing a full OOXML
+        /// parsing library on the backend just to validate an upload.
+        /// </summary>
+        private static bool IsDocx(byte[] content)
+        {
+            if (content.Length < 4 || content[0] != 0x50 || content[1] != 0x4B
+                || content[2] != 0x03 || content[3] != 0x04)
+            {
+                return false;
+            }
+
+            try
+            {
+                using var stream = new MemoryStream(content);
+                using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
+                return archive.GetEntry("word/document.xml") != null;
+            }
+            catch (InvalidDataException)
+            {
+                return false;
+            }
         }
     }
 }

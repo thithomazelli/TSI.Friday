@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="16.1.1" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
     <PackageReference Include="Mailjet.Api" Version="3.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
@@ -14,8 +15,17 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="PdfSharpCore" Version="1.3.67" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Letterhead + signature images (spec-7): embedded so DocumentPdfGenerationService can read
+         their bytes without depending on a file being present next to the deployed DLL. Same
+         source files used by the Angular app (src/assets/img/serodio). -->
+    <EmbeddedResource Include="DocumentRendering\Assets\*.jpg" />
+    <EmbeddedResource Include="DocumentRendering\Assets\*.png" />
   </ItemGroup>
 
   <ItemGroup>

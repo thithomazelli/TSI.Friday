@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TSI.Nexus.Data;
 
@@ -10,9 +11,11 @@ using TSI.Nexus.Data;
 namespace TSI.Nexus.Data.Migrations
 {
     [DbContext(typeof(MyDBContextEF))]
-    partial class MyDBContextEFModelSnapshot : ModelSnapshot
+    [Migration("20260908001539_RemoveDocumentTemplateContent")]
+    partial class RemoveDocumentTemplateContent
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

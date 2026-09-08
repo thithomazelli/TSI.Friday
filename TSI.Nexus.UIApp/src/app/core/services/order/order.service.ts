@@ -30,6 +30,10 @@ export class OrderService {
     );
   }
 
+  getPdf(orderId: string): Observable<Blob> {
+    return this.apiService.getBlob(`${this._baseEndPoint}/${orderId}/Pdf`);
+  }
+
   getByBusinessPartnerId(
     businessPartnerId: string,
   ): Observable<WebApiResponse<Order[]>> {

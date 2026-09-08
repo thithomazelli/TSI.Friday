@@ -13,12 +13,14 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
     {
         private readonly OrdersController _controller;
         private readonly Mock<IOrderService> _orderServiceMock;
+        private readonly Mock<IDocumentPdfGenerationService> _documentPdfGenerationServiceMock;
         private readonly IList<OrderDto> _ordersMock;
 
         public OrdersControllerTests()
         {
             _orderServiceMock = new Mock<IOrderService>();
-            _controller = new OrdersController(_orderServiceMock.Object);
+            _documentPdfGenerationServiceMock = new Mock<IDocumentPdfGenerationService>();
+            _controller = new OrdersController(_orderServiceMock.Object, _documentPdfGenerationServiceMock.Object);
 
             _ordersMock = new List<OrderDto>
             {
@@ -278,6 +280,31 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             var response = Assert.IsType<WebApiResponse<IEnumerable<OrderDto>>>(ok.Value);
             response.Should().BeEquivalentTo(expected);
             _orderServiceMock.Verify(s => s.FindByProductId(productId), Times.Once);
+        }
+
+        [Fact]
+        public async Task Pdf_ShouldReturnFile_WhenOrderExists()
+        {
+            var orderId = Guid.NewGuid();
+            var pdfBytes = new byte[] { 0x25, 0x50, 0x44, 0x46 };
+            _documentPdfGenerationServiceMock.Setup(s => s.GenerateSalesOrderPdf(orderId)).ReturnsAsync(pdfBytes);
+
+            var result = await _controller.Pdf(orderId);
+
+            var fileResult = Assert.IsType<FileContentResult>(result);
+            Assert.Equal("application/pdf", fileResult.ContentType);
+            Assert.Equal(pdfBytes, fileResult.FileContents);
+        }
+
+        [Fact]
+        public async Task Pdf_ShouldReturnNotFound_WhenOrderDoesNotExist()
+        {
+            var orderId = Guid.NewGuid();
+            _documentPdfGenerationServiceMock.Setup(s => s.GenerateSalesOrderPdf(orderId)).ReturnsAsync((byte[]?)null);
+
+            var result = await _controller.Pdf(orderId);
+
+            Assert.IsType<NotFoundObjectResult>(result);
         }
     }
 }

@@ -7,15 +7,12 @@ import {
   OrderService,
   OrderProductService,
   PaymentService,
-  BusinessPartnerService,
-  DocumentTemplateService,
   TranslationService,
   ModalService,
+  downloadBlob,
 } from '@nexus/core';
-import { combineLatest, Subject, Subscription, switchMap, takeUntil, merge, map, of, skip, Observable } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { combineLatest, Subject, Subscription, switchMap, takeUntil, merge, map, skip, Observable } from 'rxjs';
 
-import { buildSalesOrderPages } from '../../utilities/order-documents';
 import { HeaderComponent } from '../../../shared/header/header.component';
 import { AsyncPipe, NgIf } from '@angular/common';
 import { OrderFormComponent } from '../order-form/order-form.component';
@@ -77,8 +74,6 @@ export class OrderDetailsPageComponent implements OnInit, OnDestroy {
     private orderService: OrderService,
     private orderProductService: OrderProductService,
     private paymentService: PaymentService,
-    private businessPartnerService: BusinessPartnerService,
-    private documentTemplateService: DocumentTemplateService,
     private routerService: Router,
     private featureFlagService: FeatureFlagService,
     private modalService: ModalService,
@@ -128,39 +123,15 @@ export class OrderDetailsPageComponent implements OnInit, OnDestroy {
     const progress = this.modalService.showPdfProgress(
       this.translationService.instant('PDF_EXPORT.PREPARING_TITLE'),
     );
+    // Generation now happens server-side in a single request - there's no "página X de Y" to
+    // report mid-flight, so the modal shows an indeterminate spinner until the PDF comes back.
+    progress.setIndeterminate();
 
-    const businessPartner$ = order.businessPartnerId
-      ? this.businessPartnerService
-          .getById(order.businessPartnerId)
-          .pipe(catchError(() => of({ data: null } as WebApiResponse<any>)))
-      : of({ data: null } as WebApiResponse<any>);
-
-    businessPartner$.subscribe({
-      next: (response) => {
-        buildSalesOrderPages(
-          this.documentTemplateService,
-          order,
-          response.data ?? null,
-        ).subscribe((pages) => {
-          // Dynamic import: downloadLetterheadPdf pulls in jsPDF/html2canvas (~1MB) that only
-          // this button actually needs, so it's loaded on click rather than in the app's initial
-          // bundle - see core/utilities/index.ts for why it isn't re-exported via @nexus/core.
-          import('../../../core/utilities/letterhead-pdf').then(({ downloadLetterheadPdf }) => {
-            downloadLetterheadPdf(
-              pages,
-              `pedido-de-venda-${order.orderNumber}.pdf`,
-              (completed: number, total: number) => progress.setProgress(completed, total),
-            )
-              .then(() => {
-                progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
-                this.emittingSalesOrder = false;
-              })
-              .catch(() => {
-                progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
-                this.emittingSalesOrder = false;
-              });
-          });
-        });
+    this.orderService.getPdf(order.id!).subscribe({
+      next: (blob) => {
+        downloadBlob(blob, `pedido-de-venda-${order.orderNumber}.pdf`);
+        progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
+        this.emittingSalesOrder = false;
       },
       error: () => {
         progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));

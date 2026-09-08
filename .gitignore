@@ -51,6 +51,9 @@ wwwroot/
 # Upload images
 uploads/
 
+# Document templates (.docx files stored on disk, seeded/overwritten at runtime)
+document-templates/
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 

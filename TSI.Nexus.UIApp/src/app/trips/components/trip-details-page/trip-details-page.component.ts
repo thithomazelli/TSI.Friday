@@ -6,32 +6,12 @@ import {
   OrderStatus,
   TripService,
   PaymentService,
-  BusinessPartnerService,
-  VehicleService,
-  DriverService,
-  TripLegService,
-  PassengerService,
-  ServiceOrderService,
-  DocumentTemplateService,
   TranslationService,
   ModalService,
+  downloadBlob,
 } from '@nexus/core';
-import {
-  combineLatest,
-  map,
-  Subject,
-  Subscription,
-  switchMap,
-  takeUntil,
-  merge,
-  forkJoin,
-  of,
-  skip,
-  Observable,
-} from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { combineLatest, map, Subject, Subscription, switchMap, takeUntil, merge, skip, Observable } from 'rxjs';
 
-import { buildContractPages, buildServiceOrderPages } from '../../utilities/trip-documents';
 import { HeaderComponent } from '../../../shared/header/header.component';
 import { AsyncPipe, NgIf } from '@angular/common';
 import { TripFormComponent } from '../trip-form/trip-form.component';
@@ -105,13 +85,6 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
     private tripService: TripService,
     private paymentService: PaymentService,
     private routerService: Router,
-    private businessPartnerService: BusinessPartnerService,
-    private vehicleService: VehicleService,
-    private driverService: DriverService,
-    private tripLegService: TripLegService,
-    private passengerService: PassengerService,
-    private serviceOrderService: ServiceOrderService,
-    private documentTemplateService: DocumentTemplateService,
     private featureFlagService: FeatureFlagService,
     private modalService: ModalService,
     private translationService: TranslationService,
@@ -165,49 +138,15 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
     const progress = this.modalService.showPdfProgress(
       this.translationService.instant('PDF_EXPORT.PREPARING_TITLE'),
     );
+    // Generation now happens server-side in a single request - there's no "página X de Y" to
+    // report mid-flight, so the modal shows an indeterminate spinner until the PDF comes back.
+    progress.setIndeterminate();
 
-    forkJoin({
-      businessPartner: trip.businessPartnerId
-        ? this.businessPartnerService
-            .getById(trip.businessPartnerId)
-            .pipe(catchError(() => of({ data: null } as WebApiResponse<any>)))
-        : of({ data: null } as WebApiResponse<any>),
-      vehicle: trip.vehicleId
-        ? this.vehicleService
-            .getById(trip.vehicleId)
-            .pipe(catchError(() => of({ data: null } as WebApiResponse<any>)))
-        : of({ data: null } as WebApiResponse<any>),
-      tripLegs: this.tripLegService
-        .getByTrip(trip.id!)
-        .pipe(catchError(() => of({ data: [] } as WebApiResponse<any>))),
-    }).subscribe({
-      next: ({ businessPartner, vehicle, tripLegs }) => {
-        buildContractPages(
-          this.documentTemplateService,
-          trip,
-          businessPartner.data ?? null,
-          vehicle.data ?? null,
-          tripLegs.data ?? [],
-        ).subscribe((pages) => {
-          // Dynamic import: downloadLetterheadPdf pulls in jsPDF/html2canvas (~1MB) that only
-          // this button actually needs, so it's loaded on click rather than in the app's initial
-          // bundle - see core/utilities/index.ts for why it isn't re-exported via @nexus/core.
-          import('../../../core/utilities/letterhead-pdf').then(({ downloadLetterheadPdf }) => {
-            downloadLetterheadPdf(
-              pages,
-              `contrato-${trip.tripNumber}.pdf`,
-              (completed: number, total: number) => progress.setProgress(completed, total),
-            )
-              .then(() => {
-                progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
-                this.emittingContract = false;
-              })
-              .catch(() => {
-                progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
-                this.emittingContract = false;
-              });
-          });
-        });
+    this.tripService.getContractPdf(trip.id!).subscribe({
+      next: (blob) => {
+        downloadBlob(blob, `contrato-${trip.tripNumber}.pdf`);
+        progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
+        this.emittingContract = false;
       },
       error: () => {
         progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
@@ -226,59 +165,13 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
     const progress = this.modalService.showPdfProgress(
       this.translationService.instant('PDF_EXPORT.PREPARING_TITLE'),
     );
+    progress.setIndeterminate();
 
-    forkJoin({
-      vehicle: trip.vehicleId
-        ? this.vehicleService
-            .getById(trip.vehicleId)
-            .pipe(catchError(() => of({ data: null } as WebApiResponse<any>)))
-        : of({ data: null } as WebApiResponse<any>),
-      driver: trip.driverId
-        ? this.driverService
-            .getById(trip.driverId)
-            .pipe(catchError(() => of({ data: null } as WebApiResponse<any>)))
-        : of({ data: null } as WebApiResponse<any>),
-      passengers: this.passengerService
-        .getByTrip(trip.id!)
-        .pipe(catchError(() => of({ data: [] } as WebApiResponse<any>))),
-      serviceOrders: trip.driverId
-        ? this.serviceOrderService
-            .getByDriver(trip.driverId)
-            .pipe(catchError(() => of({ data: [] } as WebApiResponse<any>)))
-        : of({ data: [] } as WebApiResponse<any>),
-    }).subscribe({
-      next: ({ vehicle, driver, passengers, serviceOrders }) => {
-        const matchingServiceOrder = (serviceOrders.data ?? []).find(
-          (so: any) => so.tripId === trip.id,
-        );
-        const commissionAmount = matchingServiceOrder?.commission?.amount ?? null;
-        buildServiceOrderPages(
-          this.documentTemplateService,
-          trip,
-          vehicle.data ?? null,
-          driver.data ?? null,
-          (passengers.data ?? []).length,
-          commissionAmount,
-        ).subscribe((pages) => {
-          // Dynamic import: downloadLetterheadPdf pulls in jsPDF/html2canvas (~1MB) that only
-          // this button actually needs, so it's loaded on click rather than in the app's initial
-          // bundle - see core/utilities/index.ts for why it isn't re-exported via @nexus/core.
-          import('../../../core/utilities/letterhead-pdf').then(({ downloadLetterheadPdf }) => {
-            downloadLetterheadPdf(
-              pages,
-              `os-${trip.tripNumber}.pdf`,
-              (completed: number, total: number) => progress.setProgress(completed, total),
-            )
-              .then(() => {
-                progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
-                this.emittingServiceOrder = false;
-              })
-              .catch(() => {
-                progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));
-                this.emittingServiceOrder = false;
-              });
-          });
-        });
+    this.tripService.getServiceOrderPdf(trip.id!).subscribe({
+      next: (blob) => {
+        downloadBlob(blob, `os-${trip.tripNumber}.pdf`);
+        progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
+        this.emittingServiceOrder = false;
       },
       error: () => {
         progress.error(this.translationService.instant('PDF_EXPORT.ERROR'));

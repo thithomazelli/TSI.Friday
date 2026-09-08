@@ -9,8 +9,8 @@ namespace TSI.Nexus.Contracts.Interfaces
 {
     /// <summary>
     /// Defines methods for managing the editable document templates (Orçamento, Contrato, OS,
-    /// Pedido de Venda) used to generate PDFs. Templates are HTML content with placeholders that
-    /// Admin users can download, edit externally and re-upload.
+    /// Pedido de Venda) used to generate PDFs. Templates are .docx files with placeholders that
+    /// Admin users can download, edit in Word and re-upload.
     /// </summary>
     public interface IDocumentTemplateService
     {
@@ -56,17 +56,25 @@ namespace TSI.Nexus.Contracts.Interfaces
         Task<WebApiResponse<DocumentTemplate>> FindByType(DocumentTemplateType type);
 
         /// <summary>
-        /// Replaces the Content (and FileName) of the DocumentTemplate registered for the given
-        /// type from an uploaded file.
+        /// Replaces the on-disk .docx file (and the FileName metadata) for the given type from an
+        /// uploaded file. The file itself is stored at a fixed name per type - the upload
+        /// overwrites it - not the uploaded file's own name, which is kept only as metadata.
         /// </summary>
         /// <param name="type">The DocumentTemplateType being replaced.</param>
         /// <param name="fileName">The uploaded file's original name.</param>
-        /// <param name="content">The uploaded file's text content.</param>
+        /// <param name="content">The uploaded .docx file's raw bytes.</param>
         /// <returns>The updated DocumentTemplate.</returns>
         Task<WebApiResponse<DocumentTemplate>> UploadContent(
             DocumentTemplateType type,
             string fileName,
-            string content
+            byte[] content
         );
+
+        /// <summary>
+        /// Reads the current .docx file's raw bytes for the given type from disk.
+        /// </summary>
+        /// <param name="type">The DocumentTemplateType to be read.</param>
+        /// <returns>The file's bytes, or null if no file exists for this type yet.</returns>
+        Task<byte[]?> GetFileBytes(DocumentTemplateType type);
     }
 }

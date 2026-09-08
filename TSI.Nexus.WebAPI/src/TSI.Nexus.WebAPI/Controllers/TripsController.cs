@@ -16,14 +16,20 @@ namespace TSI.Nexus.WebAPI.Controllers
         /// TripService object created to access the service model.
         /// </summary>
         private readonly ITripService _tripService;
+        private readonly IDocumentPdfGenerationService _documentPdfGenerationService;
 
         /// <summary>
         /// TripsController constructor create to initialize the "_tripService" using Dependency Injection.
         /// </summary>
         /// <param name="tripService">ITripService object used to initialize the internal variable using Dependency Injection.</param>
-        public TripsController(ITripService tripService)
+        /// <param name="documentPdfGenerationService">IDocumentPdfGenerationService object used to generate the Contrato/Ordem de Serviço PDFs.</param>
+        public TripsController(
+            ITripService tripService,
+            IDocumentPdfGenerationService documentPdfGenerationService
+        )
         {
             _tripService = tripService;
+            _documentPdfGenerationService = documentPdfGenerationService;
         }
 
         /// <summary>
@@ -141,6 +147,40 @@ namespace TSI.Nexus.WebAPI.Controllers
         {
             var webApiResponse = await _tripService.FindByVehicleId(vehicleId);
             return Ok(webApiResponse);
+        }
+
+        /// <summary>
+        /// Generates the Contrato de Fretamento PDF for the given trip
+        /// </summary>
+        /// <param name="tripId">Trip id to generate the PDF for</param>
+        [HttpGet]
+        [Route("{tripId}/ContractPdf")]
+        public async Task<IActionResult> ContractPdf(Guid tripId)
+        {
+            var pdfBytes = await _documentPdfGenerationService.GenerateContractPdf(tripId);
+            if (pdfBytes == null)
+            {
+                return NotFound($"Viagem {tripId} não encontrada.");
+            }
+
+            return File(pdfBytes, "application/pdf");
+        }
+
+        /// <summary>
+        /// Generates the Ordem de Serviço PDF for the given trip
+        /// </summary>
+        /// <param name="tripId">Trip id to generate the PDF for</param>
+        [HttpGet]
+        [Route("{tripId}/ServiceOrderPdf")]
+        public async Task<IActionResult> ServiceOrderPdf(Guid tripId)
+        {
+            var pdfBytes = await _documentPdfGenerationService.GenerateServiceOrderPdf(tripId);
+            if (pdfBytes == null)
+            {
+                return NotFound($"Viagem {tripId} não encontrada.");
+            }
+
+            return File(pdfBytes, "application/pdf");
         }
     }
 }

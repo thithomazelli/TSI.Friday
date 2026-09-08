@@ -16,14 +16,20 @@ namespace TSI.Nexus.WebAPI.Controllers
         /// QuoteService object created to access the service model.
         /// </summary>
         private readonly IQuoteService _quoteService;
+        private readonly IDocumentPdfGenerationService _documentPdfGenerationService;
 
         /// <summary>
         /// QuotesController constructor create to initialize the "_quoteService" using Dependency Injection.
         /// </summary>
         /// <param name="quoteService">IQuoteService object used to initialize the internal variable using Dependency Injection.</param>
-        public QuotesController(IQuoteService quoteService)
+        /// <param name="documentPdfGenerationService">IDocumentPdfGenerationService object used to generate the Orçamento PDF.</param>
+        public QuotesController(
+            IQuoteService quoteService,
+            IDocumentPdfGenerationService documentPdfGenerationService
+        )
         {
             _quoteService = quoteService;
+            _documentPdfGenerationService = documentPdfGenerationService;
         }
 
         /// <summary>
@@ -164,6 +170,23 @@ namespace TSI.Nexus.WebAPI.Controllers
         {
             var webApiResponse = await _quoteService.FindByProductId(productId);
             return Ok(webApiResponse);
+        }
+
+        /// <summary>
+        /// Generates the Orçamento PDF for the given quote
+        /// </summary>
+        /// <param name="quoteId">Quote id to generate the PDF for</param>
+        [HttpGet]
+        [Route("{quoteId}/Pdf")]
+        public async Task<IActionResult> Pdf(Guid quoteId)
+        {
+            var pdfBytes = await _documentPdfGenerationService.GenerateQuotePdf(quoteId);
+            if (pdfBytes == null)
+            {
+                return NotFound($"Orçamento {quoteId} não encontrado.");
+            }
+
+            return File(pdfBytes, "application/pdf");
         }
     }
 }

@@ -16,14 +16,20 @@ namespace TSI.Nexus.WebAPI.Controllers
         /// OrderService object created to access the service model.
         /// </summary>
         private readonly IOrderService _orderService;
+        private readonly IDocumentPdfGenerationService _documentPdfGenerationService;
 
         /// <summary>
         /// OrdersController constructor create to initialize the "_orderService" using Dependency Injection.
         /// </summary>
         /// <param name="orderService">IOrderService object used to initialize the internal variable using Dependency Injection.</param>
-        public OrdersController(IOrderService orderService)
+        /// <param name="documentPdfGenerationService">IDocumentPdfGenerationService object used to generate the Pedido de Venda PDF.</param>
+        public OrdersController(
+            IOrderService orderService,
+            IDocumentPdfGenerationService documentPdfGenerationService
+        )
         {
             _orderService = orderService;
+            _documentPdfGenerationService = documentPdfGenerationService;
         }
 
         /// <summary>
@@ -129,6 +135,23 @@ namespace TSI.Nexus.WebAPI.Controllers
         {
             var webApiResponse = await _orderService.FindByProductId(productId);
             return Ok(webApiResponse);
+        }
+
+        /// <summary>
+        /// Generates the Pedido de Venda PDF for the given order
+        /// </summary>
+        /// <param name="orderId">Order id to generate the PDF for</param>
+        [HttpGet]
+        [Route("{orderId}/Pdf")]
+        public async Task<IActionResult> Pdf(Guid orderId)
+        {
+            var pdfBytes = await _documentPdfGenerationService.GenerateSalesOrderPdf(orderId);
+            if (pdfBytes == null)
+            {
+                return NotFound($"Pedido {orderId} não encontrado.");
+            }
+
+            return File(pdfBytes, "application/pdf");
         }
     }
 }

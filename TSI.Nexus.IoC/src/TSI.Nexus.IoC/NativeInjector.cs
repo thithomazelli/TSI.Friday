@@ -110,6 +110,7 @@ namespace TSI.Nexus.IoC
             services.AddScoped<IServiceOrderService, ServiceOrderService>();
             services.AddScoped<ICommissionService, CommissionService>();
             services.AddScoped<IDocumentTemplateService, DocumentTemplateService>();
+            services.AddScoped<IDocumentPdfGenerationService, DocumentPdfGenerationService>();
             services.AddScoped<IFeatureToggleService, FeatureToggleService>();
             services.AddScoped<IAlertConfigService, AlertConfigService>();
             services.AddScoped<ISelectableOptionService, SelectableOptionService>();

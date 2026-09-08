@@ -52,9 +52,11 @@ function buildReportPageElement(
  * Unlike a single html2canvas() pass over the whole (unpaginated) report table - which forces the
  * browser to rasterize a canvas as tall as the entire filtered dataset (tens of thousands of
  * pixels for a few hundred rows, unbounded as the data grows) - rows are chunked into
- * ROWS_PER_PAGE-sized pages up front and each page is captured independently, exactly like
- * downloadLetterheadPdf does for orçamentos/pedidos/contratos. This keeps every capture a normal,
- * bounded page size regardless of how many rows the report matches.
+ * ROWS_PER_PAGE-sized pages up front and each page is captured independently. This keeps every
+ * capture a normal, bounded page size regardless of how many rows the report matches. Reports is
+ * the only remaining document rendered this way client-side; the 4 letterhead documents
+ * (Orçamento, Pedido de Venda, Contrato, OS) render server-side instead - see
+ * docs/spec-7-templates-docx-pdf-vetorial.md.
  */
 export async function downloadReportPdf(
   input: ReportPdfInput,

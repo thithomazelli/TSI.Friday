@@ -6,6 +6,7 @@ import {
   NotificationService,
   ResponseStatus,
   TranslationService,
+  downloadBlob,
 } from '@nexus/core';
 import { finalize } from 'rxjs/operators';
 import { HeaderComponent } from '../shared/header/header.component';
@@ -43,12 +44,7 @@ export class DocumentTemplatesComponent implements OnInit {
       return;
     }
     this.documentTemplateService.download(template.type).subscribe((blob) => {
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = template.fileName || `${template.type}.html`;
-      anchor.click();
-      window.URL.revokeObjectURL(url);
+      downloadBlob(blob, template.fileName || `${template.type}.docx`);
     });
   }
 
@@ -73,7 +69,6 @@ export class DocumentTemplatesComponent implements OnInit {
         next: (response) => {
           if (response.status === ResponseStatus.Success && response.data) {
             template.fileName = response.data.fileName;
-            template.content = response.data.content;
           }
           this.notificationService.showMessage(
             response.status,

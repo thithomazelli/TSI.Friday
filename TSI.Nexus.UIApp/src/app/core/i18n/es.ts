@@ -613,7 +613,8 @@ export const ES = {
   },
   DOCUMENT_TEMPLATES: {
     TITLE: 'Plantillas de Documentos',
-    DESCRIPTION: 'Descarga el HTML de cada documento generado por el sistema, edita el texto, logotipo o información de pie de página que quieras y envíalo de vuelta. Secciones como tablas de productos, totales y firmas continúan siendo armadas automáticamente por el sistema a partir de los datos de cada pedido/viaje/presupuesto.',
+    DESCRIPTION: 'Descarga el .docx de cada documento generado por el sistema, edita el texto, logotipo o información de pie de página en Word y envíalo de vuelta. Secciones como tablas de productos, totales y firmas continúan siendo armadas automáticamente por el sistema a partir de los datos de cada pedido/viaje/presupuesto.',
+    FORMAT_HELP: 'Compatible: párrafos de texto, negrita/cursiva/subrayado, tablas simples, imágenes (fuera de tablas) y salto de página. Columnas de texto, encabezado/pie de página nativo de Word, cuadros de texto e imágenes dentro de celdas de tabla no aparecerán en el PDF generado.',
     NO_TEMPLATES_FOUND: 'Ninguna plantilla encontrada.',
     UPDATE_ERROR: 'No fue posible actualizar la plantilla.',
   },

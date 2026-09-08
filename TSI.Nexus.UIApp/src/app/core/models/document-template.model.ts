@@ -6,5 +6,4 @@ export interface DocumentTemplate extends BaseModel {
   type?: DocumentTemplateType;
   name?: string;
   fileName?: string;
-  content?: string;
 }

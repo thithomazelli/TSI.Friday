@@ -1,6 +1,9 @@
 using System;
+using System.IO;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Moq;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
@@ -9,17 +12,43 @@ using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Services.Tests.Services
 {
-    public class DocumentTemplateServiceTests
+    public class DocumentTemplateServiceTests : IDisposable
     {
         private readonly DocumentTemplateService _service;
         private readonly Mock<IRepository<DocumentTemplate>> _repository;
         private readonly Mock<ILogService> _logServiceMock;
+        private readonly string _tempBasePath;
 
         public DocumentTemplateServiceTests()
         {
             _repository = new Mock<IRepository<DocumentTemplate>>();
             _logServiceMock = new Mock<ILogService>();
-            _service = new DocumentTemplateService(_repository.Object, _logServiceMock.Object);
+
+            _tempBasePath = Path.Combine(Path.GetTempPath(), "DocumentTemplateServiceTests_" + Guid.NewGuid());
+
+            var envMock = new Mock<IWebHostEnvironment>();
+            envMock.Setup(e => e.ContentRootPath).Returns(_tempBasePath);
+
+            var configMock = new Mock<IConfiguration>();
+            var basePathSection = new Mock<IConfigurationSection>();
+            basePathSection.Setup(s => s.Value).Returns(_tempBasePath);
+            configMock.Setup(c => c.GetSection("DocumentTemplates:BasePath")).Returns(basePathSection.Object);
+            configMock.Setup(c => c["DocumentTemplates:BasePath"]).Returns(_tempBasePath);
+
+            _service = new DocumentTemplateService(
+                _repository.Object,
+                _logServiceMock.Object,
+                envMock.Object,
+                configMock.Object
+            );
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(_tempBasePath))
+            {
+                Directory.Delete(_tempBasePath, recursive: true);
+            }
         }
 
         [Fact]
@@ -30,8 +59,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Type = DocumentTemplateType.Quote,
                 Name = "Orçamento",
-                FileName = "orcamento.html",
-                Content = "<h1>Orçamento</h1>",
+                FileName = "orcamento.docx",
             };
 
             _repository
@@ -57,8 +85,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Type = DocumentTemplateType.Quote,
                 Name = "Orçamento",
-                FileName = "orcamento.html",
-                Content = "<h1>Orçamento</h1>",
+                FileName = "orcamento.docx",
             };
 
             _repository
@@ -217,7 +244,11 @@ namespace TSI.Nexus.Services.Tests.Services
                 .ThrowsAsync(new Exception("boom"));
 
             // Act
-            var result = await _service.UploadContent(DocumentTemplateType.Quote, "f.html", "content");
+            var result = await _service.UploadContent(
+                DocumentTemplateType.Quote,
+                "f.docx",
+                new byte[] { 0x50, 0x4B, 0x03, 0x04 }
+            );
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
@@ -232,8 +263,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
                 Type = DocumentTemplateType.Contract,
                 Name = "Contrato de Fretamento",
-                FileName = "contrato.html",
-                Content = "<h1>Contrato</h1>",
+                FileName = "contrato.docx",
             };
 
             _repository
@@ -265,7 +295,7 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
-        public async Task DocumentTemplateService_UploadContent_ShouldReplaceFileNameAndContent_WhenTypeIsRegistered()
+        public async Task DocumentTemplateService_UploadContent_ShouldWriteFileAndReplaceFileName_WhenTypeIsRegistered()
         {
             // Arrange
             var documentTemplate = new DocumentTemplate
@@ -273,8 +303,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
                 Type = DocumentTemplateType.ServiceOrder,
                 Name = "Ordem de Serviço",
-                FileName = "old-file.html",
-                Content = "<h1>Old</h1>",
+                FileName = "old-file.docx",
             };
 
             _repository
@@ -287,15 +316,17 @@ namespace TSI.Nexus.Services.Tests.Services
             // Act
             var result = await _service.UploadContent(
                 DocumentTemplateType.ServiceOrder,
-                "new-file.html",
-                "<h1>New</h1>"
+                "new-file.docx",
+                new byte[] { 0x02 }
             );
 
             // Assert
             Assert.Equal(ResponseStatus.Success, result.Status);
-            Assert.Equal("new-file.html", result.Data.FileName);
-            Assert.Equal("<h1>New</h1>", result.Data.Content);
+            Assert.Equal("new-file.docx", result.Data.FileName);
             _repository.Verify(r => r.UpdateAsync(It.IsAny<DocumentTemplate>()), Times.Once);
+
+            var writtenBytes = await _service.GetFileBytes(DocumentTemplateType.ServiceOrder);
+            Assert.Equal(new byte[] { 0x02 }, writtenBytes);
         }
 
         [Fact]
@@ -309,13 +340,23 @@ namespace TSI.Nexus.Services.Tests.Services
             // Act
             var result = await _service.UploadContent(
                 DocumentTemplateType.SalesOrder,
-                "file.html",
-                "<h1>Conteúdo</h1>"
+                "file.docx",
+                new byte[] { 0x50, 0x4B, 0x03, 0x04 }
             );
 
             // Assert
             Assert.Equal(ResponseStatus.Warning, result.Status);
             _repository.Verify(r => r.UpdateAsync(It.IsAny<DocumentTemplate>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DocumentTemplateService_GetFileBytes_ShouldReturnNull_WhenFileDoesNotExist()
+        {
+            // Act
+            var result = await _service.GetFileBytes(DocumentTemplateType.Quote);
+
+            // Assert
+            Assert.Null(result);
         }
 
         [Fact]

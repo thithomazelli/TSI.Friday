@@ -14,13 +14,11 @@ namespace TSI.Nexus.Contracts.Tests.Models
                 Type = DocumentTemplateType.Quote,
                 Name = "Modelo de orçamento",
                 FileName = "quote-template.docx",
-                Content = "<html></html>",
             };
 
             template.Type.Should().Be(DocumentTemplateType.Quote);
             template.Name.Should().Be("Modelo de orçamento");
             template.FileName.Should().Be("quote-template.docx");
-            template.Content.Should().Be("<html></html>");
         }
 
         [Fact]
@@ -30,7 +28,6 @@ namespace TSI.Nexus.Contracts.Tests.Models
 
             template.Name.Should().BeEmpty();
             template.FileName.Should().BeEmpty();
-            template.Content.Should().BeEmpty();
         }
     }
 }

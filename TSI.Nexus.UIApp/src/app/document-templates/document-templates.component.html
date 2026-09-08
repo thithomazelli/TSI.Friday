@@ -12,6 +12,9 @@
       <p class="text-muted">
         {{ 'DOCUMENT_TEMPLATES.DESCRIPTION' | translate }}
       </p>
+      <p class="text-muted small">
+        {{ 'DOCUMENT_TEMPLATES.FORMAT_HELP' | translate }}
+      </p>
 
       <div *ngIf="loading" class="text-center py-4">
         <i class="bi bi-arrow-repeat"></i>{{ 'COMMON.LOADING' | translate }}</div>
@@ -48,7 +51,7 @@
             <input
               #fileInput
               type="file"
-              accept=".html,text/html"
+              accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               class="d-none"
               (change)="onFileSelected($event, template)"
             />

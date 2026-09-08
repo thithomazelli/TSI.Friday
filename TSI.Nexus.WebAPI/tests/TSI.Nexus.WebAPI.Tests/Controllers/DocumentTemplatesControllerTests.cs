@@ -1,4 +1,5 @@
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -30,18 +31,33 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
                     Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
                     Type = DocumentTemplateType.Quote,
                     Name = "Orçamento",
-                    FileName = "orcamento.html",
-                    Content = "<h1>Orçamento</h1>",
+                    FileName = "orcamento.docx",
                 },
                 new DocumentTemplate
                 {
                     Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
                     Type = DocumentTemplateType.Contract,
                     Name = "Contrato de Fretamento",
-                    FileName = "contrato.html",
-                    Content = "<h1>Contrato</h1>",
+                    FileName = "contrato.docx",
                 },
             };
+        }
+
+        /// <summary>
+        /// Builds a minimal but real .docx (a ZIP archive with a word/document.xml entry) so tests
+        /// exercise the same validation the controller applies to a real upload, instead of relying
+        /// on the file extension alone.
+        /// </summary>
+        private static byte[] BuildDocxBytes()
+        {
+            using var stream = new MemoryStream();
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                var entry = archive.CreateEntry("word/document.xml");
+                using var writer = new StreamWriter(entry.Open());
+                writer.Write("<w:document xmlns:w=\"x\"><w:body/></w:document>");
+            }
+            return stream.ToArray();
         }
 
         [Fact]
@@ -105,8 +121,7 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
                 Id = Guid.Parse("00000000-0000-0000-0000-000000000003"),
                 Type = DocumentTemplateType.SalesOrder,
                 Name = "Pedido de Venda",
-                FileName = "pedido-de-venda.html",
-                Content = "<h1>Pedido de Venda</h1>",
+                FileName = "pedido-de-venda.docx",
             };
             var expected = new WebApiResponse<DocumentTemplate>
             {
@@ -254,19 +269,26 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
                 Status = ResponseStatus.Success,
                 Message = $"Template {template.Name} encontrado com sucesso",
             };
+            var fileBytes = BuildDocxBytes();
 
             _documentTemplateServiceMock
                 .Setup(s => s.FindByType(DocumentTemplateType.Quote))
                 .ReturnsAsync(expected);
+            _documentTemplateServiceMock
+                .Setup(s => s.GetFileBytes(DocumentTemplateType.Quote))
+                .ReturnsAsync(fileBytes);
 
             // Act
             var result = await _controller.Download(DocumentTemplateType.Quote);
 
             // Assert
             var fileResult = Assert.IsType<FileContentResult>(result);
-            Assert.Equal("text/html", fileResult.ContentType);
+            Assert.Equal(
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                fileResult.ContentType
+            );
             Assert.Equal(template.FileName, fileResult.FileDownloadName);
-            Assert.Equal(Encoding.UTF8.GetBytes(template.Content), fileResult.FileContents);
+            Assert.Equal(fileBytes, fileResult.FileContents);
         }
 
         [Fact]
@@ -293,6 +315,32 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
         }
 
         [Fact]
+        public async Task Download_ShouldReturnNotFound_WhenFileIsMissingFromDisk()
+        {
+            // Arrange
+            var template = _templatesMock.First(t => t.Type == DocumentTemplateType.Quote);
+            var expected = new WebApiResponse<DocumentTemplate>
+            {
+                Data = template,
+                Status = ResponseStatus.Success,
+                Message = $"Template {template.Name} encontrado com sucesso",
+            };
+
+            _documentTemplateServiceMock
+                .Setup(s => s.FindByType(DocumentTemplateType.Quote))
+                .ReturnsAsync(expected);
+            _documentTemplateServiceMock
+                .Setup(s => s.GetFileBytes(DocumentTemplateType.Quote))
+                .ReturnsAsync((byte[])null);
+
+            // Act
+            var result = await _controller.Download(DocumentTemplateType.Quote);
+
+            // Assert
+            Assert.IsType<NotFoundObjectResult>(result);
+        }
+
+        [Fact]
         public async Task Upload_ShouldReturnBadRequest_WhenFileIsNull()
         {
             // Act
@@ -303,7 +351,7 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             Assert.Equal("Nenhum arquivo foi enviado.", badRequest.Value);
 
             _documentTemplateServiceMock.Verify(
-                s => s.UploadContent(It.IsAny<DocumentTemplateType>(), It.IsAny<string>(), It.IsAny<string>()),
+                s => s.UploadContent(It.IsAny<DocumentTemplateType>(), It.IsAny<string>(), It.IsAny<byte[]>()),
                 Times.Never
             );
         }
@@ -323,7 +371,27 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             Assert.Equal("Nenhum arquivo foi enviado.", badRequest.Value);
 
             _documentTemplateServiceMock.Verify(
-                s => s.UploadContent(It.IsAny<DocumentTemplateType>(), It.IsAny<string>(), It.IsAny<string>()),
+                s => s.UploadContent(It.IsAny<DocumentTemplateType>(), It.IsAny<string>(), It.IsAny<byte[]>()),
+                Times.Never
+            );
+        }
+
+        [Fact]
+        public async Task Upload_ShouldReturnBadRequest_WhenFileIsNotDocx()
+        {
+            // Arrange
+            var bytes = Encoding.UTF8.GetBytes("<h1>Novo Orçamento</h1>");
+            var fileMock = BuildFileMock(bytes, "novo-orcamento.html");
+
+            // Act
+            var result = await _controller.Upload(DocumentTemplateType.Quote, fileMock.Object);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal("O arquivo enviado não é um documento .docx válido.", badRequest.Value);
+
+            _documentTemplateServiceMock.Verify(
+                s => s.UploadContent(It.IsAny<DocumentTemplateType>(), It.IsAny<string>(), It.IsAny<byte[]>()),
                 Times.Never
             );
         }
@@ -332,17 +400,10 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
         public async Task Upload_ShouldReturnOkWithUpdatedTemplate_WhenFileIsValid()
         {
             // Arrange
-            const string content = "<h1>Novo Orçamento</h1>";
-            var bytes = Encoding.UTF8.GetBytes(content);
-            var stream = new MemoryStream(bytes);
-
-            var fileMock = new Mock<IFormFile>();
-            fileMock.Setup(f => f.Length).Returns(bytes.Length);
-            fileMock.Setup(f => f.FileName).Returns("novo-orcamento.html");
-            fileMock.Setup(f => f.OpenReadStream()).Returns(stream);
+            var bytes = BuildDocxBytes();
+            var fileMock = BuildFileMock(bytes, "novo-orcamento.docx");
 
             var template = _templatesMock.First(t => t.Type == DocumentTemplateType.Quote);
-            template.Content = content;
             var expected = new WebApiResponse<DocumentTemplate>
             {
                 Data = template,
@@ -352,7 +413,7 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
 
             _documentTemplateServiceMock
                 .Setup(s =>
-                    s.UploadContent(DocumentTemplateType.Quote, "novo-orcamento.html", content)
+                    s.UploadContent(DocumentTemplateType.Quote, "novo-orcamento.docx", bytes)
                 )
                 .ReturnsAsync(expected);
 
@@ -365,9 +426,24 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             response.Should().BeEquivalentTo(expected);
 
             _documentTemplateServiceMock.Verify(
-                s => s.UploadContent(DocumentTemplateType.Quote, "novo-orcamento.html", content),
+                s => s.UploadContent(DocumentTemplateType.Quote, "novo-orcamento.docx", bytes),
                 Times.Once
             );
+        }
+
+        /// <summary>
+        /// Mocks an IFormFile whose CopyToAsync writes the given bytes into the destination stream,
+        /// matching how the controller now reads the upload (Upload no longer uses OpenReadStream).
+        /// </summary>
+        private static Mock<IFormFile> BuildFileMock(byte[] bytes, string fileName)
+        {
+            var fileMock = new Mock<IFormFile>();
+            fileMock.Setup(f => f.Length).Returns(bytes.Length);
+            fileMock.Setup(f => f.FileName).Returns(fileName);
+            fileMock
+                .Setup(f => f.CopyToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+                .Returns<Stream, CancellationToken>((target, _) => target.WriteAsync(bytes, 0, bytes.Length));
+            return fileMock;
         }
     }
 }

@@ -13,12 +13,14 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
     {
         private readonly TripsController _controller;
         private readonly Mock<ITripService> _tripServiceMock;
+        private readonly Mock<IDocumentPdfGenerationService> _documentPdfGenerationServiceMock;
         private readonly IList<TripDto> _tripsMock;
 
         public TripsControllerTests()
         {
             _tripServiceMock = new Mock<ITripService>();
-            _controller = new TripsController(_tripServiceMock.Object);
+            _documentPdfGenerationServiceMock = new Mock<IDocumentPdfGenerationService>();
+            _controller = new TripsController(_tripServiceMock.Object, _documentPdfGenerationServiceMock.Object);
 
             _tripsMock = new List<TripDto>
             {
@@ -302,6 +304,56 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             var response = Assert.IsType<WebApiResponse<IEnumerable<TripDto>>>(ok.Value);
             response.Should().BeEquivalentTo(expected);
             _tripServiceMock.Verify(s => s.FindByVehicleId(vehicleId), Times.Once);
+        }
+
+        [Fact]
+        public async Task ContractPdf_ShouldReturnFile_WhenTripExists()
+        {
+            var tripId = Guid.NewGuid();
+            var pdfBytes = new byte[] { 0x25, 0x50, 0x44, 0x46 };
+            _documentPdfGenerationServiceMock.Setup(s => s.GenerateContractPdf(tripId)).ReturnsAsync(pdfBytes);
+
+            var result = await _controller.ContractPdf(tripId);
+
+            var fileResult = Assert.IsType<FileContentResult>(result);
+            Assert.Equal("application/pdf", fileResult.ContentType);
+            Assert.Equal(pdfBytes, fileResult.FileContents);
+        }
+
+        [Fact]
+        public async Task ContractPdf_ShouldReturnNotFound_WhenTripDoesNotExist()
+        {
+            var tripId = Guid.NewGuid();
+            _documentPdfGenerationServiceMock.Setup(s => s.GenerateContractPdf(tripId)).ReturnsAsync((byte[]?)null);
+
+            var result = await _controller.ContractPdf(tripId);
+
+            Assert.IsType<NotFoundObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task ServiceOrderPdf_ShouldReturnFile_WhenTripExists()
+        {
+            var tripId = Guid.NewGuid();
+            var pdfBytes = new byte[] { 0x25, 0x50, 0x44, 0x46 };
+            _documentPdfGenerationServiceMock.Setup(s => s.GenerateServiceOrderPdf(tripId)).ReturnsAsync(pdfBytes);
+
+            var result = await _controller.ServiceOrderPdf(tripId);
+
+            var fileResult = Assert.IsType<FileContentResult>(result);
+            Assert.Equal("application/pdf", fileResult.ContentType);
+            Assert.Equal(pdfBytes, fileResult.FileContents);
+        }
+
+        [Fact]
+        public async Task ServiceOrderPdf_ShouldReturnNotFound_WhenTripDoesNotExist()
+        {
+            var tripId = Guid.NewGuid();
+            _documentPdfGenerationServiceMock.Setup(s => s.GenerateServiceOrderPdf(tripId)).ReturnsAsync((byte[]?)null);
+
+            var result = await _controller.ServiceOrderPdf(tripId);
+
+            Assert.IsType<NotFoundObjectResult>(result);
         }
     }
 }
