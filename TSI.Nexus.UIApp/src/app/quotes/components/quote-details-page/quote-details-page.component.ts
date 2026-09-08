@@ -9,7 +9,7 @@ import {
   QuoteProductService,
   TranslationService,
   ModalService,
-  downloadBlob,
+  triggerBlobDownload,
 } from '@nexus/core';
 import { combineLatest, Subject, Subscription, switchMap, takeUntil, merge, map, skip, Observable } from 'rxjs';
 
@@ -137,8 +137,9 @@ export class QuoteDetailsPageComponent implements OnInit, OnDestroy {
 
     this.quoteService.getPdf(quote.id!).subscribe({
       next: (blob) => {
-        downloadBlob(blob, `orcamento-${quote.quoteNumber}.pdf`);
-        progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
+        const fileName = `orcamento-${quote.quoteNumber}.pdf`;
+        const url = triggerBlobDownload(blob, fileName);
+        progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'), { url, name: fileName });
         this.emittingQuote = false;
       },
       error: () => {

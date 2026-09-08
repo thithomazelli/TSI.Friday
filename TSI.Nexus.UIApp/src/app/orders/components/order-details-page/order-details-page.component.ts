@@ -9,7 +9,7 @@ import {
   PaymentService,
   TranslationService,
   ModalService,
-  downloadBlob,
+  triggerBlobDownload,
 } from '@nexus/core';
 import { combineLatest, Subject, Subscription, switchMap, takeUntil, merge, map, skip, Observable } from 'rxjs';
 
@@ -129,8 +129,9 @@ export class OrderDetailsPageComponent implements OnInit, OnDestroy {
 
     this.orderService.getPdf(order.id!).subscribe({
       next: (blob) => {
-        downloadBlob(blob, `pedido-de-venda-${order.orderNumber}.pdf`);
-        progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'));
+        const fileName = `pedido-de-venda-${order.orderNumber}.pdf`;
+        const url = triggerBlobDownload(blob, fileName);
+        progress.success(this.translationService.instant('PDF_EXPORT.SUCCESS'), { url, name: fileName });
         this.emittingSalesOrder = false;
       },
       error: () => {

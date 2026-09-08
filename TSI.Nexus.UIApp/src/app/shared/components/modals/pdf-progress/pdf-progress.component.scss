@@ -1,0 +1,93 @@
+.pdf-progress-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: #fff;
+  border-radius: 12px;
+  min-width: 350px;
+  max-width: 420px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  text-align: center;
+}
+
+.pdf-progress-heading {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.pdf-progress-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.pdf-progress-icon-success {
+  color: #198754;
+}
+
+.pdf-progress-icon-error {
+  color: #dc3545;
+}
+
+.pdf-progress-track {
+  width: 100%;
+  background: #e9ecef;
+  border-radius: 6px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.pdf-progress-fill {
+  background: #198754;
+  height: 100%;
+  transition: width 0.2s ease;
+}
+
+.pdf-progress-caption {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.pdf-progress-file-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 8px 14px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #f8f9fa;
+  color: #212529;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pdf-progress-file-link:hover {
+  background: #eef3f7;
+  border-color: #adb5bd;
+}
+
+.pdf-progress-file-link i {
+  color: #dc3545;
+  font-size: 1.1rem;
+}
+
+.pdf-progress-btn {
+  background: #6c63ff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 24px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.pdf-progress-btn:hover {
+  background: #5548c8;
+}

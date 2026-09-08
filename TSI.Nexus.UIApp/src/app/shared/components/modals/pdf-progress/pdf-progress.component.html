@@ -1,0 +1,44 @@
+<div class="pdf-progress-modal">
+  <ng-container [ngSwitch]="state">
+    <ng-container *ngSwitchCase="'progress'">
+      <div class="pdf-progress-heading">{{ title }}</div>
+      <div class="pdf-progress-track">
+        <div class="pdf-progress-fill" [style.width.%]="percent"></div>
+      </div>
+      <div class="pdf-progress-caption">{{ label }}</div>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'indeterminate'">
+      <div class="pdf-progress-heading">{{ title }}</div>
+      <app-loading-spinner></app-loading-spinner>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'success'">
+      <i class="bi bi-check-circle-fill pdf-progress-icon pdf-progress-icon-success"></i>
+      <div class="pdf-progress-heading">{{ message }}</div>
+      <button
+        *ngIf="file"
+        type="button"
+        class="pdf-progress-file-link"
+        (click)="openFile()"
+      >
+        <i class="bi bi-file-earmark-pdf"></i>
+        <span>{{ file.name }}</span>
+      </button>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'error'">
+      <i class="bi bi-x-circle-fill pdf-progress-icon pdf-progress-icon-error"></i>
+      <div class="pdf-progress-heading">{{ message }}</div>
+    </ng-container>
+  </ng-container>
+
+  <button
+    *ngIf="state === 'success' || state === 'error'"
+    type="button"
+    class="pdf-progress-btn"
+    (click)="close()"
+  >
+    OK
+  </button>
+</div>
