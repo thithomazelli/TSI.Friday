@@ -22,12 +22,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Default .docx document templates (spec-7) and the default letterhead artwork (Admin can
-         replace either later, see DocumentTemplateType.Letterhead): embedded so
-         DocumentTemplateSeeder can read their bytes without depending on a file being present
-         next to the deployed DLL. -->
+    <!-- Default .docx document templates (spec-7) plus the default letterhead artwork and
+         signature image (Admin can replace any of them later, see DocumentTemplateType.Letterhead
+         / .Signature): embedded so DocumentTemplateSeeder can read their bytes without depending
+         on a file being present next to the deployed DLL. -->
     <EmbeddedResource Include="Seed\DocumentTemplates\*.docx" />
     <EmbeddedResource Include="Seed\DocumentTemplates\*.jpg" />
+    <EmbeddedResource Include="Seed\DocumentTemplates\*.png" />
   </ItemGroup>
 
 </Project>

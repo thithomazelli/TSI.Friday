@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Reflection;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
@@ -125,7 +124,7 @@ namespace TSI.Nexus.Services
                 var blocks = new Dictionary<string, DocxBlock>
                 {
                     ["ProductRows"] = DocxBlock.ForTable(productRows),
-                    ["SignatureBlock"] = BuildSignatureBlock(clientName),
+                    ["SignatureBlock"] = BuildSignatureBlock(clientName, await GetSignatureBytesAsync()),
                 };
 
                 return await RenderDocument(DocumentTemplateType.Quote, tokens, blocks);
@@ -188,7 +187,7 @@ namespace TSI.Nexus.Services
                 var blocks = new Dictionary<string, DocxBlock>
                 {
                     ["ProductRows"] = DocxBlock.ForTable(productRows),
-                    ["SignatureBlock"] = BuildSignatureBlock(clientName),
+                    ["SignatureBlock"] = BuildSignatureBlock(clientName, await GetSignatureBytesAsync()),
                 };
 
                 return await RenderDocument(DocumentTemplateType.SalesOrder, tokens, blocks);
@@ -269,7 +268,7 @@ namespace TSI.Nexus.Services
                 var blocks = new Dictionary<string, DocxBlock>
                 {
                     ["LegRows"] = DocxBlock.ForTable(legRows),
-                    ["SignatureBlock"] = BuildContractSignatureBlock(contratanteName),
+                    ["SignatureBlock"] = BuildContractSignatureBlock(contratanteName, await GetSignatureBytesAsync()),
                 };
 
                 return await RenderDocument(DocumentTemplateType.Contract, tokens, blocks);
@@ -360,43 +359,36 @@ namespace TSI.Nexus.Services
                 Blocks = blocks,
             };
 
-            // Unlike the signature image below, the letterhead is an admin-uploadable
-            // DocumentTemplate (DocumentTemplateType.Letterhead) rather than a fixed asset
-            // embedded in this assembly - DocxPdfRenderer already tolerates a null background
-            // (renders without one) so a missing file here degrades gracefully instead of failing
-            // every document.
+            // Both the letterhead and the signature are admin-uploadable DocumentTemplates rather
+            // than fixed assets embedded in this assembly - DocxPdfRenderer already tolerates a
+            // null/empty background (renders without one) so a missing letterhead file here
+            // degrades gracefully instead of failing every document. The signature is handled the
+            // same way, but one level up (see GetSignatureBytesAsync/BuildSignatureBlock): it's
+            // not part of DocxPdfInput, since it's injected into a DocxBlock built before
+            // RenderDocument runs, not drawn as a page background.
             var letterheadBytes = await _documentTemplateService.GetFileBytes(DocumentTemplateType.Letterhead);
             return DocxPdfRenderer.Render(input, letterheadBytes);
         }
 
-        private static byte[] ReadEmbeddedAsset(string fileName)
-        {
-            var assembly = Assembly.GetExecutingAssembly();
-            var resourceName = assembly
-                .GetManifestResourceNames()
-                .FirstOrDefault(n => n.EndsWith("." + fileName, StringComparison.OrdinalIgnoreCase));
+        /// <summary>
+        /// The PNG signature image used by BuildSignatureBlock/BuildContractSignatureBlock - an
+        /// admin-uploadable DocumentTemplate (DocumentTemplateType.Signature) rather than a fixed
+        /// asset embedded in this assembly, so an Admin can replace it without a code change.
+        /// </summary>
+        private async Task<byte[]?> GetSignatureBytesAsync() =>
+            await _documentTemplateService.GetFileBytes(DocumentTemplateType.Signature);
 
-            if (resourceName == null)
+        private static DocxBlock BuildSignatureBlock(string otherPartyName, byte[]? signatureBytes)
+        {
+            var left = new List<DocxBlockElement>();
+            // A missing/empty signature file (never uploaded yet, or removed) degrades to just the
+            // company name - same "skip rather than fail" tolerance as the letterhead background.
+            if (signatureBytes is { Length: > 0 })
             {
-                throw new InvalidOperationException($"Embedded asset '{fileName}' was not found in {assembly.FullName}.");
+                left.Add(new DocxImageElement(signatureBytes, 35));
             }
+            left.Add(new DocxParagraphElement(new[] { new DocxTextRun(CompanyLegalName) }, "center"));
 
-            using var stream = assembly.GetManifestResourceStream(resourceName)!;
-            using var memoryStream = new MemoryStream();
-            stream.CopyTo(memoryStream);
-            return memoryStream.ToArray();
-        }
-
-        private DocxBlock BuildSignatureBlock(string otherPartyName)
-        {
-            var left = new List<DocxBlockElement>
-            {
-                new DocxImageElement(ReadEmbeddedAsset("signature-warlen.png"), 35),
-                new DocxParagraphElement(
-                    new[] { new DocxTextRun(CompanyLegalName) },
-                    "center"
-                ),
-            };
             var right = new List<DocxBlockElement>
             {
                 new DocxParagraphElement(Array.Empty<DocxTextRun>(), "center"),
@@ -405,16 +397,20 @@ namespace TSI.Nexus.Services
             return DocxBlock.ForParagraphs(new List<DocxBlockRow> { DocxBlockRow.TwoColumns(left, right) });
         }
 
-        private DocxBlock BuildContractSignatureBlock(string contratanteName)
+        private static DocxBlock BuildContractSignatureBlock(string contratanteName, byte[]? signatureBytes)
         {
-            var left = new List<DocxBlockElement>
+            var left = new List<DocxBlockElement>();
+            if (signatureBytes is { Length: > 0 })
             {
-                new DocxImageElement(ReadEmbeddedAsset("signature-warlen.png"), 35),
+                left.Add(new DocxImageElement(signatureBytes, 35));
+            }
+            left.Add(
                 new DocxParagraphElement(
                     new[] { new DocxTextRun($"{CompanyLegalName}\nCONTRATADA") },
                     "center"
-                ),
-            };
+                )
+            );
+
             var right = new List<DocxBlockElement>
             {
                 new DocxParagraphElement(Array.Empty<DocxTextRun>(), "center"),

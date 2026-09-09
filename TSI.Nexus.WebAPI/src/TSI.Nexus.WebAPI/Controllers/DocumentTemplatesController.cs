@@ -124,6 +124,11 @@ namespace TSI.Nexus.WebAPI.Controllers
         private const string JpegContentType = "image/jpeg";
 
         /// <summary>
+        /// Content-Type used for the Signature type's PNG signature image.
+        /// </summary>
+        private const string PngContentType = "image/png";
+
+        /// <summary>
         /// Download the current template file for the given type
         /// </summary>
         /// <param name="type">DocumentTemplateType to be downloaded</param>
@@ -144,16 +149,16 @@ namespace TSI.Nexus.WebAPI.Controllers
                 return NotFound($"O arquivo do template do tipo {type} não foi encontrado.");
             }
 
-            var contentType = type == DocumentTemplateType.Letterhead ? JpegContentType : DocxContentType;
-            return File(bytes, contentType, webApiResponse.Data.FileName);
+            return File(bytes, GetContentType(type), webApiResponse.Data.FileName);
         }
 
         /// <summary>
         /// Upload a new template file for the given type, replacing its Content. Every type is
         /// validated as a .docx (rejected unless it's a valid ZIP archive containing a
         /// word/document.xml entry - the OOXML WordprocessingML signature, which also rejects any
-        /// leftover .html template from before this format switched) except Letterhead, which is
-        /// validated as a JPEG (its magic bytes) since it's the background artwork image, not text.
+        /// leftover .html template from before this format switched) except Letterhead and
+        /// Signature, which are validated by their image magic bytes since they're artwork, not
+        /// text.
         /// </summary>
         /// <param name="type">DocumentTemplateType being replaced</param>
         /// <param name="file">The uploaded template file</param>
@@ -170,16 +175,21 @@ namespace TSI.Nexus.WebAPI.Controllers
             await file.CopyToAsync(memoryStream);
             var content = memoryStream.ToArray();
 
-            if (type == DocumentTemplateType.Letterhead)
+            switch (type)
             {
-                if (!IsJpeg(content))
-                {
+                case DocumentTemplateType.Letterhead when !IsJpeg(content):
                     return BadRequest("O arquivo enviado não é uma imagem JPG válida.");
-                }
-            }
-            else if (!IsDocx(content))
-            {
-                return BadRequest("O arquivo enviado não é um documento .docx válido.");
+                case DocumentTemplateType.Signature when !IsPng(content):
+                    return BadRequest("O arquivo enviado não é uma imagem PNG válida.");
+                case DocumentTemplateType.Letterhead:
+                case DocumentTemplateType.Signature:
+                    break;
+                default:
+                    if (!IsDocx(content))
+                    {
+                        return BadRequest("O arquivo enviado não é um documento .docx válido.");
+                    }
+                    break;
             }
 
             var webApiResponse = await _documentTemplateService.UploadContent(
@@ -189,6 +199,13 @@ namespace TSI.Nexus.WebAPI.Controllers
             );
             return Ok(webApiResponse);
         }
+
+        private static string GetContentType(DocumentTemplateType type) => type switch
+        {
+            DocumentTemplateType.Letterhead => JpegContentType,
+            DocumentTemplateType.Signature => PngContentType,
+            _ => DocxContentType,
+        };
 
         /// <summary>
         /// Checks the ZIP signature and, inside the archive, the presence of word/document.xml -
@@ -222,5 +239,17 @@ namespace TSI.Nexus.WebAPI.Controllers
         /// </summary>
         private static bool IsJpeg(byte[] content) =>
             content.Length >= 3 && content[0] == 0xFF && content[1] == 0xD8 && content[2] == 0xFF;
+
+        /// <summary>
+        /// Checks the PNG signature (the 8-byte magic number every PNG file starts with) - enough
+        /// to reject an obviously wrong file without needing an imaging library on the backend just
+        /// to validate an upload.
+        /// </summary>
+        private static bool IsPng(byte[] content)
+        {
+            ReadOnlySpan<byte> pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+            return content.Length >= pngSignature.Length
+                && content.AsSpan(0, pngSignature.Length).SequenceEqual(pngSignature);
+        }
     }
 }

@@ -254,12 +254,16 @@ namespace TSI.Nexus.Services
         #region Private methods
 
         /// <summary>
-        /// Every type is a .docx template except Letterhead, which is the JPG background artwork
-        /// (see DocumentTemplateType.Letterhead) - same fixed-name-per-type convention, just a
+        /// Every type is a .docx template except Letterhead (the JPG background artwork) and
+        /// Signature (the PNG signature image) - same fixed-name-per-type convention, just a
         /// different file extension.
         /// </summary>
-        private static string GetFileExtension(DocumentTemplateType type) =>
-            type == DocumentTemplateType.Letterhead ? ".jpg" : ".docx";
+        private static string GetFileExtension(DocumentTemplateType type) => type switch
+        {
+            DocumentTemplateType.Letterhead => ".jpg",
+            DocumentTemplateType.Signature => ".png",
+            _ => ".docx",
+        };
 
         /// <summary>
         /// Full path of the fixed-name file for a given type (e.g. "Quote.docx",

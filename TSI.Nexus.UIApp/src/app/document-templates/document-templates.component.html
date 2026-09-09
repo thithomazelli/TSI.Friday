@@ -18,6 +18,9 @@
       <p class="text-muted small">
         {{ 'DOCUMENT_TEMPLATES.LETTERHEAD_HELP' | translate }}
       </p>
+      <p class="text-muted small">
+        {{ 'DOCUMENT_TEMPLATES.SIGNATURE_HELP' | translate }}
+      </p>
 
       <div *ngIf="loading" class="text-center py-4">
         <i class="bi bi-arrow-repeat"></i>{{ 'COMMON.LOADING' | translate }}</div>
@@ -54,9 +57,7 @@
             <input
               #fileInput
               type="file"
-              [attr.accept]="isImageType(template.type)
-                ? '.jpg,.jpeg,image/jpeg'
-                : '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document'"
+              [attr.accept]="getFileInputAccept(template.type)"
               class="d-none"
               (change)="onFileSelected($event, template)"
             />

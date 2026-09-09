@@ -493,6 +493,102 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
         }
 
         [Fact]
+        public async Task Download_ShouldUsePngContentType_WhenTemplateTypeIsSignature()
+        {
+            // Arrange
+            var template = new DocumentTemplate
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000005"),
+                Type = DocumentTemplateType.Signature,
+                Name = "Assinatura",
+                FileName = "signature-warlen.png",
+            };
+            var expected = new WebApiResponse<DocumentTemplate>
+            {
+                Data = template,
+                Status = ResponseStatus.Success,
+                Message = $"Template {template.Name} encontrado com sucesso",
+            };
+            var fileBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+
+            _documentTemplateServiceMock
+                .Setup(s => s.FindByType(DocumentTemplateType.Signature))
+                .ReturnsAsync(expected);
+            _documentTemplateServiceMock
+                .Setup(s => s.GetFileBytes(DocumentTemplateType.Signature))
+                .ReturnsAsync(fileBytes);
+
+            // Act
+            var result = await _controller.Download(DocumentTemplateType.Signature);
+
+            // Assert
+            var fileResult = Assert.IsType<FileContentResult>(result);
+            Assert.Equal("image/png", fileResult.ContentType);
+            Assert.Equal(fileBytes, fileResult.FileContents);
+        }
+
+        [Fact]
+        public async Task Upload_ShouldReturnBadRequest_WhenSignatureFileIsNotPng()
+        {
+            // Arrange
+            var bytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 }; // valid JPEG, invalid PNG
+            var fileMock = BuildFileMock(bytes, "assinatura.jpg");
+
+            // Act
+            var result = await _controller.Upload(DocumentTemplateType.Signature, fileMock.Object);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal("O arquivo enviado não é uma imagem PNG válida.", badRequest.Value);
+
+            _documentTemplateServiceMock.Verify(
+                s => s.UploadContent(It.IsAny<DocumentTemplateType>(), It.IsAny<string>(), It.IsAny<byte[]>()),
+                Times.Never
+            );
+        }
+
+        [Fact]
+        public async Task Upload_ShouldReturnOkWithUpdatedTemplate_WhenSignatureFileIsValidPng()
+        {
+            // Arrange
+            var bytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01 };
+            var fileMock = BuildFileMock(bytes, "nova-assinatura.png");
+
+            var template = new DocumentTemplate
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000005"),
+                Type = DocumentTemplateType.Signature,
+                Name = "Assinatura",
+                FileName = "nova-assinatura.png",
+            };
+            var expected = new WebApiResponse<DocumentTemplate>
+            {
+                Data = template,
+                Status = ResponseStatus.Success,
+                Message = $"Template {template.Name} atualizado com sucesso.",
+            };
+
+            _documentTemplateServiceMock
+                .Setup(s =>
+                    s.UploadContent(DocumentTemplateType.Signature, "nova-assinatura.png", bytes)
+                )
+                .ReturnsAsync(expected);
+
+            // Act
+            var result = await _controller.Upload(DocumentTemplateType.Signature, fileMock.Object);
+
+            // Assert
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<WebApiResponse<DocumentTemplate>>(ok.Value);
+            response.Should().BeEquivalentTo(expected);
+
+            _documentTemplateServiceMock.Verify(
+                s => s.UploadContent(DocumentTemplateType.Signature, "nova-assinatura.png", bytes),
+                Times.Once
+            );
+        }
+
+        [Fact]
         public async Task Upload_ShouldReturnOkWithUpdatedTemplate_WhenFileIsValid()
         {
             // Arrange

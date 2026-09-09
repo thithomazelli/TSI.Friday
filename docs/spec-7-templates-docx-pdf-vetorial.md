@@ -124,6 +124,16 @@ Isso precisa ficar visível pra quem for editar o template — texto de ajuda ao
 > admin trocar a arte sem precisar mexer em código. Cabeçalho/rodapé/imagem de fundo *nativos do
 > Word* continuam fora de escopo (seção 3.2) — o que mudou foi só de onde vem a imagem de fundo que
 > o motor já desenhava, não uma nova capacidade de leitura do `.docx`. Detalhes na seção 3.3.
+>
+> **Revisão 2 (mesma ideia, pra assinatura)**: a imagem de assinatura usada no bloco de assinatura
+> (Orçamento/Pedido de Venda/Contrato) tinha exatamente o mesmo problema — `.png` embutido no
+> assembly de `TSI.Nexus.Services`, lido via `BuildSignatureBlock`/`BuildContractSignatureBlock`,
+> fora do alcance do admin. Mesmo tratamento do timbrado: virou `DocumentTemplate` tipo
+> `Signature`, conteúdo `.png`. Diferença de mecanismo: como essa imagem é injetada dentro de um
+> `DocxBlock` (não desenhada como fundo de página pelo `DocxPdfRenderer`), a busca do arquivo
+> acontece em `DocumentPdfGenerationService` antes de montar o bloco (`GetSignatureBytesAsync`),
+> não dentro do renderer — se o arquivo estiver ausente/vazio, o bloco degrada pra só o nome da
+> empresa, sem a imagem, em vez de falhar a geração inteira.
 
 ### 3.3 Onde o `.docx` mora — arquivo em disco, não blob no banco
 
@@ -137,10 +147,11 @@ Isso evita duas coisas ao mesmo tempo: builds de banco desnecessariamente grande
 deploy apagar um template customizado (o mesmo cuidado que já existe pra anexos).
 
 - Nome do arquivo em disco é **fixo por tipo** (`Quote.docx`, `Contract.docx`,
-  `ServiceOrder.docx`, `SalesOrder.docx`, `Letterhead.jpg`) — um upload novo **sobrescreve** o
-  arquivo existente, não cria um segundo arquivo. `Letterhead` é o único tipo com extensão `.jpg`
-  em vez de `.docx` (`DocumentTemplateService.GetFileExtension`); `DocumentTemplatesController`
-  valida a assinatura JPEG em vez de ZIP/`word/document.xml` só pra esse tipo.
+  `ServiceOrder.docx`, `SalesOrder.docx`, `Letterhead.jpg`, `Signature.png`) — um upload novo
+  **sobrescreve** o arquivo existente, não cria um segundo arquivo. `Letterhead`/`Signature` são os
+  únicos tipos com extensão `.jpg`/`.png` em vez de `.docx` (`DocumentTemplateService.
+  GetFileExtension`); `DocumentTemplatesController` valida a assinatura JPEG/PNG (em vez de
+  ZIP/`word/document.xml`) só pra esses dois tipos.
 - `DocumentTemplate.Content` (a coluna `byte[]`/`longblob` introduzida na primeira tentativa desta
   spec) é **removida** — o model volta a não ter conteúdo, só metadados.
 - `IDocumentTemplateService.UploadContent`/`Download` passam a ler/escrever esse arquivo fixo em

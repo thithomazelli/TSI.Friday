@@ -21,9 +21,10 @@ namespace TSI.Nexus.Data.Seed
     /// templates reproduce, in Word, the same layout the Angular document builders used to
     /// hardcode as HTML; that content now lives in the .docx files themselves and is read back by
     /// DocumentPdfGenerationService (TSI.Nexus.Services), not here. SalesOrder is a new, basic
-    /// template, since Serodio doesn't have one yet. Letterhead is the one non-.docx type - a JPG
-    /// background image, not text - drawn behind every page of every generated document; an Admin
-    /// can replace it the same way as the other 4, via the Upload endpoint.
+    /// template, since Serodio doesn't have one yet. Letterhead (JPG background image drawn behind
+    /// every page) and Signature (PNG signature image in the two-column signature block) are the
+    /// two non-.docx types; an Admin can replace either the same way as the .docx templates, via
+    /// the Upload endpoint.
     ///
     /// The actual file path (fixed name per type, e.g. "Quote.docx") is resolved the same way
     /// DocumentTemplateService.ResolveFilePath does - a configurable "DocumentTemplates:BasePath"
@@ -87,15 +88,21 @@ namespace TSI.Nexus.Data.Seed
                 (DocumentTemplateType.ServiceOrder, "Ordem de Serviço", "ordem-de-servico.docx"),
                 (DocumentTemplateType.SalesOrder, "Pedido de Venda", "pedido-de-venda.docx"),
                 (DocumentTemplateType.Letterhead, "Papel Timbrado", "letterhead-a4.jpg"),
+                (DocumentTemplateType.Signature, "Assinatura", "signature-warlen.png"),
             ];
         }
 
         /// <summary>
-        /// Every type is a .docx template except Letterhead, which is the JPG background artwork -
-        /// mirrors DocumentTemplateService.GetFileExtension (TSI.Nexus.Services).
+        /// Every type is a .docx template except Letterhead (JPG background artwork) and
+        /// Signature (PNG signature image) - mirrors DocumentTemplateService.GetFileExtension
+        /// (TSI.Nexus.Services).
         /// </summary>
-        private static string GetFileExtension(DocumentTemplateType type) =>
-            type == DocumentTemplateType.Letterhead ? ".jpg" : ".docx";
+        private static string GetFileExtension(DocumentTemplateType type) => type switch
+        {
+            DocumentTemplateType.Letterhead => ".jpg",
+            DocumentTemplateType.Signature => ".png",
+            _ => ".docx",
+        };
 
         /// <summary>
         /// Mirrors DocumentTemplateService.ResolveFilePath (TSI.Nexus.Services) - kept as a small,

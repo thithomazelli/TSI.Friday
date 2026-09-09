@@ -366,6 +366,42 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
+        public async Task DocumentTemplateService_UploadContent_ShouldWriteFileWithPngExtension_WhenTypeIsSignature()
+        {
+            // Arrange - Signature is the other non-.docx DocumentTemplateType: it's the PNG
+            // signature image used in the signature block (GetFileExtension branches on this).
+            var documentTemplate = new DocumentTemplate
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000003"),
+                Type = DocumentTemplateType.Signature,
+                Name = "Assinatura",
+                FileName = "old-signature.png",
+            };
+
+            _repository
+                .Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<DocumentTemplate, bool>>>()))
+                .ReturnsAsync(documentTemplate);
+            _repository
+                .Setup(r => r.UpdateAsync(It.IsAny<DocumentTemplate>()))
+                .Returns(Task.CompletedTask);
+            var pngBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+
+            // Act
+            var result = await _service.UploadContent(
+                DocumentTemplateType.Signature,
+                "nova-assinatura.png",
+                pngBytes
+            );
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.True(File.Exists(Path.Combine(_tempBasePath, "Signature.png")));
+
+            var writtenBytes = await _service.GetFileBytes(DocumentTemplateType.Signature);
+            Assert.Equal(pngBytes, writtenBytes);
+        }
+
+        [Fact]
         public async Task DocumentTemplateService_UploadContent_ShouldReturnWarning_WhenTypeIsNotRegistered()
         {
             // Arrange

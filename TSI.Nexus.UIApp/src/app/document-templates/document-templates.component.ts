@@ -44,8 +44,7 @@ export class DocumentTemplatesComponent implements OnInit {
       return;
     }
     this.documentTemplateService.download(template.type).subscribe((blob) => {
-      const fallbackExtension = this.isImageType(template.type) ? 'jpg' : 'docx';
-      downloadBlob(blob, template.fileName || `${template.type}.${fallbackExtension}`);
+      downloadBlob(blob, template.fileName || `${template.type}.${this.getFileExtension(template.type)}`);
     });
   }
 
@@ -53,10 +52,29 @@ export class DocumentTemplatesComponent implements OnInit {
     fileInput.click();
   }
 
-  // Every DocumentTemplateType is a .docx template except Letterhead, the JPG background artwork
-  // drawn behind every page - used to pick the right file-picker filter and download extension.
-  isImageType(type: DocumentTemplateType | undefined): boolean {
-    return type === DocumentTemplateType.Letterhead;
+  // Every DocumentTemplateType is a .docx template except Letterhead (the JPG background artwork
+  // drawn behind every page) and Signature (the PNG signature image) - used to pick the right
+  // file-picker filter and download extension for each row.
+  getFileExtension(type: DocumentTemplateType | undefined): 'jpg' | 'png' | 'docx' {
+    switch (type) {
+      case DocumentTemplateType.Letterhead:
+        return 'jpg';
+      case DocumentTemplateType.Signature:
+        return 'png';
+      default:
+        return 'docx';
+    }
+  }
+
+  getFileInputAccept(type: DocumentTemplateType | undefined): string {
+    switch (this.getFileExtension(type)) {
+      case 'jpg':
+        return '.jpg,.jpeg,image/jpeg';
+      case 'png':
+        return '.png,image/png';
+      default:
+        return '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
   }
 
   onFileSelected(event: Event, template: DocumentTemplate): void {

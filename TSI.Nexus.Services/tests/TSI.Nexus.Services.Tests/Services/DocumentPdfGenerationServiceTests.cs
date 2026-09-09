@@ -70,6 +70,21 @@ namespace TSI.Nexus.Services.Tests.Services
         private static bool StartsWithPdfMagic(byte[]? bytes) =>
             bytes != null && bytes.Length > 4 && Encoding.ASCII.GetString(bytes, 0, 4) == "%PDF";
 
+        private static string FindRepoFile(string relativePath)
+        {
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null)
+            {
+                var candidate = Path.Combine(dir.FullName, relativePath);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+                dir = dir.Parent;
+            }
+            throw new FileNotFoundException($"Could not locate '{relativePath}' walking up from {AppContext.BaseDirectory}.");
+        }
+
         [Fact]
         public async Task GenerateQuotePdf_ReturnsNull_WhenQuoteNotFound()
         {
@@ -139,10 +154,55 @@ namespace TSI.Nexus.Services.Tests.Services
             var result = await _service.GenerateQuotePdf(quoteId);
 
             Assert.True(StartsWithPdfMagic(result));
-            // The letterhead background is now an admin-uploadable DocumentTemplate
-            // (DocumentTemplateType.Letterhead) instead of a fixed asset embedded in this
-            // assembly - RenderDocument must fetch it the same way it fetches the .docx itself.
+            // The letterhead background and the signature image are both admin-uploadable
+            // DocumentTemplates now instead of fixed assets embedded in this assembly.
             _documentTemplateService.Verify(s => s.GetFileBytes(DocumentTemplateType.Letterhead), Times.Once);
+            _documentTemplateService.Verify(s => s.GetFileBytes(DocumentTemplateType.Signature), Times.Once);
+        }
+
+        [Fact]
+        public async Task GenerateQuotePdf_ReturnsPdfBytes_WhenRealSignatureImageIsConfigured()
+        {
+            // Regression coverage for BuildSignatureBlock: with a real (non-empty) signature file
+            // configured, the image must actually make it into the rendered PDF without throwing -
+            // the "gracefully skip when missing" path (covered by every other happy-path test,
+            // where the mock's default empty byte[] is treated as "no signature") is only half the
+            // behavior; this proves the "present" path still works too.
+            var quoteId = Guid.NewGuid();
+            _quoteService
+                .Setup(s => s.FindById(quoteId))
+                .ReturnsAsync(
+                    new WebApiResponse<QuoteDto>
+                    {
+                        Data = new QuoteDto
+                        {
+                            Id = quoteId,
+                            QuoteNumber = "ORC-0002",
+                            BusinessPartnerName = "Cliente Teste",
+                            Date = DateTime.Today,
+                            TotalPrice = 500m,
+                            Condition = PaymentCondition.FullPayment,
+                            Method = PaymentMethod.Pix,
+                            QuoteProducts = new List<QuoteProductDto>(),
+                        },
+                    }
+                );
+            _businessPartnerService
+                .Setup(s => s.FindById(It.IsAny<Guid?>()))
+                .ReturnsAsync(new WebApiResponse<BusinessPartnerDto> { Data = null });
+            _documentTemplateService
+                .Setup(s => s.GetFileBytes(DocumentTemplateType.Quote))
+                .ReturnsAsync(BuildMinimalTemplate("{{ProductRows}}", "{{SignatureBlock}}"));
+            var signaturePath = FindRepoFile(
+                Path.Combine("TSI.Nexus.Data", "src", "TSI.Nexus.Data", "Seed", "DocumentTemplates", "signature-warlen.png")
+            );
+            _documentTemplateService
+                .Setup(s => s.GetFileBytes(DocumentTemplateType.Signature))
+                .ReturnsAsync(File.ReadAllBytes(signaturePath));
+
+            var result = await _service.GenerateQuotePdf(quoteId);
+
+            Assert.True(StartsWithPdfMagic(result));
         }
 
         [Fact]

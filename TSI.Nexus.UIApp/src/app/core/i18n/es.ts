@@ -616,6 +616,7 @@ export const ES = {
     DESCRIPTION: 'Descarga el .docx de cada documento generado por el sistema, edita el texto, logotipo o información de pie de página en Word y envíalo de vuelta. Secciones como tablas de productos, totales y firmas continúan siendo armadas automáticamente por el sistema a partir de los datos de cada pedido/viaje/presupuesto.',
     FORMAT_HELP: 'Compatible: párrafos de texto, negrita/cursiva/subrayado, tablas simples, imágenes (fuera de tablas) y salto de página. Columnas de texto, encabezado/pie de página nativo de Word, cuadros de texto e imágenes dentro de celdas de tabla no aparecerán en el PDF generado.',
     LETTERHEAD_HELP: 'El "Papel Membretado" es diferente de los demás: es la imagen JPG dibujada como fondo en todas las páginas de todos los documentos (franja superior, pie de página, código QR, íconos y contacto) - envía un archivo .jpg en lugar de un .docx.',
+    SIGNATURE_HELP: 'La "Firma" también es diferente: es la imagen PNG usada en el bloque de firma del Presupuesto, Pedido de Venta y Contrato - envía un archivo .png en lugar de un .docx.',
     NO_TEMPLATES_FOUND: 'Ninguna plantilla encontrada.',
     UPDATE_ERROR: 'No fue posible actualizar la plantilla.',
   },
