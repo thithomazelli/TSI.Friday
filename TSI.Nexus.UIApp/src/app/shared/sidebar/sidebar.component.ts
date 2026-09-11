@@ -32,7 +32,6 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
 export class SidebarComponent implements AfterViewInit, OnInit, OnDestroy {
   private listeners: (() => void)[] = [];
   private transitionCleanups: (() => void)[] = [];
-  private osInstance: any = null;
   private userSub: Subscription | null = null;
 
   isAdmin = false;
@@ -96,31 +95,6 @@ export class SidebarComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    // inicializa OverlayScrollbars no wrapper, se disponível
-    const global: any = window as any;
-    const OSFactory =
-      global?.OverlayScrollbars ??
-      (global?.OverlayScrollbarsGlobal &&
-        global.OverlayScrollbarsGlobal.OverlayScrollbars);
-    const sidebarWrapper: HTMLElement | null =
-      this.el.nativeElement.querySelector('.sidebar-wrapper');
-
-    if (OSFactory && sidebarWrapper) {
-      try {
-        this.osInstance = OSFactory(sidebarWrapper, {
-          scrollbars: {
-            theme: 'os-theme-light',
-            autoHide: 'leave',
-            clickScroll: true,
-          },
-        });
-      } catch (e) {
-        // fallback silencioso
-        console.warn('OverlayScrollbars init failed', e);
-        this.osInstance = null;
-      }
-    }
-
     const links: NodeListOf<HTMLElement> =
       this.el.nativeElement.querySelectorAll('.nav-item > a');
 
@@ -182,13 +156,6 @@ export class SidebarComponent implements AfterViewInit, OnInit, OnDestroy {
             this.renderer.removeStyle(submenu, 'transition');
             this.renderer.setStyle(submenu, 'opacity', '0');
             this.renderer.setStyle(submenu, 'transform', 'translateY(-6px)');
-
-            // atualizar OverlayScrollbars para recalcular o conteúdo/altura do sidebar
-            try {
-              this.osInstance?.update?.();
-            } catch (err) {
-              // ignore
-            }
           };
 
           const onEnd = (ev: TransitionEvent) => {
@@ -246,13 +213,6 @@ export class SidebarComponent implements AfterViewInit, OnInit, OnDestroy {
             this.renderer.removeStyle(submenu, 'transition');
             this.renderer.removeStyle(submenu, 'transform');
             this.renderer.removeStyle(submenu, 'opacity');
-
-            // atualizar OverlayScrollbars para recalcular o conteúdo/altura do sidebar
-            try {
-              this.osInstance?.update?.();
-            } catch (err) {
-              // ignore
-            }
           };
 
           const onEnd = (ev: TransitionEvent) => {
@@ -288,14 +248,6 @@ export class SidebarComponent implements AfterViewInit, OnInit, OnDestroy {
     this.transitionCleanups.forEach((un) => un());
     this.listeners = [];
     this.transitionCleanups = [];
-
-    // destruir instância do OverlayScrollbars ao desmontar
-    try {
-      this.osInstance?.destroy?.();
-      this.osInstance = null;
-    } catch {
-      // ignore
-    }
 
     if (this.userSub) {
       this.userSub.unsubscribe();
