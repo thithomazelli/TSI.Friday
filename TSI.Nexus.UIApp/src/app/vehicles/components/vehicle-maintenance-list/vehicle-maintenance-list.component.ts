@@ -6,10 +6,13 @@ import {
   OnDestroy,
   OnInit,
   SimpleChanges,
+  ViewChild,
 } from '@angular/core';
 import {
   ModalService,
   NotificationService,
+  PagedRequest,
+  PagedResult,
   ResponseStatus,
   VehicleMaintenance,
   VehicleMaintenanceService,
@@ -17,7 +20,7 @@ import {
   WebApiResponse,
 } from '@nexus/core';
 import { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community';
-import { Subject, takeUntil } from 'rxjs';
+import { Observable, Subject, takeUntil } from 'rxjs';
 import { NgIf } from '@angular/common';
 
 import { VehicleMaintenanceDetailsModalComponent } from '../vehicle-maintenance-details-modal/vehicle-maintenance-details-modal.component';
@@ -52,6 +55,19 @@ export class VehicleMaintenanceListComponent
   columnDefs: ColDef[] = [];
   loading: boolean = false;
 
+  @ViewChild('gridRef') private gridRef?: GridComponent<VehicleMaintenance>;
+
+  // True for the main Vehicle Maintenances listing screen (server-side paginated); false for the
+  // tab embedded inside a Vehicle's details page, which shows that one vehicle's own (small)
+  // history and stays client-side exactly as before.
+  get isTopLevelList(): boolean {
+    return !this.vehicleId;
+  }
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<VehicleMaintenance>> => {
+    return this.vehicleMaintenanceService.getAllPaged(request);
+  };
+
   private _destroy$ = new Subject<void>();
 
   get statusMap(): { [key: string]: { label: string; color: string } } {
@@ -76,10 +92,18 @@ export class VehicleMaintenanceListComponent
     this.translationService.language$
       .pipe(takeUntil(this._destroy$))
       .subscribe(() => this.initializeGrid());
-    this.load();
+    if (!this.isTopLevelList) {
+      this.load();
+    }
     this.vehicleMaintenanceService.maintenanceChanged$
       .pipe(takeUntil(this._destroy$))
-      .subscribe(() => this.load());
+      .subscribe(() => {
+        if (this.isTopLevelList) {
+          this.gridRef?.gridApi?.purgeInfiniteCache();
+        } else {
+          this.load();
+        }
+      });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -106,7 +130,11 @@ export class VehicleMaintenanceListComponent
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<VehicleMaintenance>) => {
         if (response.status === ResponseStatus.Success) {
-          this.rowData = this.rowData.filter((m) => m.id !== maintenance.id);
+          if (this.isTopLevelList) {
+            this.gridRef?.gridApi?.purgeInfiniteCache();
+          } else {
+            this.rowData = this.rowData.filter((m) => m.id !== maintenance.id);
+          }
         }
         this.modalService.hideModal();
         this.modalService.showSweetNotification('', response.message, response.status);
@@ -114,6 +142,15 @@ export class VehicleMaintenanceListComponent
   }
 
   refresh(): void {
+    // For the top-level list, <app-grid>'s own refresh button already purges the infinite cache
+    // (see GridComponent.onRefreshClicked) - this only needs the notification.
+    if (this.isTopLevelList) {
+      this.notificationService.showMessage(
+        ResponseStatus.Success,
+        this.translationService.instant('VEHICLES.MAINTENANCES_REFRESHED'),
+      );
+      return;
+    }
     this.load(true);
   }
 

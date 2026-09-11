@@ -1,6 +1,8 @@
+using System.Linq.Expressions;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Services
@@ -179,6 +181,55 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<VehicleMaintenance>>> FindAllPaged(
+            PagedRequest request
+        )
+        {
+            WebApiResponse<PagedResult<VehicleMaintenance>> result = new();
+
+            try
+            {
+                if (!await _featureToggleService.IsEnabledAsync(FeatureToggleKeys.VehicleMaintenance, FeatureToggleKeys.FleetModule))
+                {
+                    result.Data = new PagedResult<VehicleMaintenance> { Items = [], TotalCount = 0 };
+                    result.Status = ResponseStatus.Success;
+                    result.Message = "0 registro(s) encontrado(s).";
+                    return result;
+                }
+
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                // Unlike FindAll, VehicleMaintenanceProducts isn't eager-loaded here - the grid
+                // never shows it, only the details/edit form does (loaded separately by FindById).
+                var (maintenances, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true,
+                    includes: m => m.Vehicle
+                );
+
+                result.Data = new PagedResult<VehicleMaintenance>
+                {
+                    Items = maintenances,
+                    TotalCount = totalCount,
+                };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "VehicleMaintenanceService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de Manutenção na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
         public async Task<WebApiResponse<VehicleMaintenance>> FindById(Guid? id)
         {
             WebApiResponse<VehicleMaintenance> result = new();
@@ -255,6 +306,56 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Vehicle Maintenances grid, mapped to the
+        /// VehicleMaintenance property they sort by - an unrecognized SortField (or none) falls
+        /// back to the repository's own default (CreateDate) ordering.
+        /// </summary>
+        private static readonly Dictionary<
+            string,
+            Expression<Func<VehicleMaintenance, object>>
+        > SortMap = new()
+        {
+            ["vehicle.plate"] = m => m.Vehicle.Plate,
+            ["description"] = m => m.Description,
+            ["type"] = m => m.Type,
+            ["scheduledDate"] = m => m.ScheduledDate,
+            ["cost"] = m => m.Cost,
+            ["status"] = m => m.Status,
+        };
+
+        /// <summary>
+        /// Quick filter OR's across the grid's own visible text columns.
+        /// </summary>
+        private static Expression<Func<VehicleMaintenance, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+
+            return m =>
+                !hasQuickFilter
+                || m.Description.Contains(quickFilter)
+                || m.Vehicle.Plate.Contains(quickFilter);
+        }
+
+        private static Func<
+            IQueryable<VehicleMaintenance>,
+            IOrderedQueryable<VehicleMaintenance>
+        > BuildOrderBy(PagedRequest request)
+        {
+            if (
+                string.IsNullOrWhiteSpace(request.SortField)
+                || !SortMap.TryGetValue(request.SortField, out var keySelector)
+            )
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
 
         /// <summary>
         /// Reconciles the tracked VehicleMaintenanceProducts collection against the parts sent by

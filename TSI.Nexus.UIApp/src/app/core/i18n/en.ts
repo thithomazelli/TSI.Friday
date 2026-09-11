@@ -290,6 +290,7 @@ export const EN = {
     PRODUCT_STOCK: 'stock: {qty}',
     REFUELINGS: 'Refuelings',
     FUEL_LOGS_REFRESHED: 'Fuel logs refreshed successfully',
+    MAINTENANCES_REFRESHED: 'Maintenances refreshed successfully',
     NEW_REFUELING: 'New refueling',
     ODOMETER_SHORT: 'Odometer',
     NO_REFUELING_REGISTERED: 'No refueling registered',
