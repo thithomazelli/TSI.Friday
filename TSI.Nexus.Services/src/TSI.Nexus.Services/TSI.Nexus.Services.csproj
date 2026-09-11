@@ -16,6 +16,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="PdfSharpCore" Version="1.3.67" />
+    <!-- Override PdfSharpCore's transitive SixLabors.ImageSharp 1.0.4 (multiple known CVEs). -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.13" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.2" />
   </ItemGroup>
