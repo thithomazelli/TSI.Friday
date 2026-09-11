@@ -1,8 +1,12 @@
 using System;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using TSI.Nexus.Contracts.Models;
 
@@ -21,6 +25,8 @@ namespace TSI.Nexus.Data
             {
                 var userManager = provider.GetRequiredService<UserManager<User>>();
                 var roleManager = provider.GetRequiredService<RoleManager<IdentityRole>>();
+                var config = provider.GetRequiredService<IConfiguration>();
+                var env = provider.GetRequiredService<IHostEnvironment>();
 
                 // ensure roles
                 var roles = new[] { "Master", "Admin", "User" };
@@ -43,6 +49,12 @@ namespace TSI.Nexus.Data
                 // Ensure initial users: Admin (Master role) plus the named Admin-role accounts.
                 // UserName always equals Email, except "admin" itself: it's a technical/system
                 // account with no real mailbox, so its "email" is just the literal string "admin".
+                //
+                // Password is resolved lazily (see ResolveSeedPassword) instead of hardcoded here:
+                // a fixed, year-derived password committed to source and identical across every
+                // environment (including Production) is a real credential-guessing risk. The
+                // DevFallbackPassword below only ever applies outside Production, so local/demo
+                // setup stays exactly as convenient as before.
                 var year = DateTime.UtcNow.Year;
                 var initialUsers = new[]
                 {
@@ -52,7 +64,8 @@ namespace TSI.Nexus.Data
                         FirstName: "Admin",
                         LastName: "",
                         Role: "Master",
-                        Password: $"!tsi@{year}",
+                        PasswordConfigKey: "Seed:AdminPassword",
+                        DevFallbackPassword: $"!tsi@{year}",
                         // Earlier seed revisions created this account as "Admin" or "admin@local".
                         LegacyUserNames: new[] { "Admin", "admin@local" }
                     ),
@@ -62,7 +75,8 @@ namespace TSI.Nexus.Data
                         FirstName: "Thiago",
                         LastName: "Thomazelli",
                         Role: "Admin",
-                        Password: $"tsi@{year}",
+                        PasswordConfigKey: "Seed:ThiagoPassword",
+                        DevFallbackPassword: $"tsi@{year}",
                         // Earlier seed revisions created this account as "Thiago" with password "tsi".
                         LegacyUserNames: new[] { "Thiago" }
                     ),
@@ -72,7 +86,8 @@ namespace TSI.Nexus.Data
                         FirstName: "Leonardo",
                         LastName: "Thomazelli",
                         Role: "Admin",
-                        Password: $"tsi@{year}",
+                        PasswordConfigKey: "Seed:LeonardoPassword",
+                        DevFallbackPassword: $"tsi@{year}",
                         // Earlier seed revisions created this account as "Leonardo" with password "tsi".
                         LegacyUserNames: new[] { "Leonardo" }
                     ),
@@ -111,7 +126,15 @@ namespace TSI.Nexus.Data
                             LastName = initialUser.LastName,
                         };
 
-                        var result = await userManager.CreateAsync(user, initialUser.Password);
+                        var seedPassword = ResolveSeedPassword(
+                            config,
+                            env,
+                            logger,
+                            initialUser.PasswordConfigKey,
+                            initialUser.UserName,
+                            initialUser.DevFallbackPassword
+                        );
+                        var result = await userManager.CreateAsync(user, seedPassword);
                         if (!result.Succeeded)
                         {
                             logger?.LogError(
@@ -152,9 +175,17 @@ namespace TSI.Nexus.Data
                         {
                             await userManager.RemovePasswordAsync(existing);
                         }
+                        var migratedPassword = ResolveSeedPassword(
+                            config,
+                            env,
+                            logger,
+                            initialUser.PasswordConfigKey,
+                            initialUser.UserName,
+                            initialUser.DevFallbackPassword
+                        );
                         var addPasswordResult = await userManager.AddPasswordAsync(
                             existing,
-                            initialUser.Password
+                            migratedPassword
                         );
 
                         if (
@@ -373,6 +404,60 @@ namespace TSI.Nexus.Data
                 var logger2 = services.GetService<ILoggerFactory>()?.CreateLogger("DatabaseSeeder");
                 logger2?.LogError(ex, "An error occurred while seeding the database.");
             }
+        }
+
+        /// <summary>
+        /// Resolves the password used to create/repair one of the fixed initial accounts (called
+        /// only inside the branches that actually need it, so a live Production account that
+        /// already exists never triggers this - see SeedAsync). Precedence: an explicit
+        /// <paramref name="configKey"/> value (e.g. a deploy-time env var) always wins; outside
+        /// Production, falls back to the same predictable dev-convenience password this seeder
+        /// always used; in Production with nothing configured, generates a random one-time
+        /// password and logs it once instead of using a fixed, source-committed value that would
+        /// be identical across every deployment of this app.
+        /// </summary>
+        private static string ResolveSeedPassword(
+            IConfiguration config,
+            IHostEnvironment env,
+            ILogger? logger,
+            string configKey,
+            string userName,
+            string devFallbackPassword
+        )
+        {
+            var configured = config[configKey];
+            if (!string.IsNullOrWhiteSpace(configured))
+            {
+                return configured;
+            }
+
+            if (!env.IsProduction())
+            {
+                return devFallbackPassword;
+            }
+
+            var generated = GenerateRandomPassword();
+            logger?.LogWarning(
+                "SEED: no {ConfigKey} configured in Production - generated a random initial "
+                    + "password for '{UserName}': {Password}. Log in and change it immediately; "
+                    + "this will not be shown again.",
+                configKey,
+                userName,
+                generated
+            );
+            return generated;
+        }
+
+        private static string GenerateRandomPassword()
+        {
+            const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+            var bytes = RandomNumberGenerator.GetBytes(24);
+            var builder = new StringBuilder(bytes.Length);
+            foreach (var b in bytes)
+            {
+                builder.Append(chars[b % chars.Length]);
+            }
+            return builder.ToString();
         }
     }
 }

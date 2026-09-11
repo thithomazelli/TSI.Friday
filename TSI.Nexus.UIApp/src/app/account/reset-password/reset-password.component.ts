@@ -1,27 +1,19 @@
-import {
-  Component,
-  EventEmitter,
-  Inject,
-  Input,
-  OnChanges,
-  OnInit,
-  Output,
-  SimpleChanges,
-} from '@angular/core';
+import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import {
-  AccountService,
-  FormBaseComponent,
-  ModalService,
-  ResetPassword,
-  User,
-} from '@nexus/core';
-import { UserDetailsModalComponent } from '../../users/components/user-details-modal/user-details-modal.component';
-import { UserDetailsPageComponent } from '../../users/components/user-details-page/user-details-page.component';
-import { NgIf } from '@angular/common';
+import { NgClass, NgIf, NgSwitch, NgSwitchCase } from '@angular/common';
+import { AccountService, FormBaseComponent } from '@nexus/core';
 import { ValidationMessagesComponent } from '../../shared/components/errors/validation-messages/validation-messages.component';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
+
+// Two entry points land here, distinguished by the query string:
+// - no token/email: reached from the "Esqueceu sua senha?" link on the login page - collects an
+//   e-mail and asks the backend to send a reset link (AccountService.forgotUsernameOrPassword).
+// - token+email present: reached by clicking that emailed link - collects only the new password
+//   and submits it along with the token, which the backend now actually validates (see
+//   ResetPasswordDto.Token / UserManagerService.ResetPassword) instead of silently accepting any
+//   request as it used to.
+type Step = 'request' | 'sent' | 'reset' | 'done';
 
 @Component({
     selector: 'app-reset-password',
@@ -29,94 +21,98 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
     styleUrl: './reset-password.component.scss',
     imports: [
         ReactiveFormsModule,
+        NgClass,
         NgIf,
+        NgSwitch,
+        NgSwitchCase,
+        RouterLink,
         ValidationMessagesComponent,
         TranslatePipe,
     ],
 })
-export class ResetPasswordComponent
-  extends FormBaseComponent
-  implements OnInit, OnChanges
-{
-  @Input()
-  data?: User;
-
-  @Output() saved = new EventEmitter<any>();
-
+export class ResetPasswordComponent extends FormBaseComponent implements OnInit {
+  step: Step = 'request';
   passwordVisible = false;
+
+  private token: string | null = null;
+  private email: string | null = null;
 
   constructor(
     private accountService: AccountService,
-    private modalService: ModalService,
     private formBuilder: FormBuilder,
-    public dialogRef: MatDialogRef<
-      UserDetailsModalComponent | UserDetailsPageComponent
-    >,
-    @Inject(MAT_DIALOG_DATA) public dialogData: any,
+    private activatedRoute: ActivatedRoute,
   ) {
     super();
-    if (dialogData) {
-      this.data = dialogData.data;
-    }
   }
 
   ngOnInit(): void {
-    this.initializeForm();
-  }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (
-      (changes['data'] && !changes['data'].firstChange) ||
-      (changes['isEdit'] && !changes['isEdit'].firstChange)
-    ) {
+    this.activatedRoute.queryParamMap.subscribe((params) => {
+      this.token = params.get('token');
+      this.email = params.get('email');
+      this.step = this.token && this.email ? 'reset' : 'request';
       this.initializeForm();
-    }
+    });
   }
 
   initializeForm(): void {
-    this.form = this.formBuilder.group({
-      email: [{ value: this.data?.email, disabled: true }],
-      newPassword: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(6),
-          Validators.maxLength(15),
-        ],
-      ],
+    this.submitted = false;
+    this.errorMessages = [];
+    this.form =
+      this.step === 'reset'
+        ? this.formBuilder.group({
+            newPassword: [
+              '',
+              [Validators.required, Validators.minLength(6), Validators.maxLength(15)],
+            ],
+          })
+        : this.formBuilder.group({
+            email: ['', [Validators.required, Validators.email]],
+          });
+  }
+
+  requestReset(): void {
+    this.submitted = true;
+    this.errorMessages = [];
+    if (this.form.invalid) {
+      return;
+    }
+
+    this.accountService.forgotUsernameOrPassword(this.form.get('email')?.value).subscribe({
+      next: () => {
+        this.step = 'sent';
+      },
+      error: (response: any) => {
+        this.errorMessages = response?.error?.errors ?? [response?.error ?? 'Erro ao enviar o e-mail.'];
+      },
     });
   }
 
   resetPassword(): void {
     this.submitted = true;
     this.errorMessages = [];
+    if (this.form.invalid || !this.token || !this.email) {
+      return;
+    }
 
-    const resetPassword = <ResetPassword>{
-      token: '123',
-      email: this.data?.email,
-      newPassword: this.form.get('newPassword')?.value,
-    };
-
-    this.accountService.resetPassword(resetPassword).subscribe({
-      next: (response: any) => {
-        this.saved.emit(response);
-        this.dialogRef.close(response);
-      },
-      error: (response: any) => {
-        if (response.error.errors) {
-          this.errorMessages = response.error.errors;
-        } else {
-          this.errorMessages.push(response.error);
-        }
-      },
-    });
+    this.accountService
+      .resetPassword({
+        token: this.token,
+        email: this.email,
+        newPassword: this.form.get('newPassword')?.value,
+      })
+      .subscribe({
+        next: () => {
+          this.step = 'done';
+        },
+        error: (response: any) => {
+          this.errorMessages = response?.error?.errors ?? [
+            response?.error ?? 'Erro ao redefinir a senha.',
+          ];
+        },
+      });
   }
 
   togglePasswordVisibility(): void {
     this.passwordVisible = !this.passwordVisible;
-  }
-
-  close(): void {
-    this.modalService.hideModal(this.dialogRef);
   }
 }

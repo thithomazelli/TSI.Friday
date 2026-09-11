@@ -69,10 +69,16 @@ namespace TSI.Nexus.Services
                     return Unauthorized("Por favor, confirme o seu e-mail.");
                 }
 
+                // lockoutOnFailure: true - paired with the Lockout options configured in
+                // Program.cs, so repeated wrong-password attempts against this account eventually
+                // lock it instead of being retried forever. The response stays the same generic
+                // "E-mail ou senha inválidos." either way (SignInResult.Succeeded is false whether
+                // the password was wrong or the account is now locked), so this doesn't leak
+                // lockout status to the caller.
                 var result = await _signInManager.CheckPasswordSignInAsync(
                     user,
                     model.Password,
-                    false
+                    true
                 );
                 if (!result.Succeeded)
                 {
@@ -392,10 +398,17 @@ namespace TSI.Nexus.Services
 
                 try
                 {
-                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                    // The token must be the one actually e-mailed to the user by
+                    // ForgotUsernameOrPassword/SendForgotUsernameOrPasswordEmail (decoded the same
+                    // way ConfirmEmail decodes its token) - generating a fresh token here instead
+                    // of validating the caller's would let anyone reset any account's password
+                    // just by knowing its e-mail address.
+                    var decodedTokenBytes = WebEncoders.Base64UrlDecode(model.Token);
+                    var decodedToken = Encoding.UTF8.GetString(decodedTokenBytes);
+
                     var result = await _userManager.ResetPasswordAsync(
                         user,
-                        token,
+                        decodedToken,
                         model.NewPassword
                     );
 

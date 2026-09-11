@@ -157,6 +157,11 @@ namespace TSI.Nexus.Services.Services
         ///   BusinessPartner(s) → {basePath}/BusinessPartners/{Name}
         ///   Product(s)  → {basePath}/Products/{entityId}
         ///   User(s)            → {basePath}/Users/{entityId}
+        ///   Vehicle(s)         → {basePath}/Vehicles/{entityId}
+        ///   Driver(s)          → {basePath}/Drivers/{entityId}
+        /// entityFolder comes straight from the (authenticated, but otherwise untrusted) request -
+        /// an allow-list here, instead of a catch-all default that combined it into the path
+        /// as-is, is what stops "../../.." or an absolute path from escaping basePath.
         /// </summary>
         private async Task<string> BuildPhotoPathAsync(string entityFolder, Guid entityId)
         {
@@ -177,8 +182,14 @@ namespace TSI.Nexus.Services.Services
                 case "User":
                 case "Users":
                     return Path.Combine(basePath, "Users", entityId.ToString());
+                case "Vehicle":
+                case "Vehicles":
+                    return Path.Combine(basePath, "Vehicles", entityId.ToString());
+                case "Driver":
+                case "Drivers":
+                    return Path.Combine(basePath, "Drivers", entityId.ToString());
                 default:
-                    return Path.Combine(basePath, entityFolder, entityId.ToString());
+                    throw new ArgumentException("Unknown entity folder", nameof(entityFolder));
             }
         }
 

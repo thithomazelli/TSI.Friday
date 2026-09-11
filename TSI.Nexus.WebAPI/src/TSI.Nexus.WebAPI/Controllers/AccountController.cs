@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
 using TSI.Nexus.Contracts.Models.DTOs;
@@ -29,6 +30,7 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [HttpPost("login")]
         public async Task<ActionResult<UserDto>> Login(LoginDto model)
         {
@@ -48,14 +50,22 @@ namespace TSI.Nexus.WebAPI.Controllers
             return Ok(webApiResponse);
         }
 
+        /// <summary>
+        /// Public self-registration. Unlike UsersController.Add (Admin/Master only), the caller
+        /// here is anonymous, so any client-supplied Role is discarded - otherwise anyone could
+        /// register their own account straight into the Master role.
+        /// </summary>
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [HttpPost("register")]
         public async Task<ActionResult<WebApiResponse<User>>> Register(RegisterDto model)
         {
+            model.Role = null;
             return await _userManagerService.Register(model);
         }
 
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [HttpPut("confirm-email")]
         public async Task<IActionResult> ConfirmEmail(ConfirmEmailDto model)
         {
@@ -63,6 +73,7 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [HttpPost("resend-email-confirmation/{email}")]
         public async Task<IActionResult> ResendEmailConfirmation(string email)
         {
@@ -70,6 +81,7 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [HttpPost("forgot-username-or-password/{email}")]
         public async Task<IActionResult> ForgotUsernameOrPassword(string email)
         {
@@ -77,6 +89,7 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         [AllowAnonymous]
+        [EnableRateLimiting("auth")]
         [HttpPut("reset-password")]
         public async Task<IActionResult> ResetPassword(ResetPasswordDto model)
         {

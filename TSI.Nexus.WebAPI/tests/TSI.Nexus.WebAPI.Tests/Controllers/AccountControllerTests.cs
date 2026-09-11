@@ -182,6 +182,39 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
         }
 
         [Fact]
+        public async Task AccountController_Register_ShouldStripRole_WhenCallerSuppliesOne()
+        {
+            // Arrange - a public/anonymous self-registration can never choose its own role; only
+            // UsersController.Add (Admin/Master-gated) may set Role on a new user.
+            var model = new RegisterDto
+            {
+                FirstName = "Joao",
+                LastName = "Silva",
+                Email = "joao@tsi.com.br",
+                Password = "123456",
+                Role = "Master",
+            };
+            var expectedResult = new WebApiResponse<User>
+            {
+                Data = new User { Id = "1" },
+                Status = ResponseStatus.Success,
+            };
+            _userManagerServiceMock
+                .Setup(_ => _.Register(It.Is<RegisterDto>(m => m.Role == null)))
+                .ReturnsAsync(expectedResult);
+
+            // Act
+            var result = await _controller.Register(model);
+
+            // Assert
+            Assert.Null(model.Role);
+            _userManagerServiceMock.Verify(
+                _ => _.Register(It.Is<RegisterDto>(m => m.Role == null)),
+                Times.Once
+            );
+        }
+
+        [Fact]
         public async Task AccountController_ConfirmEmail_ShouldReturnActionResultFromService_WhenCalled()
         {
             // Arrange

@@ -1,12 +1,15 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,6 +93,13 @@ builder
 
         // Sign In config
         options.SignIn.RequireConfirmedEmail = true;
+
+        // Lockout config: paired with UserManagerService.Login passing lockoutOnFailure: true -
+        // without this, wrong-password attempts were never counted at all, so an attacker (or a
+        // credential-stuffing script) could try passwords against this weak policy indefinitely.
+        options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     })
     .AddRoles<IdentityRole>() // be able to add roles
     .AddEntityFrameworkStores<MyDBContextEF>() // providing our context
@@ -128,6 +138,29 @@ builder.Services.AddAuthorization(options =>
     // so every Admin-gated endpoint accepts Master too.
     options.AddPolicy("RequireAdmin", policy => policy.RequireRole("Admin", "Master"));
     options.AddPolicy("RequireMaster", policy => policy.RequireRole("Master"));
+});
+
+// Rate-limits the anonymous auth endpoints (login/register/forgot-password/reset-password) that
+// Identity's own lockout doesn't cover by itself - lockout only kicks in once a *specific known
+// account* has failed enough times, so it does nothing against a credential-stuffing script
+// spraying different e-mails, or someone hammering /register or /reset-password. Keyed per client
+// IP so one abusive caller doesn't exhaust the limit for everyone else.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(
+        "auth",
+        httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                }
+            )
+    );
 });
 
 builder.Services.AddCors();
@@ -247,6 +280,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseRateLimiter();
 
 // adding UseAuthentication into our pipeline and this should come before UseAuthorization
 // Authentication verifies the identity of a user or service, and authorization determines their access rights.

@@ -25,7 +25,7 @@ import {
 } from '@nexus/core';
 
 import { Observable, of } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { tap, take } from 'rxjs/operators';
 
 // Type-only: UserDetailsModalComponent imports this form back (renders <app-user-form> in its
 // template), so a normal import here would form a module-load-order circular dependency between
@@ -33,7 +33,6 @@ import { tap } from 'rxjs/operators';
 // The one place this component needs the class itself at runtime (reopening the modal after a
 // cancelled delete, in remove() below) loads it dynamically instead, for the same reason.
 import type { UserDetailsModalComponent } from '../user-details-modal/user-details-modal.component';
-import { ResetPasswordComponent } from '../../../account/reset-password/reset-password.component';
 import { NgClass, NgFor } from '@angular/common';
 import { ValidationMessagesComponent } from '../../../shared/components/errors/validation-messages/validation-messages.component';
 import { ClickDirective } from '../../../core/directives/click.directive';
@@ -85,6 +84,11 @@ export class UserFormComponent
     return option.value;
   }
 
+  // The backend now silently ignores a Role change from anyone but Admin/Master (see
+  // UsersController.Update), so a non-privileged viewer editing their own profile would otherwise
+  // see an editable-looking dropdown that has no effect on submit - hide it instead.
+  isPrivilegedViewer = false;
+
   isResendingEmail = false;
   resendEmailCountdown = 0;
 
@@ -108,6 +112,11 @@ export class UserFormComponent
   ngOnInit(): void {
     this.initForm();
     this.restoreResendEmailCooldown();
+    this.accountService.user$.pipe(take(1)).subscribe((user) => {
+      this.isPrivilegedViewer = !!user?.roles?.some(
+        (role) => role === 'Admin' || role === 'Master',
+      );
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -264,25 +273,33 @@ export class UserFormComponent
       });
   }
 
+  // Sends a real reset-password e-mail to the user (AccountService.forgotUsernameOrPassword) -
+  // the actual password change happens when they follow that e-mail's link to
+  // /account/reset-password, which now requires the token it carries (see
+  // ResetPasswordDto.Token / UserManagerService.ResetPassword). This used to open a modal that
+  // submitted a hardcoded fake token straight to the reset endpoint, bypassing the e-mail step
+  // entirely.
   forgotPassword(): void {
-    const initialState = {
-      data: this.data,
-    };
-    const ref = this.modalService.showTemplateModal(
-      ResetPasswordComponent,
-      initialState,
-    );
-
-    if (ref.componentInstance && ref.componentInstance.saved) {
-      ref.componentInstance.saved.subscribe((response: any) => {
-        this.modalService.showNotification(
-          true,
-          response.value.title,
-          response.value.message,
-        );
-        ref.close();
-      });
+    const email = this.data?.email;
+    if (!email) {
+      return;
     }
+
+    this.accountService.forgotUsernameOrPassword(email).subscribe({
+      next: () => {
+        this.modalService.showSweetNotification(
+          '',
+          this.translationService.instant('ACCOUNT.RESET_PASSWORD.SENT_MESSAGE'),
+          'success',
+        );
+      },
+      error: (response: any) => {
+        this.notificationService.showMessage(
+          'error',
+          response?.error ?? 'Erro ao enviar o e-mail.',
+        );
+      },
+    });
   }
 
   private resetResendEmailCooldown(): void {

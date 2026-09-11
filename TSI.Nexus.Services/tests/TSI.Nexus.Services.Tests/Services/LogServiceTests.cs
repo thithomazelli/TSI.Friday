@@ -71,6 +71,36 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
+        public void LogException_ShouldRedactSensitiveFields_InSerializedPayload()
+        {
+            var exception = new Exception("Failure");
+
+            _service.LogException(
+                exception,
+                "TestOperation",
+                new
+                {
+                    Email = "user@example.com",
+                    Password = "correct-horse-battery-staple",
+                    NewPassword = "another-secret",
+                    Token = "reset-token-value",
+                    Nested = new { ApiKey = "nested-secret" },
+                }
+            );
+
+            var content = File.ReadAllText(FindLogFile()!);
+            Assert.Contains("\"Email\": \"user@example.com\"", content);
+            Assert.Contains("\"Password\": \"***REDACTED***\"", content);
+            Assert.Contains("\"NewPassword\": \"***REDACTED***\"", content);
+            Assert.Contains("\"Token\": \"***REDACTED***\"", content);
+            Assert.Contains("\"ApiKey\": \"***REDACTED***\"", content);
+            Assert.DoesNotContain("correct-horse-battery-staple", content);
+            Assert.DoesNotContain("another-secret", content);
+            Assert.DoesNotContain("reset-token-value", content);
+            Assert.DoesNotContain("nested-secret", content);
+        }
+
+        [Fact]
         public void LogException_ShouldIncludeInnerExceptionDetails()
         {
             var inner = new InvalidOperationException("Inner failure");

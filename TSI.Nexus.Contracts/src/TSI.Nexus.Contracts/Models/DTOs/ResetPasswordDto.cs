@@ -18,5 +18,14 @@ namespace TSI.Nexus.Contracts.Models.DTOs
             ErrorMessage = "A senha precisa ter no mínimo {2} e no máximo {1} caracteres."
         )]
         public string NewPassword { get; set; }
+
+        /// <summary>
+        /// The password-reset token sent to the user's e-mail (see
+        /// IUserManagerService.ForgotUsernameOrPassword) - required so ResetPassword actually
+        /// proves the caller received that e-mail, instead of resetting any account's password on
+        /// request. Base64Url-encoded, same convention as ConfirmEmailDto.Token.
+        /// </summary>
+        [Required(ErrorMessage = "Token de redefinição inválido.")]
+        public string Token { get; set; }
     }
 }

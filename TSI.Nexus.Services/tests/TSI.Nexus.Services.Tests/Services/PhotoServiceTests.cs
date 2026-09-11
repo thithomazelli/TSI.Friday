@@ -171,15 +171,29 @@ namespace TSI.Nexus.Services.Tests.Services
         [Fact]
         public async Task PhotoService_UploadImageAsync_ShouldThrowArgumentException_WhenEntityFolderIsUnknown()
         {
-            // Arrange - UpdateEntityPhotoAsync's default case throws for a folder name that maps
-            // to none of the known entities; BuildPhotoPathAsync/GetCurrentPhotoAsync default to a
-            // generic path/empty-string, so the failure only surfaces once the entity is updated.
+            // Arrange - BuildPhotoPathAsync's switch is an allow-list of known entity folders;
+            // anything else is rejected up front, before any directory is touched.
             var entityId = Guid.NewGuid();
             var file = CreateFakeImageFile("photo.jpg");
 
             // Act & Assert
             await Assert.ThrowsAsync<ArgumentException>(
                 () => _service.UploadImageAsync("UnknownFolder", entityId, file)
+            );
+        }
+
+        [Fact]
+        public async Task PhotoService_UploadImageAsync_ShouldThrowArgumentException_WhenEntityFolderAttemptsPathTraversal()
+        {
+            // Arrange - entityFolder comes straight from the request; without the allow-list in
+            // BuildPhotoPathAsync this used to be combined directly into the storage path,
+            // letting a caller escape the configured attachments root entirely.
+            var entityId = Guid.NewGuid();
+            var file = CreateFakeImageFile("photo.jpg");
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => _service.UploadImageAsync("../../../etc", entityId, file)
             );
         }
 

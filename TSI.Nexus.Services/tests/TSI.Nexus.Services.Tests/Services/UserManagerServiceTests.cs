@@ -88,7 +88,7 @@ namespace TSI.Nexus.Services.Tests.Services
             var user = new User { UserName = "user1", Email = "user1@test.com", EmailConfirmed = true };
             _userManager.Setup(_ => _.FindByNameAsync("user1")).ReturnsAsync(user);
             _signInManager
-                .Setup(_ => _.CheckPasswordSignInAsync(user, "pass", false))
+                .Setup(_ => _.CheckPasswordSignInAsync(user, "pass", true))
                 .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Success);
 
             // Act
@@ -132,7 +132,7 @@ namespace TSI.Nexus.Services.Tests.Services
             var user = new User { UserName = "user1", EmailConfirmed = true };
             _userManager.Setup(_ => _.FindByNameAsync("user1")).ReturnsAsync(user);
             _signInManager
-                .Setup(_ => _.CheckPasswordSignInAsync(user, "wrong", false))
+                .Setup(_ => _.CheckPasswordSignInAsync(user, "wrong", true))
                 .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Failed);
 
             // Act
@@ -601,7 +601,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Act
             var result = await _service.ResetPassword(
-                new ResetPasswordDto { Email = "x@test.com", NewPassword = "123456" }
+                new ResetPasswordDto { Email = "x@test.com", NewPassword = "123456", Token = "tok" }
             );
 
             // Assert
@@ -617,7 +617,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Act
             var result = await _service.ResetPassword(
-                new ResetPasswordDto { Email = "x@test.com", NewPassword = "123456" }
+                new ResetPasswordDto { Email = "x@test.com", NewPassword = "123456", Token = "tok" }
             );
 
             // Assert
@@ -625,19 +625,21 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
-        public async Task ResetPassword_ShouldReturnOk_WhenResetSucceeds()
+        public async Task ResetPassword_ShouldReturnOk_WhenTokenIsValid()
         {
             // Arrange
             var user = new User { Email = "x@test.com", EmailConfirmed = true };
             _userManager.Setup(_ => _.FindByEmailAsync("x@test.com")).ReturnsAsync(user);
-            _userManager.Setup(_ => _.GeneratePasswordResetTokenAsync(user)).ReturnsAsync("token");
+            var encodedToken = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(
+                System.Text.Encoding.UTF8.GetBytes("decoded-token")
+            );
             _userManager
-                .Setup(_ => _.ResetPasswordAsync(user, "token", "123456"))
+                .Setup(_ => _.ResetPasswordAsync(user, "decoded-token", "123456"))
                 .ReturnsAsync(IdentityResult.Success);
 
             // Act
             var result = await _service.ResetPassword(
-                new ResetPasswordDto { Email = "x@test.com", NewPassword = "123456" }
+                new ResetPasswordDto { Email = "x@test.com", NewPassword = "123456", Token = encodedToken }
             );
 
             // Assert
@@ -645,23 +647,47 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
-        public async Task ResetPassword_ShouldReturnBadRequest_WhenResetFails()
+        public async Task ResetPassword_ShouldReturnBadRequest_WhenTokenIsInvalid()
         {
             // Arrange
             var user = new User { Email = "x@test.com", EmailConfirmed = true };
             _userManager.Setup(_ => _.FindByEmailAsync("x@test.com")).ReturnsAsync(user);
-            _userManager.Setup(_ => _.GeneratePasswordResetTokenAsync(user)).ReturnsAsync("token");
+            var encodedToken = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(
+                System.Text.Encoding.UTF8.GetBytes("decoded-token")
+            );
             _userManager
-                .Setup(_ => _.ResetPasswordAsync(user, "token", "123456"))
+                .Setup(_ => _.ResetPasswordAsync(user, "decoded-token", "123456"))
                 .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "invalid token" }));
 
             // Act
             var result = await _service.ResetPassword(
-                new ResetPasswordDto { Email = "x@test.com", NewPassword = "123456" }
+                new ResetPasswordDto { Email = "x@test.com", NewPassword = "123456", Token = encodedToken }
             );
 
             // Assert
             Assert.IsType<BadRequestObjectResult>(result);
+        }
+
+        [Fact]
+        public async Task ResetPassword_ShouldReturnBadRequest_WhenTokenIsNotValidBase64Url()
+        {
+            // Arrange - a caller cannot bypass token validation by sending garbage instead of an
+            // e-mailed token; WebEncoders.Base64UrlDecode throws FormatException on malformed input,
+            // which must be caught the same as any other invalid-token case, not bubble up as a 500.
+            var user = new User { Email = "x@test.com", EmailConfirmed = true };
+            _userManager.Setup(_ => _.FindByEmailAsync("x@test.com")).ReturnsAsync(user);
+
+            // Act
+            var result = await _service.ResetPassword(
+                new ResetPasswordDto { Email = "x@test.com", NewPassword = "123456", Token = "not-a-token!!" }
+            );
+
+            // Assert
+            Assert.IsType<BadRequestObjectResult>(result);
+            _userManager.Verify(
+                _ => _.ResetPasswordAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>()),
+                Times.Never
+            );
         }
 
         #endregion

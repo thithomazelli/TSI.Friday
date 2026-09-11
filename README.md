@@ -61,6 +61,8 @@ npm start
 > | `JWT__Key` | Chave de assinatura dos tokens JWT |
 > | `MailJet__ApiKey` | API Key do Mailjet |
 > | `MailJet__SecretKey` | Secret Key do Mailjet |
+> | `Seed__AdminPassword` | Senha inicial da conta `admin` (Master) — opcional; em Production, se não for definida, o `DatabaseSeeder` gera uma senha aleatória e a registra uma única vez no log de inicialização |
+> | `Seed__ThiagoPassword` / `Seed__LeonardoPassword` | Senha inicial das contas Admin nomeadas — mesma regra acima |
 >
 > Nota: o `Program.cs` só lê `ConnectionStrings:DefaultConnection` — `HomologConnection`/`LocalConnection` existem no `appsettings.json` só como referência, não são usados no código.
 

@@ -13,11 +13,20 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
     {
         private readonly UsersController _usersController;
         private readonly Mock<IUserManagerService> _userManagerServiceMock;
+        private readonly Mock<ICurrentUserService> _currentUserServiceMock;
 
         public UsersControllerTests()
         {
             _userManagerServiceMock = new Mock<IUserManagerService>();
-            _usersController = new UsersController(_userManagerServiceMock.Object);
+            _currentUserServiceMock = new Mock<ICurrentUserService>();
+            // Default: caller is Admin/Master, matching the pre-existing tests below that exercise
+            // an administrator acting on an arbitrary user - self-service/Forbid scenarios are
+            // covered by their own dedicated tests further down, which override this default.
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Admin")).Returns(true);
+            _usersController = new UsersController(
+                _userManagerServiceMock.Object,
+                _currentUserServiceMock.Object
+            );
         }
 
         [Fact]
@@ -71,6 +80,52 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             Assert.Equal(ResponseStatus.Success, response.Status);
 
             _userManagerServiceMock.Verify(_ => _.Update(userMock), Times.Once);
+        }
+
+        [Fact]
+        public async Task UsersController_Update_ShouldReturnForbid_WhenNonAdminEditsAnotherUser()
+        {
+            // Arrange
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Admin")).Returns(false);
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Master")).Returns(false);
+            _currentUserServiceMock.Setup(_ => _.GetUserId()).Returns("self-id");
+            var userMock = new User { Id = "someone-else-id", FirstName = "Joao" };
+
+            // Act
+            var result = await _usersController.Update(userMock);
+
+            // Assert
+            Assert.IsType<ForbidResult>(result);
+            _userManagerServiceMock.Verify(_ => _.Update(It.IsAny<User>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UsersController_Update_ShouldStripRole_WhenNonAdminEditsOwnProfile()
+        {
+            // Arrange
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Admin")).Returns(false);
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Master")).Returns(false);
+            _currentUserServiceMock.Setup(_ => _.GetUserId()).Returns("self-id");
+            var userMock = new User { Id = "self-id", FirstName = "Joao", Role = "Master" };
+            var expectedResult = new WebApiResponse<UserDto>
+            {
+                Data = new UserDto { Id = "self-id" },
+                Status = ResponseStatus.Success,
+            };
+            _userManagerServiceMock
+                .Setup(_ => _.Update(It.Is<User>(u => u.Id == "self-id" && u.Role == null)))
+                .ReturnsAsync(expectedResult);
+
+            // Act
+            var result = await _usersController.Update(userMock);
+
+            // Assert
+            Assert.IsType<OkObjectResult>(result);
+            Assert.Null(userMock.Role);
+            _userManagerServiceMock.Verify(
+                _ => _.Update(It.Is<User>(u => u.Role == null)),
+                Times.Once
+            );
         }
 
         [Fact]
@@ -194,6 +249,46 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             Assert.Equal(userMock, response.Data);
 
             _userManagerServiceMock.Verify(_ => _.FindById(It.IsAny<string>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task UsersController_GetById_ShouldReturnForbid_WhenNonAdminRequestsAnotherUser()
+        {
+            // Arrange
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Admin")).Returns(false);
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Master")).Returns(false);
+            _currentUserServiceMock.Setup(_ => _.GetUserId()).Returns("self-id");
+
+            // Act
+            var result = await _usersController.GetById("someone-else-id");
+
+            // Assert
+            Assert.IsType<ForbidResult>(result);
+            _userManagerServiceMock.Verify(_ => _.FindById(It.IsAny<string>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UsersController_GetById_ShouldAllow_WhenNonAdminRequestsOwnProfile()
+        {
+            // Arrange
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Admin")).Returns(false);
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Master")).Returns(false);
+            _currentUserServiceMock.Setup(_ => _.GetUserId()).Returns("self-id");
+            var expectedResult = new WebApiResponse<UserDto>
+            {
+                Data = new UserDto { Id = "self-id" },
+                Status = ResponseStatus.Success,
+            };
+            _userManagerServiceMock.Setup(_ => _.FindById("self-id")).ReturnsAsync(expectedResult);
+
+            // Act
+            var result = await _usersController.GetById("self-id");
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<WebApiResponse<UserDto>>(okResult.Value);
+            Assert.Equal(ResponseStatus.Success, response.Status);
+            _userManagerServiceMock.Verify(_ => _.FindById("self-id"), Times.Once);
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
 using TSI.Nexus.Contracts.Interfaces;
 
@@ -69,10 +70,14 @@ namespace TSI.Nexus.Services
                 {
                     try
                     {
-                        var json = JsonSerializer.Serialize(
-                            payload,
-                            new JsonSerializerOptions { WriteIndented = true }
-                        );
+                        // Several DTOs logged here as payload (LoginDto, RegisterDto,
+                        // ResetPasswordDto, ...) carry a Password/Token field - serializing them
+                        // as-is would write those secrets to disk in plain text every time the
+                        // matching operation throws. Redact by field name instead of maintaining
+                        // a list of "safe" DTOs, so a new sensitive field is covered automatically.
+                        var node = JsonSerializer.SerializeToNode(payload);
+                        RedactSensitiveFields(node);
+                        var json = node?.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
                         sb.AppendLine("Payload:");
                         sb.AppendLine(json);
                     }
@@ -108,6 +113,43 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        private static readonly string[] SensitiveKeywords =
+        {
+            "password",
+            "token",
+            "secret",
+            "apikey",
+        };
+
+        private static void RedactSensitiveFields(JsonNode? node)
+        {
+            switch (node)
+            {
+                case JsonObject obj:
+                    foreach (var key in obj.Select(kv => kv.Key).ToList())
+                    {
+                        if (IsSensitiveKey(key))
+                        {
+                            obj[key] = "***REDACTED***";
+                        }
+                        else
+                        {
+                            RedactSensitiveFields(obj[key]);
+                        }
+                    }
+                    break;
+                case JsonArray array:
+                    foreach (var item in array)
+                    {
+                        RedactSensitiveFields(item);
+                    }
+                    break;
+            }
+        }
+
+        private static bool IsSensitiveKey(string key) =>
+            SensitiveKeywords.Any(keyword => key.Contains(keyword, StringComparison.OrdinalIgnoreCase));
 
         #endregion Private methods
     }
