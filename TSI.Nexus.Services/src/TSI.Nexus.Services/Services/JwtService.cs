@@ -74,6 +74,7 @@ namespace TSI.Nexus.Services
                 Expires = expires,
                 SigningCredentials = credentials,
                 Issuer = _config["JWT:Issuer"],
+                Audience = _config["JWT:Audience"],
             };
 
             var tokenHandler = new JwtSecurityTokenHandler();

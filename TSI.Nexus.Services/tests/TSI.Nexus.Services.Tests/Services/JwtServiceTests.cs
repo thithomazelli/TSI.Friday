@@ -30,6 +30,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 {
                     ["JWT:Key"] = "super-secret-test-key-with-enough-length-1234567890",
                     ["JWT:Issuer"] = "TSI.Nexus.Tests",
+                    ["JWT:Audience"] = "TSI.Nexus.Tests.Client",
                 }
             );
             var service = new JwtService(config);
@@ -48,6 +49,7 @@ namespace TSI.Nexus.Services.Tests.Services
             Assert.Equal(user.FirstName, jwt.Claims.First(c => c.Type == map[ClaimTypes.GivenName]).Value);
             Assert.Equal(user.LastName, jwt.Claims.First(c => c.Type == map[ClaimTypes.Surname]).Value);
             Assert.Equal("TSI.Nexus.Tests", jwt.Issuer);
+            Assert.Equal("TSI.Nexus.Tests.Client", jwt.Audiences.Single());
             Assert.DoesNotContain(jwt.Claims, c => c.Type == map[ClaimTypes.Role]);
         }
 

@@ -124,8 +124,11 @@ builder
             ValidIssuer = builder.Configuration["JWT:Issuer"],
             // validate the issuer (who ever is issuing the JWT)
             ValidateIssuer = true,
-            // don't validate audience (angular side)
-            ValidateAudience = false,
+            // the audience is the Angular app that's meant to consume the token
+            ValidAudience = builder.Configuration["JWT:Audience"],
+            // validate the audience (rejects a token minted for/replayed against a different app,
+            // should this JWT signing key ever end up shared between services)
+            ValidateAudience = true,
             // ensure role claims are read from ClaimTypes.Role
             RoleClaimType = System.Security.Claims.ClaimTypes.Role,
         };
