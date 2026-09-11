@@ -1,7 +1,17 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import { AgendaEvent, ApiService, ApiType, WebApiResponse, Trip, TripLeg } from '@nexus/core';
+import { map, tap } from 'rxjs/operators';
+import {
+  AgendaEvent,
+  ApiService,
+  ApiType,
+  PagedRequest,
+  PagedResult,
+  WebApiResponse,
+  Trip,
+  TripLeg,
+} from '@nexus/core';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({
   providedIn: 'root',
@@ -22,6 +32,14 @@ export class TripService {
           this._trips$.next(response.data);
         }),
       );
+  }
+
+  getAllPaged(request: PagedRequest): Observable<PagedResult<Trip>> {
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<Trip>>
+      >(`${this._baseEndPoint}/getAllPaged?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data));
   }
 
   getById(tripId: string): Observable<WebApiResponse<Trip>> {

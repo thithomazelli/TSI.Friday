@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Linq.Expressions;
 using AutoMapper;
 using FluentAssertions;
@@ -595,6 +596,187 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
             Assert.DoesNotContain("boom", result.Message);
+        }
+
+        [Fact]
+        public async Task PaymentService_FindAllPaged_ShouldReturnPagedPayments_WhenDataExists()
+        {
+            // Arrange
+            SetUpGetPagedAsyncReturns(_paymentsMock, _paymentsMock.Count);
+
+            // Act
+            var result = await _paymentService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50 });
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(_paymentsMock.Count, result.Data!.TotalCount);
+            Assert.Equal(_paymentsMock.Count, result.Data.Items.Count());
+        }
+
+        [Fact]
+        public async Task PaymentService_FindAllPaged_ShouldReturnEmpty_WhenModuleToggleIsDisabled()
+        {
+            // Arrange
+            _featureToggleServiceMock
+                .Setup(_ => _.IsEnabledAsync(FeatureToggleKeys.Payment, FeatureToggleKeys.FinanceModule))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _paymentService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Empty(result.Data!.Items);
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Payment, bool>>>(),
+                        It.IsAny<Func<IQueryable<Payment>, IOrderedQueryable<Payment>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<Payment, object>>[]>()
+                    ),
+                Times.Never
+            );
+        }
+
+        [Fact]
+        public async Task PaymentService_FindAllPaged_ShouldReturnError_WhenRepositoryThrows()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Payment, bool>>>(),
+                        It.IsAny<Func<IQueryable<Payment>, IOrderedQueryable<Payment>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Payment, object>>[]>()
+                    )
+                )
+                .ThrowsAsync(new Exception("boom"));
+
+            // Act
+            var result = await _paymentService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
+            Assert.DoesNotContain("boom", result.Message);
+        }
+
+        [Fact]
+        public async Task PaymentService_FindAllPaged_FilterShouldRespectStatusList()
+        {
+            // Arrange
+            Expression<Func<Payment, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var approved = NewPaymentForFilterTests(status: PaymentStatus.Approved);
+            var pending = NewPaymentForFilterTests(status: PaymentStatus.Pending);
+
+            // Act
+            await _paymentService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50, Statuses = new List<string> { "Approved" } }
+            );
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(approved));
+            Assert.False(compiled(pending));
+        }
+
+        [Fact]
+        public async Task PaymentService_FindAllPaged_FilterShouldRespectTypeList()
+        {
+            // Arrange
+            Expression<Func<Payment, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var incoming = NewPaymentForFilterTests(type: PaymentType.Incoming);
+            var outgoing = NewPaymentForFilterTests(type: PaymentType.Outgoing);
+
+            // Act
+            await _paymentService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50, Types = new List<string> { "Incoming" } }
+            );
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(incoming));
+            Assert.False(compiled(outgoing));
+        }
+
+        [Fact]
+        public async Task PaymentService_FindAllPaged_FilterShouldMatchOnlyQuickFilterHits()
+        {
+            // Arrange
+            Expression<Func<Payment, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var matching = NewPaymentForFilterTests(description: "Aluguel de caçamba");
+            var nonMatching = NewPaymentForFilterTests(description: "Combustível");
+
+            // Act
+            await _paymentService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50, QuickFilter = "caçamba" });
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(matching));
+            Assert.False(compiled(nonMatching));
+        }
+
+        private static Payment NewPaymentForFilterTests(
+            string description = "Descricao",
+            PaymentStatus status = PaymentStatus.Approved,
+            PaymentType type = PaymentType.Incoming,
+            DateTime? date = null
+        ) =>
+            new()
+            {
+                Description = description,
+                Status = status,
+                Type = type,
+                Date = date ?? DateTime.UtcNow,
+                BusinessPartner = new Individual { Name = "Cliente Teste" },
+            };
+
+        private void SetUpGetPagedAsyncReturns(IList<Payment> payments, int totalCount)
+        {
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Payment, bool>>>(),
+                        It.IsAny<Func<IQueryable<Payment>, IOrderedQueryable<Payment>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Payment, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((payments, totalCount));
+        }
+
+        private void SetUpGetPagedAsyncCapture(Action<Expression<Func<Payment, bool>>> onCaptured)
+        {
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Payment, bool>>>(),
+                        It.IsAny<Func<IQueryable<Payment>, IOrderedQueryable<Payment>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Payment, object>>[]>()
+                    )
+                )
+                .Callback<
+                    int,
+                    int,
+                    Expression<Func<Payment, bool>>,
+                    Func<IQueryable<Payment>, IOrderedQueryable<Payment>>,
+                    bool,
+                    Expression<Func<Payment, object>>[]
+                >((_, _, filter, _, _, _) => onCaptured(filter))
+                .ReturnsAsync((new List<Payment>(), 0));
         }
 
         [Fact]

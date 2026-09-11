@@ -29,7 +29,7 @@
     >
       <i class="bi bi-funnel"></i> {{ 'GRID.FILTERS' | translate }}
     </button>
-    <button class="btn btn-secondary btn-sm" (click)="refresh()">
+    <button class="btn btn-secondary btn-sm" (click)="onRefreshClicked()">
       <i class="bi bi-arrow-clockwise"></i>
       {{ 'GRID.REFRESH' | translate }}
     </button>
@@ -52,7 +52,10 @@
 <div class="grid-host" [ngClass]="{ 'compact-view': compactView }">
   <ag-grid-angular
     class="ag-theme-alpine grid-full"
-    [rowData]="rowData"
+    [rowModelType]="serverSide ? 'infinite' : 'clientSide'"
+    [rowData]="serverSide ? undefined : rowData"
+    [datasource]="serverSide ? gridDatasource : undefined"
+    [cacheBlockSize]="serverSide ? cacheBlockSize : undefined"
     [columnDefs]="columnDefs"
     [defaultColDef]="defaultColDef"
     [pagination]="true"
@@ -62,7 +65,7 @@
     [overlayNoRowsTemplate]="noRowsOverlayTemplate"
     [overlayLoadingTemplate]="overlayLoadingTemplate"
     [localeText]="localeText"
-    [quickFilterText]="quickFilter"
+    [quickFilterText]="serverSide ? undefined : quickFilter"
     (gridReady)="onGridReady($event)"
     (cellClicked)="onCellClicked($event)"
     (rowDoubleClicked)="onRowDoubleClicked($event)"

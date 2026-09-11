@@ -501,6 +501,259 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
+        public async Task TripService_FindAllPaged_ShouldReturnPagedTrips_WhenDataExists()
+        {
+            // Arrange
+            var tripsMock = _mapper.Map<IList<Trip>>(_tripListMock);
+            tripsMock[0].BusinessPartner = new Individual { Name = "SER" };
+            tripsMock[1].BusinessPartner = new Individual { Name = "THG" };
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Trip, bool>>>(),
+                        It.IsAny<Func<IQueryable<Trip>, IOrderedQueryable<Trip>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Trip, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((tripsMock, tripsMock.Count));
+
+            // Act
+            var result = await _tripService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50 });
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(tripsMock.Count, result.Data!.TotalCount);
+            Assert.Equal(tripsMock.Count, result.Data.Items.Count());
+            Assert.Equal($"{tripsMock.Count} registro(s) encontrado(s).", result.Message);
+        }
+
+        [Fact]
+        public async Task TripService_FindAllPaged_ShouldReturnEmpty_WhenFleetModuleDisabled()
+        {
+            // Arrange
+            _featureToggleService
+                .Setup(_ => _.IsEnabledAsync(FeatureToggleKeys.Trip, FeatureToggleKeys.FleetModule))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _tripService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Empty(result.Data!.Items);
+            Assert.Equal(0, result.Data.TotalCount);
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Trip, bool>>>(),
+                        It.IsAny<Func<IQueryable<Trip>, IOrderedQueryable<Trip>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<Trip, object>>[]>()
+                    ),
+                Times.Never
+            );
+        }
+
+        [Fact]
+        public async Task TripService_FindAllPaged_ShouldComputeSkipAndTake_FromPageAndPageSize()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Trip, bool>>>(),
+                        It.IsAny<Func<IQueryable<Trip>, IOrderedQueryable<Trip>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Trip, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((new List<Trip>(), 0));
+
+            // Act
+            await _tripService.FindAllPaged(new PagedRequest { Page = 3, PageSize = 20 });
+
+            // Assert
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        40,
+                        20,
+                        It.IsAny<Expression<Func<Trip, bool>>>(),
+                        It.IsAny<Func<IQueryable<Trip>, IOrderedQueryable<Trip>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Trip, object>>[]>()
+                    ),
+                Times.Once
+            );
+        }
+
+        [Fact]
+        public async Task TripService_FindAllPaged_ShouldPassNullOrderBy_WhenSortFieldNotRequested()
+        {
+            // Arrange
+            Func<IQueryable<Trip>, IOrderedQueryable<Trip>> capturedOrderBy = null;
+            SetUpGetPagedAsyncCapture((_, orderBy) => capturedOrderBy = orderBy);
+
+            // Act
+            await _tripService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50 });
+
+            // Assert
+            Assert.Null(capturedOrderBy);
+        }
+
+        [Fact]
+        public async Task TripService_FindAllPaged_ShouldPassOrderBy_WhenSortFieldRequested()
+        {
+            // Arrange
+            Func<IQueryable<Trip>, IOrderedQueryable<Trip>> capturedOrderBy = null;
+            SetUpGetPagedAsyncCapture((_, orderBy) => capturedOrderBy = orderBy);
+
+            // Act
+            await _tripService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50, SortField = "totalPrice", SortDescending = true }
+            );
+
+            // Assert
+            Assert.NotNull(capturedOrderBy);
+        }
+
+        [Fact]
+        public async Task TripService_FindAllPaged_FilterShouldMatchEverything_WhenNoFiltersRequested()
+        {
+            // Arrange
+            Expression<Func<Trip, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture((filter, _) => capturedFilter = filter);
+            var trip = NewTripForFilterTests();
+
+            // Act
+            await _tripService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50 });
+
+            // Assert
+            Assert.True(capturedFilter.Compile()(trip));
+        }
+
+        [Fact]
+        public async Task TripService_FindAllPaged_FilterShouldMatchOnlyQuickFilterHits()
+        {
+            // Arrange
+            Expression<Func<Trip, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture((filter, _) => capturedFilter = filter);
+            var matching = NewTripForFilterTests(tripNumber: "SER-V00123");
+            var nonMatching = NewTripForFilterTests(tripNumber: "THG-V00999");
+
+            // Act
+            await _tripService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50, QuickFilter = "00123" });
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(matching));
+            Assert.False(compiled(nonMatching));
+        }
+
+        [Fact]
+        public async Task TripService_FindAllPaged_FilterShouldRespectDateRange()
+        {
+            // Arrange
+            Expression<Func<Trip, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture((filter, _) => capturedFilter = filter);
+            var inRange = NewTripForFilterTests(createDate: new DateTime(2026, 3, 15));
+            var before = NewTripForFilterTests(createDate: new DateTime(2026, 2, 28));
+            var after = NewTripForFilterTests(createDate: new DateTime(2026, 4, 1));
+
+            // Act
+            await _tripService.FindAllPaged(
+                new PagedRequest
+                {
+                    Page = 1,
+                    PageSize = 50,
+                    StartDate = new DateTime(2026, 3, 1),
+                    EndDate = new DateTime(2026, 3, 31),
+                }
+            );
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(inRange));
+            Assert.False(compiled(before));
+            Assert.False(compiled(after));
+        }
+
+        [Fact]
+        public async Task TripService_FindAllPaged_FilterShouldRespectStatusList()
+        {
+            // Arrange
+            Expression<Func<Trip, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture((filter, _) => capturedFilter = filter);
+            var open = NewTripForFilterTests(status: OrderStatus.Open);
+            var closed = NewTripForFilterTests(status: OrderStatus.Closed);
+            var waitingPayment = NewTripForFilterTests(status: OrderStatus.WaitingPayment);
+
+            // Act
+            await _tripService.FindAllPaged(
+                new PagedRequest
+                {
+                    Page = 1,
+                    PageSize = 50,
+                    Statuses = new List<string> { "Open", "Closed" },
+                }
+            );
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(open));
+            Assert.True(compiled(closed));
+            Assert.False(compiled(waitingPayment));
+        }
+
+        private static Trip NewTripForFilterTests(
+            string tripNumber = "SER-V00001",
+            string route = "Route",
+            DateTime? createDate = null,
+            OrderStatus status = OrderStatus.Open
+        ) =>
+            new()
+            {
+                TripNumber = tripNumber,
+                Route = route,
+                CreateDate = createDate ?? DateTime.UtcNow,
+                Status = status,
+                BusinessPartner = new Individual { Name = "Cliente Teste" },
+            };
+
+        private void SetUpGetPagedAsyncCapture(
+            Action<Expression<Func<Trip, bool>>, Func<IQueryable<Trip>, IOrderedQueryable<Trip>>> onCaptured
+        )
+        {
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Trip, bool>>>(),
+                        It.IsAny<Func<IQueryable<Trip>, IOrderedQueryable<Trip>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Trip, object>>[]>()
+                    )
+                )
+                .Callback<
+                    int,
+                    int,
+                    Expression<Func<Trip, bool>>,
+                    Func<IQueryable<Trip>, IOrderedQueryable<Trip>>,
+                    bool,
+                    Expression<Func<Trip, object>>[]
+                >((_, _, filter, orderBy, _, _) => onCaptured(filter, orderBy))
+                .ReturnsAsync((new List<Trip>(), 0));
+        }
+
+        [Fact]
         public async Task TripService_Update_ShouldGenerateServiceOrder_WhenTripTransitionsToClosedWithDriverAssigned()
         {
             // Arrange

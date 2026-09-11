@@ -36,6 +36,14 @@ namespace TSI.Nexus.Contracts.Interfaces
         Task<WebApiResponse<IEnumerable<TripDto>>> FindAll();
 
         /// <summary>
+        /// Method responsible to return one page of Trips (ag-Grid Infinite Row Model), for the
+        /// main Trips listing screen - which otherwise would load the entire table on every visit.
+        /// </summary>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        /// <returns>One page of Trips plus the total row count.</returns>
+        Task<WebApiResponse<PagedResult<TripDto>>> FindAllPaged(PagedRequest request);
+
+        /// <summary>
         /// Method responsible to get only one Trip based on the ID received as parameter.
         /// </summary>
         /// <param name="id">The ID to be used on the search.</param>

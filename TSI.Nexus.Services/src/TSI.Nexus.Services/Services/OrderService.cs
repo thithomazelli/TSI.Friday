@@ -1,4 +1,7 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Text.RegularExpressions;
 using AutoMapper;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
@@ -285,6 +288,56 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<OrderDto>>> FindAllPaged(PagedRequest request)
+        {
+            WebApiResponse<PagedResult<OrderDto>> result = new();
+
+            try
+            {
+                if (
+                    !await _featureToggleService.IsEnabledAsync(
+                        FeatureToggleKeys.Order,
+                        FeatureToggleKeys.SalesOrdersModule
+                    )
+                )
+                {
+                    result.Data = new PagedResult<OrderDto> { Items = [], TotalCount = 0 };
+                    result.Status = ResponseStatus.Success;
+                    result.Message = "0 registro(s) encontrado(s).";
+                    return result;
+                }
+
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                var (orders, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true,
+                    includes: [o => o.BusinessPartner]
+                );
+
+                result.Data = new PagedResult<OrderDto>
+                {
+                    Items = _mapper.Map<IEnumerable<OrderDto>>(orders),
+                    TotalCount = totalCount,
+                };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "OrderService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de Pedidos na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
         public async Task<WebApiResponse<OrderDto>> FindById(Guid? id)
         {
             WebApiResponse<OrderDto> result = new();
@@ -461,6 +514,54 @@ namespace TSI.Nexus.Services
             return createUserId == currentUserId
                 ? string.Empty
                 : "Você não tem permissão para acessar este Pedido, pois foi criado por outro usuário.";
+        }
+
+        /// <summary>
+        /// Known sort fields exposed by the Orders grid, mapped to the Order property they sort by.
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<Order, object>>> SortMap = new()
+        {
+            ["orderNumber"] = o => o.OrderNumber,
+            ["businessPartnerName"] = o => o.BusinessPartner.Name,
+            ["description"] = o => o.Description,
+            ["totalPrice"] = o => o.TotalPrice,
+            ["date"] = o => o.Date,
+            ["status"] = o => o.Status,
+        };
+
+        private static Func<IQueryable<Order>, IOrderedQueryable<Order>> BuildOrderBy(PagedRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.SortField) || !SortMap.TryGetValue(request.SortField, out var keySelector))
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
+
+        /// <summary>
+        /// Combines the quick filter with the date-range and status filters - the same panel the
+        /// Orders list already had client-side, now applied server-side alongside pagination.
+        /// </summary>
+        private static Expression<Func<Order, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+            var startDate = request.StartDate?.Date;
+            var endDate = request.EndDate?.Date;
+            var statuses = EnumListParser.Parse<OrderStatus>(request.Statuses);
+            var hasStatusFilter = statuses.Count > 0;
+
+            return o =>
+                (!hasQuickFilter
+                    || o.OrderNumber.Contains(quickFilter)
+                    || o.Description.Contains(quickFilter)
+                    || o.BusinessPartner.Name.Contains(quickFilter))
+                && (startDate == null || o.CreateDate.Date >= startDate)
+                && (endDate == null || o.CreateDate.Date <= endDate)
+                && (!hasStatusFilter || statuses.Contains(o.Status));
         }
 
         private static string BuildPrefixFromBusinessPartnerName(string businessPartnerName)

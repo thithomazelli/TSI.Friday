@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using AutoMapper;
 using TSI.Nexus.Contracts.Enums;
@@ -219,6 +221,50 @@ namespace TSI.Nexus.Services
                 result.Status = ResponseStatus.Error;
                 result.Message =
                     $"Não foi possível acessar os registros de Orçamentos na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
+        /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<QuoteDto>>> FindAllPaged(PagedRequest request)
+        {
+            WebApiResponse<PagedResult<QuoteDto>> result = new();
+
+            try
+            {
+                var fleetModuleEnabled = await _featureToggleService.IsEnabledAsync(FeatureToggleKeys.FleetModule);
+                var quotesModuleEnabled = await _featureToggleService.IsEnabledAsync(
+                    FeatureToggleKeys.Quote,
+                    FeatureToggleKeys.QuotesModule
+                );
+
+                var filter = BuildFilter(request, fleetModuleEnabled, quotesModuleEnabled);
+                var orderBy = BuildOrderBy(request);
+
+                var (quotes, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true,
+                    includes: [q => q.BusinessPartner]
+                );
+
+                result.Data = new PagedResult<QuoteDto>
+                {
+                    Items = _mapper.Map<IEnumerable<QuoteDto>>(quotes),
+                    TotalCount = totalCount,
+                };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "QuoteService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de Orçamentos na base de dados.";
             }
 
             return result;
@@ -699,6 +745,63 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Quotes grid, mapped to the Quote property they sort by.
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<Quote, object>>> SortMap = new()
+        {
+            ["quoteNumber"] = q => q.QuoteNumber,
+            ["type"] = q => q.Type,
+            ["businessPartnerName"] = q => q.BusinessPartner.Name,
+            ["description"] = q => q.Description,
+            ["totalPrice"] = q => q.TotalPrice,
+            ["date"] = q => q.Date,
+            ["status"] = q => q.Status,
+        };
+
+        private static Func<IQueryable<Quote>, IOrderedQueryable<Quote>> BuildOrderBy(PagedRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.SortField) || !SortMap.TryGetValue(request.SortField, out var keySelector))
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
+
+        /// <summary>
+        /// Combines the quick filter, the date-range filter and the status filter (the same panel
+        /// the Quotes list already had client-side) with the two feature-toggle module gates
+        /// FindAll() applies in-memory today - folded into the query here instead, so a disabled
+        /// quote Type doesn't still count towards TotalCount or leak into a page.
+        /// </summary>
+        private static Expression<Func<Quote, bool>> BuildFilter(
+            PagedRequest request,
+            bool fleetModuleEnabled,
+            bool quotesModuleEnabled
+        )
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+            var startDate = request.StartDate?.Date;
+            var endDate = request.EndDate?.Date;
+            var statuses = EnumListParser.Parse<QuoteStatus>(request.Statuses);
+            var hasStatusFilter = statuses.Count > 0;
+
+            return q =>
+                (fleetModuleEnabled || q.Type != QuoteType.Trip)
+                && (quotesModuleEnabled || q.Type != QuoteType.Product)
+                && (!hasQuickFilter
+                    || q.QuoteNumber.Contains(quickFilter)
+                    || q.Description.Contains(quickFilter)
+                    || q.BusinessPartner.Name.Contains(quickFilter))
+                && (startDate == null || q.CreateDate.Date >= startDate)
+                && (endDate == null || q.CreateDate.Date <= endDate)
+                && (!hasStatusFilter || statuses.Contains(q.Status));
+        }
 
         private static string BuildPrefixFromBusinessPartnerName(string businessPartnerName)
         {

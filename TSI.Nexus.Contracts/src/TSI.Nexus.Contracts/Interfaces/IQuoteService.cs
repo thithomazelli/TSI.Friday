@@ -36,6 +36,14 @@ namespace TSI.Nexus.Contracts.Interfaces
         Task<WebApiResponse<IEnumerable<QuoteDto>>> FindAll();
 
         /// <summary>
+        /// Method responsible to return one page of Quotes (ag-Grid Infinite Row Model), for the
+        /// main Quotes listing screen - which otherwise would load the entire table on every visit.
+        /// </summary>
+        /// <param name="request">The requested page, sort, quick-filter and date/status filters.</param>
+        /// <returns>One page of Quotes plus the total row count.</returns>
+        Task<WebApiResponse<PagedResult<QuoteDto>>> FindAllPaged(PagedRequest request);
+
+        /// <summary>
         /// Method responsible to get only one Quote based on the ID received as parameter.
         /// </summary>
         /// <param name="id">The ID to be used on the search.</param>

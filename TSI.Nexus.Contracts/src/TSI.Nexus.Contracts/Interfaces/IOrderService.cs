@@ -43,6 +43,14 @@ namespace TSI.Nexus.Contracts.Interfaces
         Task<WebApiResponse<OrderDto>> FindById(Guid? id);
 
         /// <summary>
+        /// Method responsible to return one page of Orders (ag-Grid Infinite Row Model), for the
+        /// main Orders listing screen - which otherwise would load the entire table on every visit.
+        /// </summary>
+        /// <param name="request">The requested page, sort, quick-filter and date/status filters.</param>
+        /// <returns>One page of Orders plus the total row count.</returns>
+        Task<WebApiResponse<PagedResult<OrderDto>>> FindAllPaged(PagedRequest request);
+
+        /// <summary>
         /// Should find a Order that based on the OrderNumber received as parameter.
         /// </summary>
         /// <param name="orderNumber">The OrderNumber to be used on the search.</param>

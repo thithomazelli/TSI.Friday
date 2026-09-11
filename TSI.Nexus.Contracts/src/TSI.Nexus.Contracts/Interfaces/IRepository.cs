@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 
@@ -270,5 +271,30 @@ namespace TSI.Nexus.Contracts.Interfaces
         /// the entities, apply the action and save changes. Returns the number of rows affected.
         /// </summary>
         Task<int> ExecuteUpdateAsync(Expression<Func<T, bool>> filter, Action<T> updateAction);
+
+        /// <summary>
+        /// Returns one page of results plus the total row count matching <paramref name="filter"/>
+        /// (counted before Skip/Take, on the unfiltered-by-Include query - joining in the Include
+        /// navigations would multiply the count). Backs server-side pagination (ag-Grid Infinite
+        /// Row Model) for the highest-volume listings, where loading the entire table per request
+        /// isn't viable. <paramref name="orderBy"/> lets the caller pick the sort column since the
+        /// generic repository has no notion of which columns a given entity's grid exposes; when
+        /// null, falls back to the same CreateDate ordering every other repository method uses.
+        /// </summary>
+        /// <param name="skip">Number of matching rows to skip.</param>
+        /// <param name="take">Number of rows to return after skipping.</param>
+        /// <param name="filter">Optional filter expression; null returns all rows.</param>
+        /// <param name="orderBy">Optional ordering function; null falls back to CreateDate ascending.</param>
+        /// <param name="asNoTracking">When true, the result is not tracked by the change tracker.</param>
+        /// <param name="includes">The objects to be included in the search.</param>
+        /// <returns>The page of items and the total matching row count.</returns>
+        Task<(IList<T> Items, int TotalCount)> GetPagedAsync(
+            int skip,
+            int take,
+            Expression<Func<T, bool>> filter,
+            Func<IQueryable<T>, IOrderedQueryable<T>> orderBy,
+            bool asNoTracking,
+            params Expression<Func<T, object>>[] includes
+        );
     }
 }

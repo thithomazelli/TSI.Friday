@@ -67,6 +67,15 @@ namespace TSI.Nexus.Contracts.Interfaces
         Task<WebApiResponse<TransactionDto>> FindById(Guid? id);
 
         /// <summary>
+        /// Method responsible to return one page of Transactions (ag-Grid Infinite Row Model), for
+        /// the main Transactions listing screen - which otherwise would load the entire table on
+        /// every visit.
+        /// </summary>
+        /// <param name="request">The requested page, sort, quick-filter and date/status filters.</param>
+        /// <returns>One page of Transactions plus the total row count.</returns>
+        Task<WebApiResponse<PagedResult<TransactionDto>>> FindAllPaged(PagedRequest request);
+
+        /// <summary>
         /// Method responsible to get a list of Transactiones based on the BusinessPartnerID received as parameter.
         /// </summary>
         /// <param name="id">The ID to be used on the search.</param>

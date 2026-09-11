@@ -16,17 +16,19 @@ import {
 } from '@angular/core';
 import { cardCollapseAnimation } from '../../core/animations/card-collapse.animation';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ModalService, TranslationService } from '@nexus/core';
+import { ModalService, PagedRequest, PagedResult, TranslationService } from '@nexus/core';
 import {
   AllCommunityModule,
   CellClickedEvent,
   ColDef,
   GridApi,
   GridReadyEvent,
+  IDatasource,
+  IGetRowsParams,
   ModuleRegistry,
   RowDoubleClickedEvent,
 } from 'ag-grid-community';
-import { Subject, map, takeUntil } from 'rxjs';
+import { Observable, Subject, debounceTime, map, takeUntil } from 'rxjs';
 import { NgIf, NgClass, NgTemplateOutlet, LowerCasePipe } from '@angular/common';
 import { AgGridAngular } from 'ag-grid-angular';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
@@ -77,6 +79,16 @@ export class GridComponent<T> implements OnInit, OnChanges, OnDestroy {
   @Input()
   rowData: T[] = [];
 
+  // Opt-in server-side pagination (ag-Grid Infinite Row Model) for the highest-volume listings -
+  // when false (default), the grid behaves exactly as before: rowData is the full, already-loaded
+  // array and every existing screen is unaffected. When true, rowData is ignored and dataSource is
+  // called instead, one page/block at a time, as the grid scrolls.
+  @Input()
+  serverSide: boolean = false;
+
+  @Input()
+  dataSource?: (request: PagedRequest) => Observable<PagedResult<T>>;
+
   // Optional: callers that track a loading flag around their fetch can bind it here so the grid
   // shows a spinner overlay instead of briefly flashing the "no rows" message while rowData is
   // still empty. Left unbound (false), the grid behaves exactly as before.
@@ -115,6 +127,18 @@ export class GridComponent<T> implements OnInit, OnChanges, OnDestroy {
   localeText: Record<string, string> = AG_GRID_LOCALE_BR;
   noRowsOverlayTemplate = '';
   overlayLoadingTemplate = '';
+
+  // Fixed block size for the Infinite Row Model - kept independent from the visible
+  // paginationPageSize (10/20/50/100, picked via the grid's own selector) since it's only how many
+  // rows are fetched per request; ag-Grid fetches several blocks to fill a larger page. A divisor
+  // of every option in the page-size selector, so it composes cleanly with all of them.
+  readonly cacheBlockSize = 10;
+
+  private readonly _quickFilterChanged$ = new Subject<void>();
+
+  gridDatasource: IDatasource = {
+    getRows: (params: IGetRowsParams) => this.getRows(params),
+  };
 
   defaultColDef: ColDef = {
     sortable: true,
@@ -176,6 +200,15 @@ export class GridComponent<T> implements OnInit, OnChanges, OnDestroy {
         this.overlayLoadingTemplate,
       );
     });
+
+    // Server-side quick filter can't use ag-Grid's own [quickFilterText] (that only filters
+    // already-loaded client-side data) - typing re-fetches from row 0 instead, debounced so it
+    // doesn't fire a request per keystroke.
+    this._quickFilterChanged$
+      .pipe(debounceTime(300), takeUntil(this._destroy$))
+      .subscribe(() => {
+        this.gridApi?.purgeInfiniteCache();
+      });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -226,6 +259,16 @@ export class GridComponent<T> implements OnInit, OnChanges, OnDestroy {
 
   onFilterTextBoxChanged(event: Event): void {
     this.quickFilter = (event.target as HTMLInputElement).value || '';
+    if (this.serverSide) {
+      this._quickFilterChanged$.next();
+    }
+  }
+
+  onRefreshClicked(): void {
+    this.refresh();
+    if (this.serverSide) {
+      this.gridApi?.purgeInfiniteCache();
+    }
   }
 
   onCellClicked(event: CellClickedEvent): void {
@@ -300,6 +343,36 @@ export class GridComponent<T> implements OnInit, OnChanges, OnDestroy {
     }
 
     this.delete(data);
+  }
+
+  private getRows(params: IGetRowsParams): void {
+    if (!this.dataSource) {
+      params.successCallback([], 0);
+      return;
+    }
+
+    const pageSize = params.endRow - params.startRow;
+    const page = Math.floor(params.startRow / pageSize) + 1;
+    const sortModel = params.sortModel?.[0];
+
+    const request: PagedRequest = {
+      page,
+      pageSize,
+      sortField: sortModel?.colId,
+      sortDescending: sortModel?.sort === 'desc',
+      quickFilter: this.quickFilter || undefined,
+    };
+
+    this.dataSource(request)
+      .pipe(takeUntil(this._destroy$))
+      .subscribe({
+        next: (result) => {
+          params.successCallback(result.items, result.totalCount);
+        },
+        error: () => {
+          params.failCallback();
+        },
+      });
   }
 
   private applyLoadingOverlay(): void {

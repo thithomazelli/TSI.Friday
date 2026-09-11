@@ -63,6 +63,30 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
         }
 
         [Fact]
+        public async Task GetAllPaged_ShouldReturnOkWithData_WhenServiceReturnsPagedTrips()
+        {
+            // Arrange
+            var expected = new WebApiResponse<PagedResult<TripDto>>
+            {
+                Data = new PagedResult<TripDto> { Items = _tripsMock, TotalCount = _tripsMock.Count },
+                Status = ResponseStatus.Success,
+                Message = $"{_tripsMock.Count} registro(s) encontrado(s).",
+            };
+            var request = new PagedRequest { Page = 1, PageSize = 50 };
+
+            _tripServiceMock.Setup(s => s.FindAllPaged(request)).ReturnsAsync(expected);
+
+            // Act
+            var result = await _controller.GetAllPaged(request);
+
+            // Assert
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<WebApiResponse<PagedResult<TripDto>>>(ok.Value);
+            response.Should().BeEquivalentTo(expected);
+            _tripServiceMock.Verify(s => s.FindAllPaged(request), Times.Once);
+        }
+
+        [Fact]
         public async Task GetById_ShouldReturnOkWithTrip_WhenServiceReturnsTrip()
         {
             // Arrange

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Linq.Expressions;
+using System.Text.Json.Nodes;
 using AutoMapper;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
@@ -186,6 +187,57 @@ namespace TSI.Nexus.Services
                 result.Status = ResponseStatus.Error;
                 result.Message =
                     $"Não foi possível acessar os registros de Pagamentos de Transação na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
+        /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<PaymentDto>>> FindAllPaged(PagedRequest request)
+        {
+            WebApiResponse<PagedResult<PaymentDto>> result = new();
+
+            try
+            {
+                if (
+                    !await _featureToggleService.IsEnabledAsync(
+                        FeatureToggleKeys.Payment,
+                        FeatureToggleKeys.FinanceModule
+                    )
+                )
+                {
+                    result.Data = new PagedResult<PaymentDto> { Items = [], TotalCount = 0 };
+                    result.Status = ResponseStatus.Success;
+                    result.Message = "0 registro(s) encontrado(s).";
+                    return result;
+                }
+
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                var (payments, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true,
+                    includes: [t => t.Transaction, c => c.BusinessPartner, o => o.Order]
+                );
+
+                result.Data = new PagedResult<PaymentDto>
+                {
+                    Items = _mapper.Map<IEnumerable<PaymentDto>>(payments),
+                    TotalCount = totalCount,
+                };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "PaymentService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de Pagamentos na base de dados.";
             }
 
             return result;
@@ -663,6 +715,59 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Payments grid, mapped to the Payment property they
+        /// sort by.
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<Payment, object>>> SortMap = new()
+        {
+            ["description"] = p => p.Description,
+            ["paymentNumber"] = p => p.PaymentNumber,
+            ["type"] = p => p.Type,
+            ["price"] = p => p.Price,
+            ["status"] = p => p.Status,
+            ["date"] = p => p.Date,
+            ["businessPartnerName"] = p => p.BusinessPartner.Name,
+            ["orderNumber"] = p => p.Order.OrderNumber,
+        };
+
+        private static Func<IQueryable<Payment>, IOrderedQueryable<Payment>> BuildOrderBy(PagedRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.SortField) || !SortMap.TryGetValue(request.SortField, out var keySelector))
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
+
+        /// <summary>
+        /// Combines the quick filter with the date-range, status and type filters - the same panel
+        /// the Payments list already had client-side, now applied server-side alongside pagination.
+        /// </summary>
+        private static Expression<Func<Payment, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+            var startDate = request.StartDate?.Date;
+            var endDate = request.EndDate?.Date;
+            var statuses = EnumListParser.Parse<PaymentStatus>(request.Statuses);
+            var hasStatusFilter = statuses.Count > 0;
+            var types = EnumListParser.Parse<PaymentType>(request.Types);
+            var hasTypeFilter = types.Count > 0;
+
+            return p =>
+                (!hasQuickFilter
+                    || p.Description.Contains(quickFilter)
+                    || p.BusinessPartner.Name.Contains(quickFilter))
+                && (startDate == null || p.Date.Date >= startDate)
+                && (endDate == null || p.Date.Date <= endDate)
+                && (!hasStatusFilter || statuses.Contains(p.Status))
+                && (!hasTypeFilter || types.Contains(p.Type));
+        }
 
         private JsonArray BuildCategoriesJson(IList<DateTime> months)
         {

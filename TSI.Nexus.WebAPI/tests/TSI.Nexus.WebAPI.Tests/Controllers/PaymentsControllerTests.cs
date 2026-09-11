@@ -174,6 +174,30 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
         }
 
         [Fact]
+        public async Task GetAllPaged_ShouldReturnOkWithData_WhenServiceReturnsPagedItems()
+        {
+            // Arrange
+            var expected = new WebApiResponse<PagedResult<PaymentDto>>
+            {
+                Data = new PagedResult<PaymentDto> { Items = _paymentsMock, TotalCount = _paymentsMock.Count },
+                Status = ResponseStatus.Success,
+                Message = $"{_paymentsMock.Count} registro(s) encontrado(s).",
+            };
+            var request = new PagedRequest { Page = 1, PageSize = 50 };
+
+            _serviceMock.Setup(s => s.FindAllPaged(request)).ReturnsAsync(expected);
+
+            // Act
+            var result = await _controller.GetAllPaged(request);
+
+            // Assert
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<WebApiResponse<PagedResult<PaymentDto>>>(ok.Value);
+            response.Should().BeEquivalentTo(expected);
+            _serviceMock.Verify(s => s.FindAllPaged(request), Times.Once);
+        }
+
+        [Fact]
         public async Task GetById_ShouldReturnOkWithItem_WhenServiceReturnsItem()
         {
             // Arrange

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -558,6 +559,187 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
+        }
+
+        [Fact]
+        public async Task QuoteService_FindAllPaged_ShouldReturnPagedQuotes_WhenDataExists()
+        {
+            // Arrange
+            var quotes = new List<Quote>
+            {
+                new() { Id = Guid.NewGuid(), Type = QuoteType.Product, BusinessPartner = new Individual { Name = "A" } },
+                new() { Id = Guid.NewGuid(), Type = QuoteType.Trip, BusinessPartner = new Individual { Name = "B" } },
+            };
+            SetUpGetPagedAsyncReturns(quotes, quotes.Count);
+
+            // Act
+            var result = await _quoteService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50 });
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(2, result.Data!.TotalCount);
+            Assert.Equal(2, result.Data.Items.Count());
+        }
+
+        [Fact]
+        public async Task QuoteService_FindAllPaged_ShouldReturnError_WhenRepositoryThrows()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Quote, bool>>>(),
+                        It.IsAny<Func<IQueryable<Quote>, IOrderedQueryable<Quote>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Quote, object>>[]>()
+                    )
+                )
+                .ThrowsAsync(new Exception("boom"));
+
+            // Act
+            var result = await _quoteService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
+        }
+
+        [Fact]
+        public async Task QuoteService_FindAllPaged_FilterShouldExcludeTripQuotes_WhenFleetModuleDisabled()
+        {
+            // Arrange
+            _featureToggleService
+                .Setup(_ => _.IsEnabledAsync(FeatureToggleKeys.FleetModule))
+                .ReturnsAsync(false);
+            Expression<Func<Quote, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var tripQuote = NewQuoteForFilterTests(type: QuoteType.Trip);
+            var productQuote = NewQuoteForFilterTests(type: QuoteType.Product);
+
+            // Act
+            await _quoteService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50 });
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.False(compiled(tripQuote));
+            Assert.True(compiled(productQuote));
+        }
+
+        [Fact]
+        public async Task QuoteService_FindAllPaged_FilterShouldExcludeProductQuotes_WhenQuotesModuleDisabled()
+        {
+            // Arrange
+            _featureToggleService
+                .Setup(_ => _.IsEnabledAsync(FeatureToggleKeys.Quote, FeatureToggleKeys.QuotesModule))
+                .ReturnsAsync(false);
+            Expression<Func<Quote, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var tripQuote = NewQuoteForFilterTests(type: QuoteType.Trip);
+            var productQuote = NewQuoteForFilterTests(type: QuoteType.Product);
+
+            // Act
+            await _quoteService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50 });
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(tripQuote));
+            Assert.False(compiled(productQuote));
+        }
+
+        [Fact]
+        public async Task QuoteService_FindAllPaged_FilterShouldMatchOnlyQuickFilterHits()
+        {
+            // Arrange
+            Expression<Func<Quote, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var matching = NewQuoteForFilterTests(quoteNumber: "SER-Q00123");
+            var nonMatching = NewQuoteForFilterTests(quoteNumber: "THG-Q00999");
+
+            // Act
+            await _quoteService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50, QuickFilter = "00123" });
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(matching));
+            Assert.False(compiled(nonMatching));
+        }
+
+        [Fact]
+        public async Task QuoteService_FindAllPaged_FilterShouldRespectStatusList()
+        {
+            // Arrange
+            Expression<Func<Quote, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var open = NewQuoteForFilterTests(status: QuoteStatus.Open);
+            var expired = NewQuoteForFilterTests(status: QuoteStatus.Expired);
+
+            // Act
+            await _quoteService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50, Statuses = new List<string> { "Open" } }
+            );
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(open));
+            Assert.False(compiled(expired));
+        }
+
+        private static Quote NewQuoteForFilterTests(
+            string quoteNumber = "SER-Q00001",
+            string description = "Descricao",
+            QuoteType type = QuoteType.Product,
+            QuoteStatus status = QuoteStatus.Open,
+            DateTime? createDate = null
+        ) =>
+            new()
+            {
+                QuoteNumber = quoteNumber,
+                Description = description,
+                Type = type,
+                Status = status,
+                CreateDate = createDate ?? DateTime.UtcNow,
+                BusinessPartner = new Individual { Name = "Cliente Teste" },
+            };
+
+        private void SetUpGetPagedAsyncReturns(IList<Quote> quotes, int totalCount)
+        {
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Quote, bool>>>(),
+                        It.IsAny<Func<IQueryable<Quote>, IOrderedQueryable<Quote>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Quote, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((quotes, totalCount));
+        }
+
+        private void SetUpGetPagedAsyncCapture(Action<Expression<Func<Quote, bool>>> onCaptured)
+        {
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Quote, bool>>>(),
+                        It.IsAny<Func<IQueryable<Quote>, IOrderedQueryable<Quote>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Quote, object>>[]>()
+                    )
+                )
+                .Callback<
+                    int,
+                    int,
+                    Expression<Func<Quote, bool>>,
+                    Func<IQueryable<Quote>, IOrderedQueryable<Quote>>,
+                    bool,
+                    Expression<Func<Quote, object>>[]
+                >((_, _, filter, _, _, _) => onCaptured(filter))
+                .ReturnsAsync((new List<Quote>(), 0));
         }
 
         [Fact]

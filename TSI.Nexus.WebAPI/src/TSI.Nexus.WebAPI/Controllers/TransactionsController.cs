@@ -85,6 +85,19 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         /// <summary>
+        /// Get one page of transactions (ag-Grid Infinite Row Model), for the main Transactions
+        /// listing screen.
+        /// </summary>
+        /// <param name="request">The requested page, sort, quick-filter and date/status filters.</param>
+        [HttpGet]
+        [Route("GetAllPaged")]
+        public async Task<IActionResult> GetAllPaged([FromQuery] PagedRequest request)
+        {
+            var webApiResponse = await _transactionService.FindAllPaged(request);
+            return Ok(webApiResponse);
+        }
+
+        /// <summary>
         /// Get transaction by id
         /// </summary>
         /// <param name="transactionId">Transaction id to be used in the search</param>

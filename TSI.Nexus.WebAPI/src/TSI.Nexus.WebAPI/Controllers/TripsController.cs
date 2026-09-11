@@ -90,6 +90,18 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         /// <summary>
+        /// Get one page of trips (ag-Grid Infinite Row Model), for the main Trips listing screen.
+        /// </summary>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        [HttpGet]
+        [Route("GetAllPaged")]
+        public async Task<IActionResult> GetAllPaged([FromQuery] PagedRequest request)
+        {
+            var webApiResponse = await _tripService.FindAllPaged(request);
+            return Ok(webApiResponse);
+        }
+
+        /// <summary>
         /// Get trip by id
         /// </summary>
         /// <param name="tripId">Trip id to be used in the search</param>

@@ -265,6 +265,32 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
         }
 
         [Fact]
+        public async Task QuotesController_GetAllPaged_ShouldGetPagedQuotes_WhenMethodIsCalled()
+        {
+            // Arrange
+            var listMock = new List<QuoteDto> { new() { Id = Guid.NewGuid() } };
+            var request = new PagedRequest { Page = 1, PageSize = 50 };
+            var expectedResult = new WebApiResponse<PagedResult<QuoteDto>>
+            {
+                Data = new PagedResult<QuoteDto> { Items = listMock, TotalCount = listMock.Count },
+                Status = ResponseStatus.Success,
+                Message = $"{listMock.Count} registro(s) encontrado(s).",
+            };
+
+            _serviceMock.Setup(_ => _.FindAllPaged(request)).ReturnsAsync(expectedResult);
+
+            // Act
+            var result = await _controller.GetAllPaged(request);
+
+            // Assert
+            var okResult = Assert.IsType<OkObjectResult>(result);
+            var response = Assert.IsType<WebApiResponse<PagedResult<QuoteDto>>>(okResult.Value);
+            Assert.Equal(listMock, response.Data!.Items);
+
+            _serviceMock.Verify(_ => _.FindAllPaged(request), Times.Once);
+        }
+
+        [Fact]
         public async Task QuotesController_GetById_ShouldGetQuoteById_WhenMethodIsCalled()
         {
             // Arrange

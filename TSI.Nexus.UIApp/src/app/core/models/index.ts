@@ -16,6 +16,8 @@ export * from './dashboard-card.model';
 export * from './individual.model';
 export * from './order.model';
 export * from './order-product.model';
+export * from './paged-request.model';
+export * from './paged-result.model';
 export * from './purchase-order.model';
 export * from './purchase-order-product.model';
 export * from './trip-driver.model';

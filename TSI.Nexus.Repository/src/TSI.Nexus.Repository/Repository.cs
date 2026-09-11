@@ -498,6 +498,47 @@ namespace TSI.Nexus.Repository
             return list.Count;
         }
 
+        /// <inheritdoc />
+        public async Task<(IList<T> Items, int TotalCount)> GetPagedAsync(
+            int skip,
+            int take,
+            Expression<Func<T, bool>> filter,
+            Func<IQueryable<T>, IOrderedQueryable<T>> orderBy,
+            bool asNoTracking,
+            params Expression<Func<T, object>>[] includes
+        )
+        {
+            IQueryable<T> baseQuery = asNoTracking
+                ? _myDbContext.Set<T>().AsNoTracking()
+                : _myDbContext.Set<T>();
+
+            if (filter != null)
+            {
+                baseQuery = baseQuery.Where(filter);
+            }
+
+            // Counted before Include()s are applied - joining in the related tables here would
+            // multiply the row count instead of just counting the filtered entities.
+            var totalCount = await baseQuery.CountAsync();
+
+            var query = baseQuery;
+            if (includes != null && includes.Length > 0)
+            {
+                foreach (var include in includes)
+                {
+                    query = query.Include(include);
+                }
+            }
+
+            query = orderBy != null
+                ? orderBy(query)
+                : query.OrderBy(e => EF.Property<DateTime>(e, "CreateDate"));
+
+            var items = await query.Skip(skip).Take(take).ToListAsync();
+
+            return (items, totalCount);
+        }
+
         #endregion Public methods
 
         #region Private methods

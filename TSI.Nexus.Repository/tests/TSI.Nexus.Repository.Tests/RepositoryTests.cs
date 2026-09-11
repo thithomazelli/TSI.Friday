@@ -326,6 +326,88 @@ namespace TSI.Nexus.Repository.Tests
         }
 
         [Fact]
+        public async Task GetPagedAsync_ShouldReturnRequestedPage_AndTotalCountAcrossAllPages()
+        {
+            for (var i = 0; i < 5; i++)
+            {
+                await _repository.AddAsync(NewDriver($"Driver{i}", DateTime.UtcNow.AddMinutes(i)));
+            }
+
+            var (items, totalCount) = await _repository.GetPagedAsync(
+                skip: 2,
+                take: 2,
+                filter: null,
+                orderBy: q => q.OrderBy(d => d.CreateDate),
+                asNoTracking: true
+            );
+
+            Assert.Equal(5, totalCount);
+            Assert.Equal(2, items.Count);
+            Assert.Equal("Driver2", items[0].Name);
+            Assert.Equal("Driver3", items[1].Name);
+        }
+
+        [Fact]
+        public async Task GetPagedAsync_ShouldApplyFilter_BeforeCountingAndPaging()
+        {
+            await _repository.AddAsync(NewDriver("Active1"));
+            await _repository.AddAsync(NewDriver("Active2"));
+            var inactive = NewDriver("Inactive1");
+            inactive.Status = DriverStatus.Inactive;
+            await _repository.AddAsync(inactive);
+
+            var (items, totalCount) = await _repository.GetPagedAsync(
+                skip: 0,
+                take: 10,
+                filter: d => d.Status == DriverStatus.Active,
+                orderBy: q => q.OrderBy(d => d.CreateDate),
+                asNoTracking: true
+            );
+
+            Assert.Equal(2, totalCount);
+            Assert.Equal(2, items.Count);
+            Assert.DoesNotContain(items, d => d.Name == "Inactive1");
+        }
+
+        [Fact]
+        public async Task GetPagedAsync_ShouldFallBackToCreateDateOrdering_WhenOrderByIsNull()
+        {
+            var older = NewDriver("Older", DateTime.UtcNow.AddDays(-1));
+            var newer = NewDriver("Newer", DateTime.UtcNow);
+            await _repository.AddAsync(newer);
+            await _repository.AddAsync(older);
+
+            var (items, totalCount) = await _repository.GetPagedAsync(
+                skip: 0,
+                take: 10,
+                filter: null,
+                orderBy: null,
+                asNoTracking: true
+            );
+
+            Assert.Equal(2, totalCount);
+            Assert.Equal(older.Id, items[0].Id);
+        }
+
+        [Fact]
+        public async Task GetPagedAsync_ShouldApplyIncludes()
+        {
+            await _repository.AddAsync(NewDriver());
+
+            var (items, totalCount) = await _repository.GetPagedAsync(
+                skip: 0,
+                take: 10,
+                filter: null,
+                orderBy: q => q.OrderBy(d => d.CreateDate),
+                asNoTracking: true,
+                includes: d => d.Trips
+            );
+
+            Assert.Equal(1, totalCount);
+            Assert.Single(items);
+        }
+
+        [Fact]
         public async Task SumAsync_ShouldSumMatchingEntities()
         {
             var transactionRepository = new Repository<Transaction>(_context);

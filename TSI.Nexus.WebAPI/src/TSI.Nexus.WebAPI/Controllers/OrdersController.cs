@@ -90,6 +90,18 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         /// <summary>
+        /// Get one page of orders (ag-Grid Infinite Row Model), for the main Orders listing screen.
+        /// </summary>
+        /// <param name="request">The requested page, sort, quick-filter and date/status filters.</param>
+        [HttpGet]
+        [Route("GetAllPaged")]
+        public async Task<IActionResult> GetAllPaged([FromQuery] PagedRequest request)
+        {
+            var webApiResponse = await _orderService.FindAllPaged(request);
+            return Ok(webApiResponse);
+        }
+
+        /// <summary>
         /// Get order by id
         /// </summary>
         /// <param name="orderId">Order id to be used in the search</param>

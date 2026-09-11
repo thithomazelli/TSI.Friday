@@ -125,6 +125,18 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         /// <summary>
+        /// Get one page of quotes (ag-Grid Infinite Row Model), for the main Quotes listing screen.
+        /// </summary>
+        /// <param name="request">The requested page, sort, quick-filter and date/status filters.</param>
+        [HttpGet]
+        [Route("GetAllPaged")]
+        public async Task<IActionResult> GetAllPaged([FromQuery] PagedRequest request)
+        {
+            var webApiResponse = await _quoteService.FindAllPaged(request);
+            return Ok(webApiResponse);
+        }
+
+        /// <summary>
         /// Get quote by id
         /// </summary>
         /// <param name="quoteId">Quote id to be used in the search</param>

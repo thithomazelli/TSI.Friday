@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -681,6 +682,198 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
             Assert.DoesNotContain("boom", result.Message);
+        }
+
+        [Fact]
+        public async Task OrderService_FindAllPaged_ShouldReturnPagedOrders_WhenDataExists()
+        {
+            // Arrange
+            var orders = new List<Order>
+            {
+                new() { Id = Guid.NewGuid(), BusinessPartner = new Individual { Name = "A" } },
+                new() { Id = Guid.NewGuid(), BusinessPartner = new Individual { Name = "B" } },
+            };
+            SetUpGetPagedAsyncReturns(orders, orders.Count);
+
+            // Act
+            var result = await _orderService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50 });
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(2, result.Data!.TotalCount);
+            Assert.Equal(2, result.Data.Items.Count());
+        }
+
+        [Fact]
+        public async Task OrderService_FindAllPaged_ShouldReturnEmpty_WhenModuleToggleIsDisabled()
+        {
+            // Arrange
+            _featureToggleServiceMock
+                .Setup(_ => _.IsEnabledAsync(FeatureToggleKeys.Order, FeatureToggleKeys.SalesOrdersModule))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _orderService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Empty(result.Data!.Items);
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Order, bool>>>(),
+                        It.IsAny<Func<IQueryable<Order>, IOrderedQueryable<Order>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<Order, object>>[]>()
+                    ),
+                Times.Never
+            );
+        }
+
+        [Fact]
+        public async Task OrderService_FindAllPaged_ShouldReturnError_WhenRepositoryThrows()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Order, bool>>>(),
+                        It.IsAny<Func<IQueryable<Order>, IOrderedQueryable<Order>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Order, object>>[]>()
+                    )
+                )
+                .ThrowsAsync(new Exception("boom"));
+
+            // Act
+            var result = await _orderService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
+            Assert.DoesNotContain("boom", result.Message);
+        }
+
+        [Fact]
+        public async Task OrderService_FindAllPaged_FilterShouldMatchOnlyQuickFilterHits()
+        {
+            // Arrange
+            Expression<Func<Order, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var matching = NewOrderForFilterTests(orderNumber: "SER-P00123");
+            var nonMatching = NewOrderForFilterTests(orderNumber: "THG-P00999");
+
+            // Act
+            await _orderService.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50, QuickFilter = "00123" });
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(matching));
+            Assert.False(compiled(nonMatching));
+        }
+
+        [Fact]
+        public async Task OrderService_FindAllPaged_FilterShouldRespectDateRange()
+        {
+            // Arrange
+            Expression<Func<Order, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var inRange = NewOrderForFilterTests(createDate: new DateTime(2026, 3, 15));
+            var before = NewOrderForFilterTests(createDate: new DateTime(2026, 2, 28));
+
+            // Act
+            await _orderService.FindAllPaged(
+                new PagedRequest
+                {
+                    Page = 1,
+                    PageSize = 50,
+                    StartDate = new DateTime(2026, 3, 1),
+                    EndDate = new DateTime(2026, 3, 31),
+                }
+            );
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(inRange));
+            Assert.False(compiled(before));
+        }
+
+        [Fact]
+        public async Task OrderService_FindAllPaged_FilterShouldRespectStatusList()
+        {
+            // Arrange
+            Expression<Func<Order, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var open = NewOrderForFilterTests(status: OrderStatus.Open);
+            var closed = NewOrderForFilterTests(status: OrderStatus.Closed);
+
+            // Act
+            await _orderService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50, Statuses = new List<string> { "Open" } }
+            );
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(open));
+            Assert.False(compiled(closed));
+        }
+
+        private static Order NewOrderForFilterTests(
+            string orderNumber = "SER-P00001",
+            string description = "Descricao",
+            DateTime? createDate = null,
+            OrderStatus status = OrderStatus.Open
+        ) =>
+            new()
+            {
+                OrderNumber = orderNumber,
+                Description = description,
+                CreateDate = createDate ?? DateTime.UtcNow,
+                Status = status,
+                BusinessPartner = new Individual { Name = "Cliente Teste" },
+            };
+
+        private void SetUpGetPagedAsyncReturns(IList<Order> orders, int totalCount)
+        {
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Order, bool>>>(),
+                        It.IsAny<Func<IQueryable<Order>, IOrderedQueryable<Order>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Order, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((orders, totalCount));
+        }
+
+        private void SetUpGetPagedAsyncCapture(Action<Expression<Func<Order, bool>>> onCaptured)
+        {
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Order, bool>>>(),
+                        It.IsAny<Func<IQueryable<Order>, IOrderedQueryable<Order>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Order, object>>[]>()
+                    )
+                )
+                .Callback<
+                    int,
+                    int,
+                    Expression<Func<Order, bool>>,
+                    Func<IQueryable<Order>, IOrderedQueryable<Order>>,
+                    bool,
+                    Expression<Func<Order, object>>[]
+                >((_, _, filter, _, _, _) => onCaptured(filter))
+                .ReturnsAsync((new List<Order>(), 0));
         }
 
         [Fact]

@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿using System.Linq.Expressions;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
@@ -394,6 +395,66 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<TransactionDto>>> FindAllPaged(PagedRequest request)
+        {
+            WebApiResponse<PagedResult<TransactionDto>> result = new();
+
+            try
+            {
+                if (
+                    !await _featureToggleService.IsEnabledAsync(
+                        FeatureToggleKeys.Transaction,
+                        FeatureToggleKeys.FinanceModule
+                    )
+                )
+                {
+                    result.Data = new PagedResult<TransactionDto> { Items = [], TotalCount = 0 };
+                    result.Status = ResponseStatus.Success;
+                    result.Message = "0 registro(s) encontrado(s).";
+                    return result;
+                }
+
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                var (transactions, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true,
+                    includes: [c => c.BusinessPartner, o => o.Order, p => p.Payments]
+                );
+
+                var transactionDtos = transactions
+                    .Select(t =>
+                    {
+                        var dto = _mapper.Map<TransactionDto>(t);
+                        dto.PaymentTotalPrice = ComputePriceFromPayments(t.Payments);
+                        dto.Status = ComputeStatusFromPayments(t.Payments);
+                        return dto;
+                    })
+                    .ToList();
+
+                result.Data = new PagedResult<TransactionDto>
+                {
+                    Items = transactionDtos,
+                    TotalCount = totalCount,
+                };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "TransactionService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de Transaçãos na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
         public async Task<WebApiResponse<TransactionDto>> FindById(Guid? id)
         {
             WebApiResponse<TransactionDto> result = new();
@@ -511,6 +572,79 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Transactions grid, mapped to the Transaction property
+        /// they sort by. condition/paymentTotalPrice/expenseTotalPrice/status are all computed in
+        /// memory (Condition/Type have no mapping from Transaction at all; the totals and status
+        /// come from ComputePriceFromPayments/ComputeStatusFromPayments) and have no column to sort
+        /// by in SQL - requesting one of those SortFields simply falls back to the repository's own
+        /// default (CreateDate) ordering, same as an unrecognized field would.
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<Transaction, object>>> SortMap = new()
+        {
+            ["description"] = t => t.Description,
+            ["date"] = t => t.Date,
+            ["businessPartnerName"] = t => t.BusinessPartner.Name,
+            ["orderNumber"] = t => t.Order.OrderNumber,
+        };
+
+        private static Func<IQueryable<Transaction>, IOrderedQueryable<Transaction>> BuildOrderBy(
+            PagedRequest request
+        )
+        {
+            if (string.IsNullOrWhiteSpace(request.SortField) || !SortMap.TryGetValue(request.SortField, out var keySelector))
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
+
+        /// <summary>
+        /// Combines the quick filter and date-range filter with the status filter - the same panel
+        /// the Transactions list already had client-side. Status isn't a real column (it's computed
+        /// from the child Payments, see ComputeStatusFromPayments) so the same three-way rule is
+        /// expressed here as Any()/All() over the Payments navigation, which EF Core translates
+        /// into a correlated subquery instead of running in memory after the fact. The "type"
+        /// (Incoming/Outgoing) checkbox filter is intentionally not reproduced here: TransactionDto.Type
+        /// has no mapping from the Transaction entity today (it's always its default value), so that
+        /// checkbox already does not filter anything client-side either - nothing to preserve.
+        /// </summary>
+        private static Expression<Func<Transaction, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+            var startDate = request.StartDate?.Date;
+            var endDate = request.EndDate?.Date;
+            var statuses = EnumListParser.Parse<PaymentStatus>(request.Statuses);
+            var hasStatusFilter = statuses.Count > 0;
+            var wantsApproved = statuses.Contains(PaymentStatus.Approved);
+            var wantsPending = statuses.Contains(PaymentStatus.Pending);
+            var wantsDelayed = statuses.Contains(PaymentStatus.Delayed);
+            var today = DateTime.UtcNow.Date;
+
+            return t =>
+                (!hasQuickFilter
+                    || t.Description.Contains(quickFilter)
+                    || t.BusinessPartner.Name.Contains(quickFilter))
+                && (startDate == null || t.Date.Date >= startDate)
+                && (endDate == null || t.Date.Date <= endDate)
+                && (
+                    !hasStatusFilter
+                    || (wantsApproved && t.Payments.Any() && t.Payments.All(p => p.Status == PaymentStatus.Approved))
+                    || (wantsPending
+                        && (!t.Payments.Any()
+                            || (!t.Payments.All(p => p.Status == PaymentStatus.Approved)
+                                && !t.Payments.Any(p => p.Status != PaymentStatus.Approved && p.Date.Date < today))))
+                    || (wantsDelayed
+                        && t.Payments.Any()
+                        && !t.Payments.All(p => p.Status == PaymentStatus.Approved)
+                        && t.Payments.Any(p => p.Status != PaymentStatus.Approved && p.Date.Date < today))
+                );
+        }
 
         /// <summary>
         /// Create the payments for a given TransactionDto based on its TotalOfPayments property

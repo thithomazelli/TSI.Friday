@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using AutoMapper;
 using TSI.Nexus.Contracts.Enums;
@@ -307,6 +308,51 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<TripDto>>> FindAllPaged(PagedRequest request)
+        {
+            WebApiResponse<PagedResult<TripDto>> result = new();
+
+            try
+            {
+                if (!await _featureToggleService.IsEnabledAsync(FeatureToggleKeys.Trip, FeatureToggleKeys.FleetModule))
+                {
+                    result.Data = new PagedResult<TripDto> { Items = [], TotalCount = 0 };
+                    result.Status = ResponseStatus.Success;
+                    result.Message = "0 registro(s) encontrado(s).";
+                    return result;
+                }
+
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                var (trips, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true,
+                    includes: [t => t.BusinessPartner, t => t.Vehicle, t => t.Driver]
+                );
+
+                result.Data = new PagedResult<TripDto>
+                {
+                    Items = _mapper.Map<IEnumerable<TripDto>>(trips),
+                    TotalCount = totalCount,
+                };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "TripService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de Viagens na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
         public async Task<WebApiResponse<TripDto>> FindById(Guid? id)
         {
             WebApiResponse<TripDto> result = new();
@@ -522,6 +568,60 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Trips grid, mapped to the Trip property they sort by -
+        /// the grid only ever sends a column id it already knows about, so an unrecognized
+        /// SortField (or none) falls back to the repository's own default (CreateDate) ordering.
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<Trip, object>>> SortMap = new()
+        {
+            ["tripNumber"] = t => t.TripNumber,
+            ["businessPartnerName"] = t => t.BusinessPartner.Name,
+            ["route"] = t => t.Route,
+            ["vehiclePlate"] = t => t.Vehicle.Plate,
+            ["driverName"] = t => t.Driver.Name,
+            ["totalPrice"] = t => t.TotalPrice,
+            ["date"] = t => t.Date,
+            ["status"] = t => t.Status,
+        };
+
+        /// <summary>
+        /// Combines the quick filter (OR across the grid's own visible text columns), the
+        /// date-range filter and the status filter - the same date-range + status checkbox panel
+        /// the Trips list already had client-side, now applied server-side alongside pagination so
+        /// switching pages doesn't drop it back to whatever page happens to be loaded.
+        /// </summary>
+        private static Expression<Func<Trip, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+            var startDate = request.StartDate?.Date;
+            var endDate = request.EndDate?.Date;
+            var statuses = EnumListParser.Parse<OrderStatus>(request.Statuses);
+            var hasStatusFilter = statuses.Count > 0;
+
+            return t =>
+                (!hasQuickFilter
+                    || t.TripNumber.Contains(quickFilter)
+                    || t.Route.Contains(quickFilter)
+                    || t.BusinessPartner.Name.Contains(quickFilter))
+                && (startDate == null || t.CreateDate.Date >= startDate)
+                && (endDate == null || t.CreateDate.Date <= endDate)
+                && (!hasStatusFilter || statuses.Contains(t.Status));
+        }
+
+        private static Func<IQueryable<Trip>, IOrderedQueryable<Trip>> BuildOrderBy(PagedRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.SortField) || !SortMap.TryGetValue(request.SortField, out var keySelector))
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
 
         /// <summary>
         /// Returns an error message when the current user is neither the creator of the Trip nor
