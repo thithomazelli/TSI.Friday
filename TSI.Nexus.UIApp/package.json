@@ -33,7 +33,7 @@
     "@fullcalendar/interaction": "^6.1.21",
     "@fullcalendar/timegrid": "^6.1.21",
     "@primeuix/themes": "^2.0.3",
-    "admin-lte": "4.0.0-rc3",
+    "admin-lte": "^4.9.1",
     "ag-grid-angular": "^34.3.1",
     "ag-grid-community": "^34.3.1",
     "apexcharts": "^5.6.0",
