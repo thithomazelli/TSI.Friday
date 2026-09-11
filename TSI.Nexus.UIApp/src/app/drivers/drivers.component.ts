@@ -15,6 +15,7 @@ import { DriverDetailsModalComponent } from './components/driver-details-modal/d
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
 import { TranslatePipe } from '../core/pipes/translate.pipe';
+import { formatDateBR } from '../core/utilities/format-utils';
 
 @Component({
     selector: 'app-drivers',
@@ -88,12 +89,7 @@ export class DriversComponent implements OnInit, OnDestroy {
       field: 'licenseExpiryDate',
       headerName: this.translationService.instant('DRIVERS.LICENSE_EXPIRY_SHORT'),
       maxWidth: 140,
-      valueFormatter: (params: ValueFormatterParams) => {
-        if (!params.value) {
-          return '';
-        }
-        return new Date(params.value).toLocaleDateString('pt-BR');
-      },
+      valueFormatter: (params: ValueFormatterParams) => formatDateBR(params.value),
     },
     {
       field: 'employmentType',

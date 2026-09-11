@@ -18,6 +18,7 @@ import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { NgFor, NgIf, CurrencyPipe, DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '../core/pipes/translate.pipe';
+import { formatDateBR } from '../core/utilities/format-utils';
 
 @Component({
     selector: 'app-reports',
@@ -232,10 +233,10 @@ export class ReportsComponent implements OnInit {
     );
 
     const startDate = this.filterStartDate
-      ? this.formatDate(this.filterStartDate)
+      ? formatDateBR(this.filterStartDate)
       : '';
     const endDate = this.filterEndDate
-      ? this.formatDate(this.filterEndDate)
+      ? formatDateBR(this.filterEndDate)
       : '';
     const reportTitle = this.translationService.instant('REPORTS.TITLE');
     const dateRangeText = this.translationService.instant('REPORTS.DATE_RANGE', { start: startDate || '-', end: endDate || '-' });
@@ -281,15 +282,6 @@ export class ReportsComponent implements OnInit {
   }
 
   // Utilitário para formatar data como dd/MM/yyyy
-  private formatDate(dateStr: string): string {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '';
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
-
   private getPayment(callback?: () => void): void {
     const endpoint = `${this._baseEndPoint}/getAll`;
 

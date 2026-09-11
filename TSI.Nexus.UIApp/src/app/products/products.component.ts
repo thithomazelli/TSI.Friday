@@ -20,6 +20,7 @@ import { ProductDetailsModalComponent } from './components/product-details-modal
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
 import { TranslatePipe } from '../core/pipes/translate.pipe';
+import { formatCurrencyBRL } from '../core/utilities/format-utils';
 
 @Component({
     selector: 'app-products',
@@ -136,16 +137,8 @@ export class ProductsComponent implements OnInit, OnDestroy {
       sortable: true,
       filter: true,
       maxWidth: 120,
-      valueFormatter: (params: ValueFormatterParams): string => {
-        const v = params.value;
-        if (v == null || v === '') return '';
-        const n = Number(v);
-        if (Number.isNaN(n)) return String(v);
-        return n.toLocaleString('pt-BR', {
-          style: 'currency',
-          currency: 'BRL',
-        });
-      },
+      valueFormatter: (params: ValueFormatterParams) =>
+        formatCurrencyBRL(params.value),
     },
     {
       field: 'category',

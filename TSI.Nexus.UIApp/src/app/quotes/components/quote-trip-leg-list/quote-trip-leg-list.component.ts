@@ -17,6 +17,7 @@ import {
 } from '@nexus/core';
 import { ColDef, ValueFormatterParams } from 'ag-grid-community';
 import { Subject, takeUntil } from 'rxjs';
+import { formatDateTimeBR } from '../../../core/utilities/format-utils';
 
 import { QuoteTripLegDetailsModalComponent } from '../quote-trip-leg-details-modal/quote-trip-leg-details-modal.component';
 import { GridComponent } from '../../../shared/grid/grid.component';
@@ -140,7 +141,7 @@ export class QuoteTripLegListComponent implements OnInit, OnChanges, OnDestroy {
         filter: true,
         flex: 1,
         valueFormatter: (params: ValueFormatterParams) =>
-          this.formatDateTimeBR(params.value),
+          formatDateTimeBR(params.value),
       },
       {
         field: 'distanceKm',
@@ -196,22 +197,4 @@ export class QuoteTripLegListComponent implements OnInit, OnChanges, OnDestroy {
       });
   }
 
-  private formatDateTimeBR(date: string | Date): string {
-    if (!date) {
-      return '';
-    }
-
-    const d = new Date(date);
-    if (isNaN(d.getTime())) {
-      return '';
-    }
-
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  }
 }

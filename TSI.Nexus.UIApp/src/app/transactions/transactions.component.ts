@@ -24,6 +24,7 @@ import { GridComponent } from '../shared/grid/grid.component';
 import { DateFieldComponent } from '../shared/components/date-field/date-field.component';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { TranslatePipe } from '../core/pipes/translate.pipe';
+import { formatCurrencyBRL, formatDateBR } from '../core/utilities/format-utils';
 
 @Component({
     selector: 'app-transactions',
@@ -240,16 +241,8 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         cellClass: (params: ValueFormatterParams) => {
           return params.value > 0 ? 'text-success' : '';
         },
-        valueFormatter: (params: ValueFormatterParams): string => {
-          const v = params.value;
-          if (v == null || v === '') return '';
-          const n = Number(v);
-          if (Number.isNaN(n)) return String(v);
-          return n.toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-          });
-        },
+        valueFormatter: (params: ValueFormatterParams) =>
+          formatCurrencyBRL(params.value),
       },
       {
         field: 'expenseTotalPrice',
@@ -260,16 +253,8 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         cellClass: (params: ValueFormatterParams) => {
           return params.value > 0 ? 'text-danger' : '';
         },
-        valueFormatter: (params: ValueFormatterParams): string => {
-          const v = params.value;
-          if (v == null || v === '') return '';
-          const n = Number(v);
-          if (Number.isNaN(n)) return String(v);
-          return n.toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-          });
-        },
+        valueFormatter: (params: ValueFormatterParams) =>
+          formatCurrencyBRL(params.value),
       },
       {
         field: 'condition',
@@ -291,7 +276,7 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         filter: true,
         maxWidth: 120,
         valueFormatter: (params: ValueFormatterParams) =>
-          this.formatDateBR(params.value),
+          formatDateBR(params.value),
       },
       {
         field: 'status',
@@ -403,22 +388,6 @@ export class TransactionsComponent implements OnInit, OnDestroy {
 
   private getStatusColor(status: string): string {
     return this.statusColorMap[status] ?? this.statusColorMap['default'];
-  }
-
-  private formatDateBR(date: string | Date): string {
-    if (!date) {
-      return '';
-    }
-
-    const d = new Date(date);
-    if (isNaN(d.getTime())) {
-      return '';
-    }
-
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
   }
 
   private setFiltersFromQueryParams(): void {

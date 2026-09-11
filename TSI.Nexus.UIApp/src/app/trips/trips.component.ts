@@ -26,6 +26,7 @@ import { GridComponent } from '../shared/grid/grid.component';
 import { DateFieldComponent } from '../shared/components/date-field/date-field.component';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { TranslatePipe } from '../core/pipes/translate.pipe';
+import { formatCurrencyBRL, formatDateBR } from '../core/utilities/format-utils';
 
 @Component({
     selector: 'app-trips',
@@ -257,16 +258,8 @@ export class TripsComponent implements OnInit, OnDestroy {
         filter: true,
         width: 120,
         cellClass: 'text-start',
-        valueFormatter: (params: ValueFormatterParams): string => {
-          const v = params.value;
-          if (v == null || v === '') return '';
-          const n = Number(v);
-          if (Number.isNaN(n)) return String(v);
-          return n.toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-          });
-        },
+        valueFormatter: (params: ValueFormatterParams) =>
+          formatCurrencyBRL(params.value),
       },
       {
         field: 'date',
@@ -276,7 +269,7 @@ export class TripsComponent implements OnInit, OnDestroy {
         flex: 2,
         minWidth: 160,
         valueFormatter: (params: ValueFormatterParams) =>
-          this.formatDateBR(params.value),
+          formatDateBR(params.value),
       },
       {
         field: 'status',
@@ -362,22 +355,6 @@ export class TripsComponent implements OnInit, OnDestroy {
     });
   }
 
-  private formatDateBR(date: string | Date): string {
-    if (!date) {
-      return '';
-    }
-
-    const d = new Date(date);
-    if (isNaN(d.getTime())) {
-      return '';
-    }
-
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-
-    return `${day}/${month}/${year}`;
-  }
 
   private setFiltersFromQueryParams(): void {
     const params =

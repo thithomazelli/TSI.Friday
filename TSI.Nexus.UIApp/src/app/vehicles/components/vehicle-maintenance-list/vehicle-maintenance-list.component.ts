@@ -23,6 +23,7 @@ import { VehicleMaintenanceDetailsModalComponent } from '../vehicle-maintenance-
 import { HeaderComponent } from '../../../shared/header/header.component';
 import { GridComponent } from '../../../shared/grid/grid.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { formatCurrencyBRL, formatDateBR } from '../../../core/utilities/format-utils';
 
 @Component({
     selector: 'app-vehicle-maintenance-list',
@@ -165,7 +166,7 @@ export class VehicleMaintenanceListComponent
         sortable: true,
         filter: true,
         flex: 1,
-        valueFormatter: (params: ValueFormatterParams) => this.formatDateBR(params.value),
+        valueFormatter: (params: ValueFormatterParams) => formatDateBR(params.value),
       },
       {
         field: 'cost',
@@ -173,13 +174,7 @@ export class VehicleMaintenanceListComponent
         sortable: true,
         filter: true,
         flex: 1,
-        valueFormatter: (params: ValueFormatterParams): string => {
-          const v = params.value;
-          if (v == null || v === '') return '';
-          const n = Number(v);
-          if (Number.isNaN(n)) return String(v);
-          return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        },
+        valueFormatter: (params: ValueFormatterParams) => formatCurrencyBRL(params.value),
       },
       {
         field: 'status',
@@ -234,19 +229,5 @@ export class VehicleMaintenanceListComponent
         this.loading = false;
       },
     });
-  }
-
-  private formatDateBR(date: string | Date): string {
-    if (!date) {
-      return '';
-    }
-    const d = new Date(date);
-    if (isNaN(d.getTime())) {
-      return '';
-    }
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
   }
 }

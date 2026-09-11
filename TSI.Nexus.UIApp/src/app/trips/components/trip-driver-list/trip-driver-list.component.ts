@@ -18,6 +18,7 @@ import {
 import { ColDef, ValueFormatterParams } from 'ag-grid-community';
 import { Subject, takeUntil } from 'rxjs';
 
+import { formatCurrencyBRL, formatDateBR } from '../../../core/utilities/format-utils';
 import { TripDriverDetailsModalComponent } from '../trip-driver-details-modal/trip-driver-details-modal.component';
 import { GridComponent } from '../../../shared/grid/grid.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
@@ -140,7 +141,7 @@ export class TripDriverListComponent
         filter: true,
         flex: 1,
         valueFormatter: (params: ValueFormatterParams) =>
-          this.formatDateBR(params.value),
+          formatDateBR(params.value),
       },
       {
         field: 'amount',
@@ -148,16 +149,8 @@ export class TripDriverListComponent
         sortable: true,
         filter: true,
         flex: 1,
-        valueFormatter: (params: ValueFormatterParams): string => {
-          const v = params.value;
-          if (v == null || v === '') return '';
-          const n = Number(v);
-          if (Number.isNaN(n)) return String(v);
-          return n.toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-          });
-        },
+        valueFormatter: (params: ValueFormatterParams) =>
+          formatCurrencyBRL(params.value),
       },
       {
         headerName: this.translationService.instant('COMMON.ACTIONS'),
@@ -206,20 +199,4 @@ export class TripDriverListComponent
       });
   }
 
-  private formatDateBR(date: string | Date): string {
-    if (!date) {
-      return '';
-    }
-
-    const d = new Date(date);
-    if (isNaN(d.getTime())) {
-      return '';
-    }
-
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-
-    return `${day}/${month}/${year}`;
-  }
 }

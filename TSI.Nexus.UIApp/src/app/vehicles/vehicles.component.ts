@@ -15,6 +15,7 @@ import { VehicleDetailsModalComponent } from './components/vehicle-details-modal
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
 import { TranslatePipe } from '../core/pipes/translate.pipe';
+import { formatCurrencyBRL } from '../core/utilities/format-utils';
 
 @Component({
     selector: 'app-vehicles',
@@ -112,14 +113,14 @@ export class VehiclesComponent implements OnInit, OnDestroy {
       headerName: this.translationService.instant('VEHICLES.PRICE_PER_KM_SHORT'),
       maxWidth: 110,
       valueFormatter: (params: ValueFormatterParams) =>
-        this.formatCurrency(params.value),
+        formatCurrencyBRL(params.value),
     },
     {
       field: 'dailyRate',
       headerName: this.translationService.instant('VEHICLES.DAILY_RATE'),
       maxWidth: 110,
       valueFormatter: (params: ValueFormatterParams) =>
-        this.formatCurrency(params.value),
+        formatCurrencyBRL(params.value),
     },
     {
       headerName: this.translationService.instant('COMMON.ACTIONS'),
@@ -215,17 +216,6 @@ export class VehiclesComponent implements OnInit, OnDestroy {
           this.loading = false;
         },
       });
-  }
-
-  private formatCurrency(value: number): string {
-    if (value == null || value === ('' as unknown as number)) {
-      return '';
-    }
-    const n = Number(value);
-    if (Number.isNaN(n)) {
-      return String(value);
-    }
-    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
   private getVehicles(): void {

@@ -23,6 +23,7 @@ import {
   ValueFormatterParams,
 } from 'ag-grid-community';
 import { QuoteDetailsModalComponent } from './components/quote-details-modal/quote-details-modal.component';
+import { formatCurrencyBRL, formatDateBR } from '../core/utilities/format-utils';
 import { NgIf } from '@angular/common';
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
@@ -281,16 +282,8 @@ export class QuotesComponent implements OnInit, OnDestroy {
         filter: true,
         width: 120,
         cellClass: 'text-start',
-        valueFormatter: (params: ValueFormatterParams): string => {
-          const v = params.value;
-          if (v == null || v === '') return '';
-          const n = Number(v);
-          if (Number.isNaN(n)) return String(v);
-          return n.toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-          });
-        },
+        valueFormatter: (params: ValueFormatterParams) =>
+          formatCurrencyBRL(params.value),
       },
       {
         field: 'date',
@@ -300,7 +293,7 @@ export class QuotesComponent implements OnInit, OnDestroy {
         flex: 2,
         minWidth: 160,
         valueFormatter: (params: ValueFormatterParams) =>
-          this.formatDateBR(params.value),
+          formatDateBR(params.value),
       },
       {
         field: 'status',
@@ -380,22 +373,6 @@ export class QuotesComponent implements OnInit, OnDestroy {
     });
   }
 
-  private formatDateBR(date: string | Date): string {
-    if (!date) {
-      return '';
-    }
-
-    const d = new Date(date);
-    if (isNaN(d.getTime())) {
-      return '';
-    }
-
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-
-    return `${day}/${month}/${year}`;
-  }
 
   private setFiltersFromQueryParams(): void {
     const params =

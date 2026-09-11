@@ -55,3 +55,70 @@ export function formatDocument(document: string | undefined | null): string {
 
   return document;
 }
+
+/**
+ * Formata um valor monetário no padrão pt-BR/BRL, usado nos valueFormatters de colunas
+ * de valor em ag-Grid por toda a aplicação.
+ * @param value - Valor a ser formatado (numérico ou string numérica)
+ * @returns Valor formatado como moeda, string original se não numérico, ou vazio se nulo
+ */
+export function formatCurrencyBRL(value: unknown): string {
+  if (value == null || value === '') {
+    return '';
+  }
+
+  const number = Number(value);
+  if (Number.isNaN(number)) {
+    return String(value);
+  }
+
+  return number.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/**
+ * Formata uma data no padrão dd/MM/yyyy, usado nos valueFormatters de colunas de data
+ * em ag-Grid por toda a aplicação.
+ * @param date - Data a ser formatada
+ * @returns Data formatada ou vazio se nula/inválida
+ */
+export function formatDateBR(date: string | Date | null | undefined): string {
+  if (!date) {
+    return '';
+  }
+
+  const parsedDate = new Date(date);
+  if (isNaN(parsedDate.getTime())) {
+    return '';
+  }
+
+  const day = String(parsedDate.getDate()).padStart(2, '0');
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+  const year = parsedDate.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
+/**
+ * Formata uma data e hora no padrão dd/MM/yyyy HH:mm, usado nos valueFormatters de
+ * colunas de data/hora em ag-Grid por toda a aplicação.
+ * @param date - Data a ser formatada
+ * @returns Data e hora formatadas ou vazio se nula/inválida
+ */
+export function formatDateTimeBR(date: string | Date | null | undefined): string {
+  if (!date) {
+    return '';
+  }
+
+  const parsedDate = new Date(date);
+  if (isNaN(parsedDate.getTime())) {
+    return '';
+  }
+
+  const day = String(parsedDate.getDate()).padStart(2, '0');
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+  const year = parsedDate.getFullYear();
+  const hours = String(parsedDate.getHours()).padStart(2, '0');
+  const minutes = String(parsedDate.getMinutes()).padStart(2, '0');
+
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+}

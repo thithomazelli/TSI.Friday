@@ -18,6 +18,7 @@ import { Observable, Subject, takeUntil } from 'rxjs';
 import { cardCollapseAnimation } from '../../../core/animations/card-collapse.animation';
 import { GridComponent } from '../../grid/grid.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { formatDateTimeBR } from '../../../core/utilities/format-utils';
 import { EventCalendarViewComponent } from '../event-calendar-view/event-calendar-view.component';
 import { EventDetailsModalComponent } from '../../../agenda/components/event-details-modal/event-details-modal.component';
 
@@ -175,7 +176,7 @@ export class EventListComponent implements OnInit, OnChanges, OnDestroy {
         sortable: true,
         filter: true,
         flex: 1,
-        valueFormatter: (params: ValueFormatterParams) => this.formatDateTimeBR(params.value),
+        valueFormatter: (params: ValueFormatterParams) => formatDateTimeBR(params.value),
       },
       {
         field: 'endDate',
@@ -183,7 +184,7 @@ export class EventListComponent implements OnInit, OnChanges, OnDestroy {
         sortable: true,
         filter: true,
         flex: 1,
-        valueFormatter: (params: ValueFormatterParams) => this.formatDateTimeBR(params.value),
+        valueFormatter: (params: ValueFormatterParams) => formatDateTimeBR(params.value),
       },
       {
         field: 'linkedEntityLabel',
@@ -255,19 +256,4 @@ export class EventListComponent implements OnInit, OnChanges, OnDestroy {
     return this.eventService.getAll();
   }
 
-  private formatDateTimeBR(date: string | Date): string {
-    if (!date) {
-      return '';
-    }
-    const d = new Date(date);
-    if (isNaN(d.getTime())) {
-      return '';
-    }
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  }
 }

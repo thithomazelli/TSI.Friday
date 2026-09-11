@@ -23,6 +23,7 @@ import { FuelLogDetailsModalComponent } from '../fuel-log-details-modal/fuel-log
 import { HeaderComponent } from '../../../shared/header/header.component';
 import { GridComponent } from '../../../shared/grid/grid.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { formatCurrencyBRL, formatDateBR } from '../../../core/utilities/format-utils';
 
 @Component({
     selector: 'app-fuel-log-list',
@@ -139,7 +140,7 @@ export class FuelLogListComponent implements OnInit, OnChanges, OnDestroy {
         sortable: true,
         filter: true,
         flex: 1,
-        valueFormatter: (params: ValueFormatterParams) => this.formatDateBR(params.value),
+        valueFormatter: (params: ValueFormatterParams) => formatDateBR(params.value),
       },
       {
         field: 'odometer',
@@ -161,7 +162,7 @@ export class FuelLogListComponent implements OnInit, OnChanges, OnDestroy {
         sortable: true,
         filter: true,
         flex: 1,
-        valueFormatter: (params: ValueFormatterParams) => this.formatCurrency(params.value),
+        valueFormatter: (params: ValueFormatterParams) => formatCurrencyBRL(params.value),
       },
       {
         field: 'totalCost',
@@ -169,7 +170,7 @@ export class FuelLogListComponent implements OnInit, OnChanges, OnDestroy {
         sortable: true,
         filter: true,
         flex: 1,
-        valueFormatter: (params: ValueFormatterParams) => this.formatCurrency(params.value),
+        valueFormatter: (params: ValueFormatterParams) => formatCurrencyBRL(params.value),
       },
       {
         field: 'gasStation',
@@ -230,24 +231,4 @@ export class FuelLogListComponent implements OnInit, OnChanges, OnDestroy {
     });
   }
 
-  private formatCurrency(value: any): string {
-    if (value == null || value === '') return '';
-    const n = Number(value);
-    if (Number.isNaN(n)) return String(value);
-    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  }
-
-  private formatDateBR(date: string | Date): string {
-    if (!date) {
-      return '';
-    }
-    const d = new Date(date);
-    if (isNaN(d.getTime())) {
-      return '';
-    }
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
 }
