@@ -24,7 +24,7 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
-        public string CreateJWT(User user, IEnumerable<string>? roles = null)
+        public JwtToken CreateJWT(User user, IEnumerable<string>? roles = null)
         {
             var userClaims = new List<Claim>
             {
@@ -80,7 +80,7 @@ namespace TSI.Nexus.Services
             var tokenHandler = new JwtSecurityTokenHandler();
             var jwt = tokenHandler.CreateToken(tokenDescriptor);
 
-            return tokenHandler.WriteToken(jwt);
+            return new JwtToken(tokenHandler.WriteToken(jwt), expires);
         }
     }
 }

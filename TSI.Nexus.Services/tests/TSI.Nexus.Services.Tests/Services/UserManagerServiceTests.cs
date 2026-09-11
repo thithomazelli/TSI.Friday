@@ -60,7 +60,9 @@ namespace TSI.Nexus.Services.Tests.Services
             );
 
             _jwtService = new Mock<IJwtService>();
-            _jwtService.Setup(_ => _.CreateJWT(It.IsAny<User>(), It.IsAny<IEnumerable<string>>())).Returns("jwt-token");
+            _jwtService
+                .Setup(_ => _.CreateJWT(It.IsAny<User>(), It.IsAny<IEnumerable<string>>()))
+                .Returns(new JwtToken("jwt-token", DateTime.UtcNow.AddMinutes(15)));
             _emailService = new Mock<IEmailService>();
             _emailService.Setup(_ => _.SendEmailAsync(It.IsAny<EmailSendDto>())).ReturnsAsync(true);
             _configuration = new Mock<IConfiguration>();
@@ -102,6 +104,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal("jwt-token", result.Value!.JWT);
+            Assert.NotNull(result.Value!.TokenExpiresAtUtc);
         }
 
         [Fact]

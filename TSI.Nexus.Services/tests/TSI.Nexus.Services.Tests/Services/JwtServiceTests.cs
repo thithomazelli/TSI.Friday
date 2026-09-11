@@ -36,13 +36,13 @@ namespace TSI.Nexus.Services.Tests.Services
             var service = new JwtService(config);
             var user = NewUser();
 
-            var token = service.CreateJWT(user);
+            var result = service.CreateJWT(user);
 
             // JwtSecurityTokenHandler.CreateToken remaps standard ClaimTypes.* URIs to short JWT
             // claim names on write (e.g. NameIdentifier -> "nameid") per its default outbound map -
             // look claims up through that same map instead of the original long-form ClaimTypes.
             var map = JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap;
-            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
             Assert.Equal(user.Id, jwt.Claims.First(c => c.Type == map[ClaimTypes.NameIdentifier]).Value);
             Assert.Equal(user.UserName, jwt.Claims.First(c => c.Type == map[ClaimTypes.Name]).Value);
             Assert.Equal(user.Email, jwt.Claims.First(c => c.Type == map[ClaimTypes.Email]).Value);
@@ -61,9 +61,9 @@ namespace TSI.Nexus.Services.Tests.Services
             );
             var service = new JwtService(config);
 
-            var token = service.CreateJWT(NewUser(), new[] { "Master", "Administrator" });
+            var result = service.CreateJWT(NewUser(), new[] { "Master", "Administrator" });
 
-            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
             var roleClaimType = JwtSecurityTokenHandler.DefaultOutboundClaimTypeMap[ClaimTypes.Role];
             var roles = jwt.Claims.Where(c => c.Type == roleClaimType).Select(c => c.Value).ToList();
             Assert.Contains("Master", roles);
@@ -83,10 +83,11 @@ namespace TSI.Nexus.Services.Tests.Services
             var service = new JwtService(config);
             var before = DateTime.UtcNow;
 
-            var token = service.CreateJWT(NewUser());
+            var result = service.CreateJWT(NewUser());
 
-            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
             Assert.InRange(jwt.ValidTo, before.AddMinutes(29), before.AddMinutes(31));
+            Assert.Equal(jwt.ValidTo, result.ExpiresAtUtc, TimeSpan.FromSeconds(1));
         }
 
         [Fact]
@@ -102,9 +103,9 @@ namespace TSI.Nexus.Services.Tests.Services
             var service = new JwtService(config);
             var before = DateTime.UtcNow;
 
-            var token = service.CreateJWT(NewUser());
+            var result = service.CreateJWT(NewUser());
 
-            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
             Assert.InRange(jwt.ValidTo, before.AddDays(2).AddMinutes(-1), before.AddDays(2).AddMinutes(1));
         }
 
@@ -117,9 +118,9 @@ namespace TSI.Nexus.Services.Tests.Services
             var service = new JwtService(config);
             var before = DateTime.UtcNow;
 
-            var token = service.CreateJWT(NewUser());
+            var result = service.CreateJWT(NewUser());
 
-            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
             Assert.InRange(jwt.ValidTo, before.AddMinutes(59), before.AddMinutes(61));
         }
 
@@ -137,9 +138,9 @@ namespace TSI.Nexus.Services.Tests.Services
             var service = new JwtService(config);
             var before = DateTime.UtcNow;
 
-            var token = service.CreateJWT(NewUser());
+            var result = service.CreateJWT(NewUser());
 
-            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
             Assert.InRange(jwt.ValidTo, before.AddMinutes(59), before.AddMinutes(61));
         }
     }

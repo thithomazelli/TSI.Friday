@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -131,6 +132,25 @@ builder
             ValidateAudience = true,
             // ensure role claims are read from ClaimTypes.Role
             RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+        };
+        // The Angular app no longer holds the token in JS-readable storage - it travels in an
+        // httpOnly cookie instead (see AccountController). This still checks the Authorization
+        // header first, so a direct header-based call (Swagger, curl, a future non-browser client)
+        // keeps working exactly as before; the cookie is only a fallback for when no header is
+        // present.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (
+                    string.IsNullOrEmpty(context.Token)
+                    && context.Request.Cookies.TryGetValue("nexus_auth", out var cookieToken)
+                )
+                {
+                    context.Token = cookieToken;
+                }
+                return Task.CompletedTask;
+            },
         };
     });
 

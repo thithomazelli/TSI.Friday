@@ -714,6 +714,7 @@ namespace TSI.Nexus.Services
         private async Task<UserDto> CreateApplicationUserDto(User user, bool includeJwt = true)
         {
             var roles = await _userManager.GetRolesAsync(user);
+            var jwtToken = includeJwt ? _jwtService.CreateJWT(user, roles) : null;
 
             return new UserDto
             {
@@ -723,7 +724,8 @@ namespace TSI.Nexus.Services
                 EmailConfirmed = user.EmailConfirmed,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                JWT = includeJwt ? _jwtService.CreateJWT(user, roles) : null,
+                JWT = jwtToken?.Token,
+                TokenExpiresAtUtc = jwtToken?.ExpiresAtUtc,
                 Photo = user.Photo,
                 Role = roles.FirstOrDefault(),
                 Theme = user.Theme,
