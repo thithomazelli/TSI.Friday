@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, OnDestroy } from '@angular/core';
 import {
   ModalService,
   NotificationService,
@@ -21,6 +21,7 @@ import { formatCurrencyBRL } from '../core/utilities/format-utils';
     selector: 'app-vehicles',
     templateUrl: './vehicles.component.html',
     styleUrl: './vehicles.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         HeaderComponent,
         GridComponent,

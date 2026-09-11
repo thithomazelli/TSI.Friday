@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   EventEmitter,
   Input,
@@ -48,6 +49,7 @@ import { formatCurrencyBRL, formatDateBR } from '../core/utilities/format-utils'
     selector: 'app-payments',
     templateUrl: './payments.component.html',
     styleUrl: './payments.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgIf,
         HeaderComponent,

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, OnDestroy } from '@angular/core';
 import {
   Driver,
   DriverService,
@@ -21,6 +21,7 @@ import { formatDateBR } from '../core/utilities/format-utils';
     selector: 'app-drivers',
     templateUrl: './drivers.component.html',
     styleUrl: './drivers.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         HeaderComponent,
         GridComponent,

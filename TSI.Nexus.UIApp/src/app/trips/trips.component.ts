@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import {
   ApiType,
   Company,
@@ -34,6 +34,7 @@ import { formatCurrencyBRL, formatDateBR } from '../core/utilities/format-utils'
     selector: 'app-trips',
     templateUrl: './trips.component.html',
     styleUrl: './trips.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgIf,
         HeaderComponent,

@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Observable, Subject, Subscription, skip, takeUntil } from 'rxjs';
 
 import {
@@ -37,6 +37,7 @@ import { TranslatePipe } from '../core/pipes/translate.pipe';
     selector: 'app-quotes',
     templateUrl: './quotes.component.html',
     styleUrl: './quotes.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgIf,
         HeaderComponent,

@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit } from '@angular/core';
 import {
   ApiType,
   Company,
@@ -30,6 +30,7 @@ import { formatCurrencyBRL, formatDateBR } from '../core/utilities/format-utils'
     selector: 'app-purchase-orders',
     templateUrl: './purchase-orders.component.html',
     styleUrl: './purchase-orders.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgIf,
         HeaderComponent,
