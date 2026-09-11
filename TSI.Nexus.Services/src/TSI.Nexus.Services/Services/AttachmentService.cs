@@ -790,15 +790,19 @@ namespace TSI.Nexus.Services
             return input;
         }
 
-        private Task<WebApiResponse<IEnumerable<AttachmentResponseDto>>> QueryAsync(
+        private async Task<WebApiResponse<IEnumerable<AttachmentResponseDto>>> QueryAsync(
             Func<IQueryable<Attachment>, IQueryable<Attachment>> query
         )
         {
             var response = new WebApiResponse<IEnumerable<AttachmentResponseDto>>();
             try
             {
-                var q = query(_db.Attachments.AsQueryable());
-                response.Data = q.ToList().Select(MapToResponseDto);
+                // AsNoTracking: every GetBy*Id caller maps straight to a DTO, never saves back.
+                // ToListAsync (was ToList): this blocked a thread pool thread on I/O instead of
+                // yielding it back for the duration of the query.
+                var q = query(_db.Attachments.AsNoTracking().AsQueryable());
+                var attachments = await q.ToListAsync();
+                response.Data = attachments.Select(MapToResponseDto);
                 response.Status = ResponseStatus.Success;
                 response.Message = "Encontrado";
             }
@@ -808,7 +812,7 @@ namespace TSI.Nexus.Services
                 response.Status = ResponseStatus.Error;
                 response.Message = $"Erro ao consultar anexos: {ex.Message}";
             }
-            return Task.FromResult(response);
+            return response;
         }
 
         /// <summary>
