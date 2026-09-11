@@ -55,7 +55,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "SelectableOptionService.Add", option);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível adicionar a opção \"{option?.Value}\" na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível adicionar a opção \"{option?.Value}\" na base de dados.";
             }
 
             return result;
@@ -79,7 +79,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "SelectableOptionService.Update", option);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar a opção \"{option?.Value}\" na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar a opção \"{option?.Value}\" na base de dados.";
             }
 
             return result;
@@ -103,7 +103,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "SelectableOptionService.Remove", option);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover a opção \"{option?.Value}\" da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover a opção \"{option?.Value}\" da base de dados.";
             }
 
             return result;
@@ -127,7 +127,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "SelectableOptionService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de opções na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de opções na base de dados.";
             }
 
             return result;
@@ -153,7 +153,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "SelectableOptionService.FindByGroup", group);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de opções na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de opções na base de dados.";
             }
 
             return result;

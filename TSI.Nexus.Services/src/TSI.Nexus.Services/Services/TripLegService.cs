@@ -47,7 +47,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o trecho da viagem na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o trecho da viagem na base de dados.";
             }
 
             return result;
@@ -72,7 +72,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar o trecho da viagem na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar o trecho da viagem na base de dados.";
             }
 
             return result;
@@ -97,7 +97,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o trecho da viagem da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o trecho da viagem da base de dados.";
             }
 
             return result;
@@ -131,7 +131,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de trechos de viagem na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de trechos de viagem na base de dados.";
             }
 
             return result;
@@ -163,7 +163,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de trechos de viagem na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de trechos de viagem na base de dados.";
             }
 
             return result;

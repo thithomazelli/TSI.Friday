@@ -595,7 +595,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("disk full", result.Message);
+            Assert.DoesNotContain("disk full", result.Message);
             _logService.Verify(
                 _ => _.LogException(It.IsAny<Exception>(), "AttachmentService.Add", dto),
                 Times.Once

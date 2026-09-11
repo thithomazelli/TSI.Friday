@@ -121,7 +121,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "AttachmentService.Add", dto);
                 response.Status = ResponseStatus.Error;
-                response.Message = $"Erro ao salvar o arquivo: {ex.Message}";
+                response.Message = "Erro ao salvar o arquivo.";
             }
 
             return response;
@@ -218,7 +218,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "AttachmentService.Update", dto);
                 response.Status = ResponseStatus.Error;
-                response.Message = $"Erro ao atualizar o arquivo: {ex.Message}";
+                response.Message = "Erro ao atualizar o arquivo.";
             }
 
             return response;
@@ -260,7 +260,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "AttachmentService.Delete", id);
                 response.Status = ResponseStatus.Error;
-                response.Message = $"Erro ao remover o arquivo: {ex.Message}";
+                response.Message = "Erro ao remover o arquivo.";
             }
 
             return response;
@@ -300,7 +300,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "AttachmentService.GetById", id);
                 response.Status = ResponseStatus.Error;
-                response.Message = $"Erro ao buscar o anexo: {ex.Message}";
+                response.Message = "Erro ao buscar o anexo.";
             }
             return response;
         }
@@ -368,7 +368,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "AttachmentService.GetFileById", id);
                 response.Status = ResponseStatus.Error;
-                response.Message = $"Erro ao obter o arquivo: {ex.Message}";
+                response.Message = "Erro ao obter o arquivo.";
             }
 
             return response;
@@ -810,7 +810,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "AttachmentService.Query", null);
                 response.Status = ResponseStatus.Error;
-                response.Message = $"Erro ao consultar anexos: {ex.Message}";
+                response.Message = "Erro ao consultar anexos.";
             }
             return response;
         }

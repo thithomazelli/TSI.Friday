@@ -85,7 +85,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "IndividualService.Add", businessPartnerDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o {_businessPartnerMap[businessPartnerDto.Type]} {businessPartnerDto.Name} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o {_businessPartnerMap[businessPartnerDto.Type]} {businessPartnerDto.Name} na base de dados.";
             }
 
             return result;
@@ -150,7 +150,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "IndividualService.Update", businessPartnerDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do {_businessPartnerMap[businessPartnerDto.Type]} {businessPartnerDto.Name} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do {_businessPartnerMap[businessPartnerDto.Type]} {businessPartnerDto.Name} na base de dados.";
             }
 
             return result;
@@ -184,7 +184,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros na base de dados.";
             }
 
             return result;

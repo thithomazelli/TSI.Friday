@@ -57,7 +57,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar a Peça {vehicleMaintenanceProductDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar a Peça {vehicleMaintenanceProductDto?.Description} na base de dados.";
             }
 
             return result;
@@ -89,7 +89,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados da Peça {vehicleMaintenanceProductDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados da Peça {vehicleMaintenanceProductDto?.Description} na base de dados.";
             }
 
             return result;
@@ -122,7 +122,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover a Peça {vehicleMaintenanceProductDto?.Description} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover a Peça {vehicleMaintenanceProductDto?.Description} da base de dados.";
             }
 
             return result;
@@ -150,7 +150,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "VehicleMaintenanceProductService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de peças da manutenção. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de peças da manutenção.";
             }
 
             return result;
@@ -183,7 +183,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar as Peças da Manutenção {vehicleMaintenanceId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar as Peças da Manutenção {vehicleMaintenanceId}.";
             }
 
             return result;
@@ -218,7 +218,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar as Peças da Manutenção para o Produto {productId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar as Peças da Manutenção para o Produto {productId}.";
             }
 
             return result;
@@ -244,7 +244,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "VehicleMaintenanceProductService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Peças da Manutenção na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Peças da Manutenção na base de dados.";
             }
 
             return result;

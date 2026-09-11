@@ -91,7 +91,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível cadastrar a Imagem {productPhotoMock.FileName} na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível cadastrar a Imagem {productPhotoMock.FileName} na base de dados.",
             };
 
             _repository
@@ -160,7 +160,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível atualizar os dados da Imagem {productPhotoMock.FileName} na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível atualizar os dados da Imagem {productPhotoMock.FileName} na base de dados.",
             };
 
             _repository
@@ -225,7 +225,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível remover a Imagem {productPhotoMock.FileName} da base de dados. Erro: {exception.Message}",
+                    $"Não foi possível remover a Imagem {productPhotoMock.FileName} da base de dados.",
             };
 
             _repository.Setup(_ => _.RemoveAsync(It.IsAny<ProductPhoto>())).Throws(exception);
@@ -304,7 +304,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros de Imagems na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros de Imagems na base de dados.",
             };
 
             _repository.Setup(_ => _.GetByIdAsync(idMock)).Throws(exception);
@@ -400,7 +400,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros de Imagems na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros de Imagems na base de dados.",
             };
 
             _repository
@@ -499,7 +499,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros de Imagems na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros de Imagems na base de dados.",
             };
 
             _repository

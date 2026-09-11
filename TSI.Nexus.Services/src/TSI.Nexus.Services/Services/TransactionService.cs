@@ -65,7 +65,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TransactionService.Add", transactionDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o Transação {transactionDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o Transação {transactionDto?.Description} na base de dados.";
             }
 
             return result;
@@ -125,7 +125,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TransactionService.Update", transactionDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Transação {transactionDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Transação {transactionDto?.Description} na base de dados.";
             }
 
             return result;
@@ -178,7 +178,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TransactionService.UpdateOrderId", transactionDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Transação {transactionDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Transação {transactionDto?.Description} na base de dados.";
             }
 
             return result;
@@ -234,7 +234,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Transação {transactionDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Transação {transactionDto?.Description} na base de dados.";
             }
 
             return result;
@@ -287,7 +287,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TransactionService.UpdateTripId", transactionDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Transação {transactionDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Transação {transactionDto?.Description} na base de dados.";
             }
 
             return result;
@@ -333,7 +333,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TransactionService.Remove", transactionDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o Transação {transactionDto?.Description} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o Transação {transactionDto?.Description} da base de dados.";
             }
 
             return result;
@@ -387,7 +387,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TransactionService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Transaçãos na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Transaçãos na base de dados.";
             }
 
             return result;
@@ -453,7 +453,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TransactionService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Transaçãos na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Transaçãos na base de dados.";
             }
 
             return result;
@@ -502,7 +502,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Transaçãos do BusinessPartner {businessPartnerId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Transaçãos do BusinessPartner {businessPartnerId}.";
             }
 
             return result;

@@ -86,7 +86,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteService.Add", quoteDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o Orçamento {quoteDto?.QuoteNumber} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o Orçamento {quoteDto?.QuoteNumber} na base de dados.";
             }
 
             return result;
@@ -133,7 +133,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteService.Update", quoteDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Orçamento {quoteDto?.QuoteNumber} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Orçamento {quoteDto?.QuoteNumber} na base de dados.";
             }
 
             return result;
@@ -172,7 +172,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteService.Remove", quoteDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o Orçamento {quoteDto?.QuoteNumber} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o Orçamento {quoteDto?.QuoteNumber} da base de dados.";
             }
 
             return result;
@@ -218,7 +218,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Orçamentos na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Orçamentos na base de dados.";
             }
 
             return result;
@@ -270,7 +270,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Orçamentos na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Orçamentos na base de dados.";
             }
 
             return result;
@@ -319,7 +319,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteService.FindByQuoteNumber", quoteNumber);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível buscar o Orçamento pelo número {quoteNumber}. Erro: {ex.Message}";
+                    $"Não foi possível buscar o Orçamento pelo número {quoteNumber}.";
             }
 
             return result;
@@ -366,7 +366,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Orçamentos do BusinessPartner {businessPartnerId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Orçamentos do BusinessPartner {businessPartnerId}.";
             }
 
             return result;
@@ -407,7 +407,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteService.FindByProductId", productId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Orçamentos relacionados ao Produto {productId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Orçamentos relacionados ao Produto {productId}.";
             }
 
             return result;
@@ -593,7 +593,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "QuoteService.ConvertToOrder", quoteDto);
                 result.Status = ResponseStatus.Error;
-                result.Message = "Erro ao converter orçamento para pedido. " + ex.Message;
+                result.Message = "Erro ao converter orçamento para pedido.";
                 return result;
             }
         }
@@ -691,7 +691,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "QuoteService.ConvertToTrip", quoteDto);
                 result.Status = ResponseStatus.Error;
-                result.Message = "Erro ao converter orçamento para viagem. " + ex.Message;
+                result.Message = "Erro ao converter orçamento para viagem.";
                 return result;
             }
         }

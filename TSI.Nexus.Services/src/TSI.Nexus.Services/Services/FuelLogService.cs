@@ -56,7 +56,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o abastecimento na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o abastecimento na base de dados.";
             }
 
             return result;
@@ -81,7 +81,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar o abastecimento na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar o abastecimento na base de dados.";
             }
 
             return result;
@@ -106,7 +106,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o abastecimento da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o abastecimento da base de dados.";
             }
 
             return result;
@@ -137,7 +137,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de abastecimento na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de abastecimento na base de dados.";
             }
 
             return result;
@@ -171,7 +171,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de abastecimento na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de abastecimento na base de dados.";
             }
 
             return result;
@@ -202,7 +202,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de abastecimento na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de abastecimento na base de dados.";
             }
 
             return result;

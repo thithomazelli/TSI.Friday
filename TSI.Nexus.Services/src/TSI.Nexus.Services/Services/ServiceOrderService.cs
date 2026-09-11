@@ -61,7 +61,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar a Ordem de Serviço na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar a Ordem de Serviço na base de dados.";
             }
 
             return result;
@@ -94,7 +94,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar a Ordem de Serviço na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar a Ordem de Serviço na base de dados.";
             }
 
             return result;
@@ -119,7 +119,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover a Ordem de Serviço da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover a Ordem de Serviço da base de dados.";
             }
 
             return result;
@@ -153,7 +153,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Ordem de Serviço na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Ordem de Serviço na base de dados.";
             }
 
             return result;
@@ -187,7 +187,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Ordem de Serviço na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Ordem de Serviço na base de dados.";
             }
 
             return result;
@@ -271,7 +271,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "ServiceOrderService.GenerateForTrip", trip);
 
                 result.Status = ResponseStatus.Error;
-                result.Message = $"Não foi possível gerar a Ordem de Serviço automaticamente. Erro: {ex.Message}";
+                result.Message = $"Não foi possível gerar a Ordem de Serviço automaticamente.";
             }
 
             return result;

@@ -92,7 +92,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.Add", paymentDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar a Pagamento {paymentDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar a Pagamento {paymentDto?.Description} na base de dados.";
             }
 
             return result;
@@ -119,7 +119,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.Update", paymentDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do pagamento {paymentDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do pagamento {paymentDto?.Description} na base de dados.";
             }
 
             return result;
@@ -144,7 +144,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.Remove", paymentDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover a Pagamento {paymentDto?.Description} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover a Pagamento {paymentDto?.Description} da base de dados.";
             }
 
             return result;
@@ -185,7 +185,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Pagamentos de Transação na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Pagamentos de Transação na base de dados.";
             }
 
             return result;
@@ -224,7 +224,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Pagamentos de Transação na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Pagamentos de Transação na base de dados.";
             }
 
             return result;
@@ -255,7 +255,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.FindByTransactionId", transactionId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Pagamentos do Transação baseado no Transação {transactionId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Pagamentos do Transação baseado no Transação {transactionId}.";
             }
 
             return result;
@@ -290,7 +290,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Pagamentos do Transação baseado no BusinessPartner {businessPartnerId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Pagamentos do Transação baseado no BusinessPartner {businessPartnerId}.";
             }
 
             return result;
@@ -319,7 +319,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.FindByOrderId", orderId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Pagamentos do Transação baseado no Pedido {orderId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Pagamentos do Transação baseado no Pedido {orderId}.";
             }
 
             return result;
@@ -350,7 +350,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.FindByPurchaseOrderId", purchaseOrderId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Pagamentos do Transação baseado no Pedido de Compra {purchaseOrderId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Pagamentos do Transação baseado no Pedido de Compra {purchaseOrderId}.";
             }
 
             return result;
@@ -379,7 +379,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.FindByTripId", tripId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Pagamentos do Transação baseado na Viagem {tripId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Pagamentos do Transação baseado na Viagem {tripId}.";
             }
 
             return result;
@@ -408,7 +408,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.FindByDriverId", driverId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Pagamentos do Motorista {driverId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Pagamentos do Motorista {driverId}.";
             }
 
             return result;
@@ -447,7 +447,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PaymentService.FindDelayed", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Pagamentos de Transação na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Pagamentos de Transação na base de dados.";
             }
 
             return result;
@@ -564,7 +564,7 @@ namespace TSI.Nexus.Services
             {
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os dados no banco de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os dados no banco de dados.";
             }
 
             return result;
@@ -654,7 +654,7 @@ namespace TSI.Nexus.Services
             {
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Pagamentos na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Pagamentos na base de dados.";
             }
 
             return result;

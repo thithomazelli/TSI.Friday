@@ -186,7 +186,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível cadastrar o Produto {productMock.Name} na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível cadastrar o Produto {productMock.Name} na base de dados.",
             };
 
             _repository
@@ -336,7 +336,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível atualizar os dados do Produto {productMock.Name} na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível atualizar os dados do Produto {productMock.Name} na base de dados.",
             };
 
             _repository
@@ -405,7 +405,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível remover o Produto {productMock.Name} da base de dados. Erro: {exception.Message}",
+                    $"Não foi possível remover o Produto {productMock.Name} da base de dados.",
             };
 
             _repository.Setup(_ => _.RemoveAsync(It.IsAny<Product>())).ThrowsAsync(exception);
@@ -516,7 +516,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros de Produtos na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros de Produtos na base de dados.",
             };
 
             _repository.Setup(_ => _.GetAllAsync()).ThrowsAsync(exception);
@@ -595,7 +595,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros de Produtos na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros de Produtos na base de dados.",
             };
 
             _repository.Setup(_ => _.GetByIdAsync(idMock)).ThrowsAsync(exception);
@@ -684,7 +684,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros de Produtos na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros de Produtos na base de dados.",
             };
 
             _repository

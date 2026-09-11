@@ -50,7 +50,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
             _logService.Verify(
                 _ => _.LogException(It.IsAny<Exception>(), "AlertConfigService.FindAll", null),
                 Times.Once
@@ -124,7 +124,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("db down", result.Message);
+            Assert.DoesNotContain("db down", result.Message);
             _logService.Verify(
                 _ => _.LogException(It.IsAny<Exception>(), "AlertConfigService.SetEnabled", "A"),
                 Times.Once

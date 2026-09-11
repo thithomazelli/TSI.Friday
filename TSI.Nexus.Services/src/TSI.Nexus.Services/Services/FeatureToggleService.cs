@@ -58,7 +58,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "FeatureToggleService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Feature Toggle na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Feature Toggle na base de dados.";
             }
 
             return result;
@@ -85,7 +85,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "FeatureToggleService.FindByKey", key);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível buscar o Feature Toggle pela chave {key}. Erro: {ex.Message}";
+                    $"Não foi possível buscar o Feature Toggle pela chave {key}.";
             }
 
             return result;
@@ -120,7 +120,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "FeatureToggleService.SetEnabled", key);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar o Feature Toggle {key}. Erro: {ex.Message}";
+                    $"Não foi possível atualizar o Feature Toggle {key}.";
             }
 
             return result;

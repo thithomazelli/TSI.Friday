@@ -40,7 +40,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "AlertConfigService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Alertas na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Alertas na base de dados.";
             }
 
             return result;
@@ -74,7 +74,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "AlertConfigService.SetEnabled", key);
                 result.Status = ResponseStatus.Error;
-                result.Message = $"Não foi possível atualizar o Alerta {key}. Erro: {ex.Message}";
+                result.Message = $"Não foi possível atualizar o Alerta {key}.";
             }
 
             return result;
@@ -108,7 +108,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "AlertConfigService.SetThresholdDays", key);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar o prazo do Alerta {key}. Erro: {ex.Message}";
+                    $"Não foi possível atualizar o prazo do Alerta {key}.";
             }
 
             return result;

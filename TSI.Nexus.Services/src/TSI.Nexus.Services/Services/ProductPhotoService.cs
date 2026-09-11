@@ -44,7 +44,7 @@ namespace TSI.Nexus.Services
             {
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar a Imagem {productPhoto.FileName} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar a Imagem {productPhoto.FileName} na base de dados.";
             }
 
             return result;
@@ -67,7 +67,7 @@ namespace TSI.Nexus.Services
             {
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados da Imagem {productPhoto.FileName} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados da Imagem {productPhoto.FileName} na base de dados.";
             }
 
             return result;
@@ -90,7 +90,7 @@ namespace TSI.Nexus.Services
             {
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover a Imagem {productPhoto.FileName} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover a Imagem {productPhoto.FileName} da base de dados.";
             }
 
             return result;
@@ -114,7 +114,7 @@ namespace TSI.Nexus.Services
             {
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Imagems na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Imagems na base de dados.";
             }
 
             return result;
@@ -140,7 +140,7 @@ namespace TSI.Nexus.Services
             {
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Imagems na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Imagems na base de dados.";
             }
 
             return result;
@@ -163,7 +163,7 @@ namespace TSI.Nexus.Services
             {
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Imagems na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Imagems na base de dados.";
             }
 
             return result;

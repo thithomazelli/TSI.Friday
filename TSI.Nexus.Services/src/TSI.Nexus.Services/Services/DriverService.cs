@@ -62,7 +62,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o Motorista {driver.Name} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o Motorista {driver.Name} na base de dados.";
             }
 
             return result;
@@ -99,7 +99,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Motorista {driver.Name} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Motorista {driver.Name} na base de dados.";
             }
 
             return result;
@@ -137,7 +137,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o Motorista {driver.Name} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o Motorista {driver.Name} da base de dados.";
             }
 
             return result;
@@ -168,7 +168,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Motoristas na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Motoristas na base de dados.";
             }
 
             return result;
@@ -202,7 +202,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Motoristas na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Motoristas na base de dados.";
             }
 
             return result;
@@ -244,7 +244,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Motoristas na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Motoristas na base de dados.";
             }
 
             return result;
@@ -275,7 +275,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Motoristas na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Motoristas na base de dados.";
             }
 
             return result;
@@ -320,7 +320,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Motoristas na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Motoristas na base de dados.";
             }
 
             return result;

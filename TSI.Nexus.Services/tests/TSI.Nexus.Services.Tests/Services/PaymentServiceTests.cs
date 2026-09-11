@@ -379,7 +379,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -456,7 +456,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -473,7 +473,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -522,7 +522,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -594,7 +594,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -618,7 +618,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -642,7 +642,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -666,7 +666,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -719,7 +719,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -772,7 +772,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -825,7 +825,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -849,7 +849,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -931,7 +931,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
 
         [Fact]
@@ -1067,7 +1067,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
-            Assert.Contains("boom", result.Message);
+            Assert.DoesNotContain("boom", result.Message);
         }
     }
 }

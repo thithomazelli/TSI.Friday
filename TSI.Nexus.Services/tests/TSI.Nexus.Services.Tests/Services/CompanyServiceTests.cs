@@ -210,7 +210,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível cadastrar o Cliente {companyDto.Name} na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível cadastrar o Cliente {companyDto.Name} na base de dados.",
             };
 
             _repository
@@ -427,7 +427,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível atualizar os dados do Cliente {companyDto.Name} na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível atualizar os dados do Cliente {companyDto.Name} na base de dados.",
             };
 
             _repository
@@ -521,7 +521,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros de BusinessPartners na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros de BusinessPartners na base de dados.",
             };
 
             _repository

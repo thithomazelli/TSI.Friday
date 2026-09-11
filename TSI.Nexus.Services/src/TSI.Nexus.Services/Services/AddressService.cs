@@ -59,7 +59,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "AddressService.Add", addressDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o Endereço na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o Endereço na base de dados.";
             }
 
             return result;
@@ -87,7 +87,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "AddressService.Update", addressDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar o Endereço na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar o Endereço na base de dados.";
             }
 
             return result;
@@ -112,7 +112,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "AddressService.Remove", addressDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o Endereço na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o Endereço na base de dados.";
             }
 
             return result;
@@ -139,7 +139,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "AddressService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Endereço na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Endereço na base de dados.";
             }
 
             return result;
@@ -172,7 +172,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Endereço na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Endereço na base de dados.";
             }
 
             return result;

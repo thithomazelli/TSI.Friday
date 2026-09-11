@@ -191,7 +191,7 @@ namespace TSI.Nexus.Services
                         userToAdd
                     );
                     return BadRequest(
-                        $"Falha ao enviar o e-mail. Por favor, contate o administrador. Erro: {ex.Message}"
+                        $"Falha ao enviar o e-mail. Por favor, contate o administrador."
                     );
                 }
             }
@@ -253,7 +253,7 @@ namespace TSI.Nexus.Services
                 {
                     _logService.LogException(ex, "UserManagerService.ConfirmEmail", model);
                     return BadRequest(
-                        $"Falha ao confirmar o e-mail. Por favor, contate o administrador. Erro: {ex.Message}"
+                        $"Falha ao confirmar o e-mail. Por favor, contate o administrador."
                     );
                 }
             }
@@ -313,7 +313,7 @@ namespace TSI.Nexus.Services
                         email
                     );
                     return BadRequest(
-                        $"Falha ao enviar o e-mail. Por favor, contate o administrador. Erro: {ex.Message}"
+                        $"Falha ao enviar o e-mail. Por favor, contate o administrador."
                     );
                 }
             }
@@ -371,7 +371,7 @@ namespace TSI.Nexus.Services
                         email
                     );
                     return BadRequest(
-                        $"Falha ao enviar o e-mail. Por favor, contate o administrador. Erro: {ex.Message}"
+                        $"Falha ao enviar o e-mail. Por favor, contate o administrador."
                     );
                 }
             }
@@ -434,7 +434,7 @@ namespace TSI.Nexus.Services
                 {
                     _logService.LogException(ex, "UserManagerService.ResetPassword", model);
                     return BadRequest(
-                        $"Falha ao redefinir senha. Por favor, contate o administrador. Erro: {ex.Message}"
+                        $"Falha ao redefinir senha. Por favor, contate o administrador."
                     );
                 }
             }
@@ -544,7 +544,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "UserManagerService.Update", user);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do usuário {user.UserName} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do usuário {user.UserName} na base de dados.";
             }
 
             return result;
@@ -581,7 +581,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "UserManagerService.UpdatePreferences", userId);
                 result.Status = ResponseStatus.Error;
-                result.Message = $"Não foi possível atualizar as preferências. Erro: {ex.Message}";
+                result.Message = $"Não foi possível atualizar as preferências.";
             }
 
             return result;
@@ -622,7 +622,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "UserManagerService.Remove", user);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o usuário {user.UserName} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o usuário {user.UserName} da base de dados.";
             }
 
             return result;
@@ -675,7 +675,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "UserManagerService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de usuários na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de usuários na base de dados.";
             }
 
             return result;
@@ -701,7 +701,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "UserManagerService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de usuários na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de usuários na base de dados.";
             }
 
             return result;

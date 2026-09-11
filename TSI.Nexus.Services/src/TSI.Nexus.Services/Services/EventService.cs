@@ -91,7 +91,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "EventService.Add", eventDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o Evento {eventDto?.Title} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o Evento {eventDto?.Title} na base de dados.";
             }
 
             return result;
@@ -124,7 +124,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "EventService.Update", eventDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Evento {eventDto?.Title} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Evento {eventDto?.Title} na base de dados.";
             }
 
             return result;
@@ -150,7 +150,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "EventService.Remove", eventDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o Evento {eventDto?.Title} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o Evento {eventDto?.Title} da base de dados.";
             }
 
             return result;
@@ -190,7 +190,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "EventService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Eventos na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Eventos na base de dados.";
             }
 
             return result;
@@ -376,7 +376,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "EventService.ToResponseAsync", null);
                 result.Status = ResponseStatus.Error;
-                result.Message = $"Não foi possível acessar os registros de Eventos. Erro: {ex.Message}";
+                result.Message = $"Não foi possível acessar os registros de Eventos.";
             }
 
             return result;

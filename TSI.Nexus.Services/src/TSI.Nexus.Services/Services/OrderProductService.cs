@@ -66,7 +66,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "OrderProductService.Add", orderProductDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o Item do Pedido {orderProductDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o Item do Pedido {orderProductDto?.Description} na base de dados.";
             }
 
             return result;
@@ -95,7 +95,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "OrderProductService.Update", orderProductDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Item do Pedido {orderProductDto?.Description} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Item do Pedido {orderProductDto?.Description} na base de dados.";
             }
 
             return result;
@@ -125,7 +125,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "OrderProductService.Remove", orderProductDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o Item do Pedido {orderProductDto?.Description} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o Item do Pedido {orderProductDto?.Description} da base de dados.";
             }
 
             return result;
@@ -153,7 +153,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "OrderProductService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de itens do pedido. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de itens do pedido.";
             }
 
             return result;
@@ -180,7 +180,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "OrderProductService.FindByOrderId", orderId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Itens do Pedido {orderId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Itens do Pedido {orderId}.";
             }
 
             return result;
@@ -211,7 +211,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "OrderProductService.FindByProductId", productId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Itens do Pedido para o Produto {productId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Itens do Pedido para o Produto {productId}.";
             }
 
             return result;
@@ -237,7 +237,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "OrderProductService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Itens do Pedido na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Itens do Pedido na base de dados.";
             }
 
             return result;

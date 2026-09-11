@@ -47,7 +47,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o Passageiro {passenger.Name} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o Passageiro {passenger.Name} na base de dados.";
             }
 
             return result;
@@ -74,7 +74,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "PassengerService.AddRange", passengerList);
 
                 result.Status = ResponseStatus.Error;
-                result.Message = $"Não foi possível importar a lista de passageiros. Erro: {ex.Message}";
+                result.Message = $"Não foi possível importar a lista de passageiros.";
             }
 
             return result;
@@ -99,7 +99,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Passageiro {passenger.Name} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Passageiro {passenger.Name} na base de dados.";
             }
 
             return result;
@@ -124,7 +124,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o Passageiro {passenger.Name} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o Passageiro {passenger.Name} da base de dados.";
             }
 
             return result;
@@ -158,7 +158,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Passageiros na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Passageiros na base de dados.";
             }
 
             return result;
@@ -189,7 +189,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Passageiros na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Passageiros na base de dados.";
             }
 
             return result;

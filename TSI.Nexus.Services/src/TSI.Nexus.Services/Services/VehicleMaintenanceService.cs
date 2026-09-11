@@ -59,7 +59,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar a Manutenção na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar a Manutenção na base de dados.";
             }
 
             return result;
@@ -112,7 +112,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar a Manutenção na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar a Manutenção na base de dados.";
             }
 
             return result;
@@ -138,7 +138,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover a Manutenção da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover a Manutenção da base de dados.";
             }
 
             return result;
@@ -172,7 +172,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Manutenção na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Manutenção na base de dados.";
             }
 
             return result;
@@ -210,7 +210,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Manutenção na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Manutenção na base de dados.";
             }
 
             return result;
@@ -246,7 +246,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Manutenção na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Manutenção na base de dados.";
             }
 
             return result;

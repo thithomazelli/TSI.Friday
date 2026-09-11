@@ -58,7 +58,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteProductService.Add", quoteProductDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o Item do Orçamento na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o Item do Orçamento na base de dados.";
             }
 
             return result;
@@ -86,7 +86,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteProductService.Update", quoteProductDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Item do Orçamento na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Item do Orçamento na base de dados.";
             }
 
             return result;
@@ -115,7 +115,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteProductService.Remove", quoteProductDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o Item do Orçamento da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o Item do Orçamento da base de dados.";
             }
 
             return result;
@@ -143,7 +143,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteProductService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de itens do orçamento. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de itens do orçamento.";
             }
 
             return result;
@@ -170,7 +170,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteProductService.FindByOrderId", orderId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Itens do Orçamento {orderId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Itens do Orçamento {orderId}.";
             }
 
             return result;
@@ -201,7 +201,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteProductService.FindByProductId", productId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os Itens do Orçamento para o Produto {productId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os Itens do Orçamento para o Produto {productId}.";
             }
 
             return result;
@@ -227,7 +227,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteProductService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Itens do Orçamento na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Itens do Orçamento na base de dados.";
             }
 
             return result;
@@ -266,7 +266,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "QuoteProductService.FindDelayed", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Itens do Orçamento. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Itens do Orçamento.";
             }
 
             return result;

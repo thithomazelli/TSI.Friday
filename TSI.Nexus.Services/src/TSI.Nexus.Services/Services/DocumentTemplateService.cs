@@ -76,7 +76,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "DocumentTemplateService.Add", documentTemplate);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o Template {documentTemplate?.Name} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o Template {documentTemplate?.Name} na base de dados.";
             }
 
             return result;
@@ -102,7 +102,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "DocumentTemplateService.Update", documentTemplate);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar o Template {documentTemplate?.Name} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar o Template {documentTemplate?.Name} na base de dados.";
             }
 
             return result;
@@ -128,7 +128,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "DocumentTemplateService.Remove", documentTemplate);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o Template {documentTemplate?.Name} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o Template {documentTemplate?.Name} da base de dados.";
             }
 
             return result;
@@ -155,7 +155,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "DocumentTemplateService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Template na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Template na base de dados.";
             }
 
             return result;
@@ -179,7 +179,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "DocumentTemplateService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Template na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Template na base de dados.";
             }
 
             return result;
@@ -206,7 +206,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "DocumentTemplateService.FindByType", type);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar o Template do tipo {type}. Erro: {ex.Message}";
+                    $"Não foi possível acessar o Template do tipo {type}.";
             }
 
             return result;
@@ -247,7 +247,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "DocumentTemplateService.UploadContent", type);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar o Template do tipo {type}. Erro: {ex.Message}";
+                    $"Não foi possível atualizar o Template do tipo {type}.";
             }
 
             return result;

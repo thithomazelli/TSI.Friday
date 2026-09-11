@@ -104,7 +104,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 Data = null,
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível cadastrar o Endereço na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível cadastrar o Endereço na base de dados.",
             };
 
             _repository.Setup(_ => _.AddAsync(It.IsAny<Address>())).ThrowsAsync(exception);
@@ -210,7 +210,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 Data = null,
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível atualizar o Endereço na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível atualizar o Endereço na base de dados.",
             };
 
             _repository.Setup(_ => _.UpdateAsync(It.IsAny<Address>())).ThrowsAsync(exception);
@@ -308,7 +308,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 Data = null,
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível remover o Endereço na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível remover o Endereço na base de dados.",
             };
 
             _repository.Setup(_ => _.RemoveAsync(It.IsAny<Address>())).ThrowsAsync(exception);
@@ -391,7 +391,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros de Endereço na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros de Endereço na base de dados.",
             };
 
             _repository.Setup(_ => _.GetByIdAsync(idMock)).ThrowsAsync(exception);
@@ -479,7 +479,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros de Endereço na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros de Endereço na base de dados.",
             };
 
             _repository

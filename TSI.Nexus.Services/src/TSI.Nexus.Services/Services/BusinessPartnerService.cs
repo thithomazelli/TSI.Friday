@@ -76,14 +76,14 @@ namespace TSI.Nexus.Services
                 result.Message =
                     ex.InnerException?.Message.Contains("foreign key constraint fails") == true
                         ? $"Não foi possível remover o {_businessPartnerMap[businessPartnerDto.Type]} {businessPartnerDto.Name} pois ele está vinculado à um ou mais pedidos e/ou transações."
-                        : $"Não foi possível remover o {_businessPartnerMap[businessPartnerDto.Type]} {businessPartnerDto.Name} da base de dados. Erro: {ex.Message}";
+                        : $"Não foi possível remover o {_businessPartnerMap[businessPartnerDto.Type]} {businessPartnerDto.Name} da base de dados.";
             }
             catch (Exception ex)
             {
                 _logService.LogException(ex, "BusinessPartnerService.Remove", businessPartnerDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o {_businessPartnerMap[businessPartnerDto.Type]} {businessPartnerDto.Name} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o {_businessPartnerMap[businessPartnerDto.Type]} {businessPartnerDto.Name} da base de dados.";
             }
             return result;
         }
@@ -118,7 +118,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de {_businessPartnerMap[businessPartnerType]} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de {_businessPartnerMap[businessPartnerType]} na base de dados.";
             }
 
             return result;
@@ -144,7 +144,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "BusinessPartnerService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros na base de dados.";
             }
 
             return result;
@@ -172,7 +172,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "BusinessPartnerService.FindByEmail", email);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros na base de dados.";
             }
 
             return result;

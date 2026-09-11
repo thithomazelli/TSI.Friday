@@ -80,7 +80,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "EventParticipantService.Add", eventParticipantDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível adicionar o participante na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível adicionar o participante na base de dados.";
             }
 
             return result;
@@ -112,7 +112,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o participante da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o participante da base de dados.";
             }
 
             return result;
@@ -165,7 +165,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "EventParticipantService.FindByEventId", eventId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os participantes do evento. Erro: {ex.Message}";
+                    $"Não foi possível acessar os participantes do evento.";
             }
 
             return result;

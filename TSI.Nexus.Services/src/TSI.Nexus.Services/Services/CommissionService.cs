@@ -51,7 +51,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "CommissionService.Update", commission);
 
                 result.Status = ResponseStatus.Error;
-                result.Message = $"Não foi possível atualizar a comissão na base de dados. Erro: {ex.Message}";
+                result.Message = $"Não foi possível atualizar a comissão na base de dados.";
             }
 
             return result;
@@ -85,7 +85,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de comissão na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de comissão na base de dados.";
             }
 
             return result;
@@ -116,7 +116,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de comissão na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de comissão na base de dados.";
             }
 
             return result;

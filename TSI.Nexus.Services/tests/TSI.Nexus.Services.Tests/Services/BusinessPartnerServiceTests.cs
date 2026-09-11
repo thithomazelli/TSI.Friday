@@ -110,7 +110,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível remover o Cliente {businessPartnerMock.Name} da base de dados. Erro: {exception.Message}",
+                    $"Não foi possível remover o Cliente {businessPartnerMock.Name} da base de dados.",
             };
 
             _repository.Setup(_ => _.GetByIdAsync(It.IsAny<Guid>())).ReturnsAsync(new Company());
@@ -185,7 +185,7 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             Assert.Equal(ResponseStatus.Warning, result.Status);
             Assert.Equal(
-                $"Não foi possível remover o Cliente {businessPartnerMock.Name} da base de dados. Erro: {dbUpdateException.Message}",
+                $"Não foi possível remover o Cliente {businessPartnerMock.Name} da base de dados.",
                 result.Message
             );
         }
@@ -207,7 +207,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível remover o Cliente {businessPartnerMock.Name} da base de dados. Erro: {exception.Message}",
+                    $"Não foi possível remover o Cliente {businessPartnerMock.Name} da base de dados.",
             };
 
             _repository.Setup(_ => _.GetByIdAsync(It.IsAny<int>())).ThrowsAsync(exception);
@@ -367,7 +367,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros de Cliente na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros de Cliente na base de dados.",
             };
 
             _repository
@@ -469,7 +469,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros na base de dados.",
             };
 
             _repository.Setup(_ => _.GetByIdAsync(idMock, a => a.Addresses)).ThrowsAsync(exception);
@@ -561,7 +561,7 @@ namespace TSI.Nexus.Services.Tests.Services
             {
                 Status = ResponseStatus.Error,
                 Message =
-                    $"Não foi possível acessar os registros na base de dados. Erro: {exception.Message}",
+                    $"Não foi possível acessar os registros na base de dados.",
             };
 
             _repository

@@ -259,7 +259,7 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
             Assert.Equal(
-                $"Não foi possível acessar os registros de Veículos na base de dados. Erro: {exception.Message}",
+                $"Não foi possível acessar os registros de Veículos na base de dados.",
                 result.Message
             );
         }

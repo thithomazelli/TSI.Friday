@@ -83,7 +83,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripDriverService.Add", tripDriverDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível associar o motorista {tripDriverDto?.DriverName} à viagem. Erro: {ex.Message}";
+                    $"Não foi possível associar o motorista {tripDriverDto?.DriverName} à viagem.";
             }
 
             return result;
@@ -127,7 +127,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripDriverService.Update", tripDriverDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar o valor do motorista. Erro: {ex.Message}";
+                    $"Não foi possível atualizar o valor do motorista.";
             }
 
             return result;
@@ -168,7 +168,7 @@ namespace TSI.Nexus.Services
             {
                 _logService.LogException(ex, "TripDriverService.Remove", tripDriverDto);
                 result.Status = ResponseStatus.Error;
-                result.Message = $"Não foi possível remover o motorista da viagem. Erro: {ex.Message}";
+                result.Message = $"Não foi possível remover o motorista da viagem.";
             }
 
             return result;
@@ -195,7 +195,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripDriverService.FindByTripId", tripId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os motoristas da Viagem {tripId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar os motoristas da Viagem {tripId}.";
             }
 
             return result;
@@ -222,7 +222,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripDriverService.FindByDriverId", driverId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar as viagens do Motorista {driverId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar as viagens do Motorista {driverId}.";
             }
 
             return result;
@@ -248,7 +248,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripDriverService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar o registro de motorista da viagem. Erro: {ex.Message}";
+                    $"Não foi possível acessar o registro de motorista da viagem.";
             }
 
             return result;

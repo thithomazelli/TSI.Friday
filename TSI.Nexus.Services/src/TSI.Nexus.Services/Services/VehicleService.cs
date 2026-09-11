@@ -65,7 +65,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar o Veículo {vehicle.Plate} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar o Veículo {vehicle.Plate} na base de dados.";
             }
 
             return result;
@@ -102,7 +102,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados do Veículo {vehicle.Plate} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados do Veículo {vehicle.Plate} na base de dados.";
             }
 
             return result;
@@ -140,7 +140,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover o Veículo {vehicle.Plate} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover o Veículo {vehicle.Plate} da base de dados.";
             }
 
             return result;
@@ -171,7 +171,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Veículos na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Veículos na base de dados.";
             }
 
             return result;
@@ -205,7 +205,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Veículos na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Veículos na base de dados.";
             }
 
             return result;
@@ -239,7 +239,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Veículos na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Veículos na base de dados.";
             }
 
             return result;
@@ -272,7 +272,7 @@ namespace TSI.Nexus.Services
 
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Veículos na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Veículos na base de dados.";
             }
 
             return result;

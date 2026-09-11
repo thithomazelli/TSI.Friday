@@ -134,7 +134,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripService.Add", tripDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível cadastrar a Viagem {tripDto?.TripNumber} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível cadastrar a Viagem {tripDto?.TripNumber} na base de dados.";
             }
 
             return result;
@@ -205,7 +205,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripService.Update", tripDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível atualizar os dados da Viagem {tripDto?.TripNumber} na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível atualizar os dados da Viagem {tripDto?.TripNumber} na base de dados.";
             }
 
             return result;
@@ -260,7 +260,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripService.Remove", tripDto);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível remover a Viagem {tripDto?.TripNumber} da base de dados. Erro: {ex.Message}";
+                    $"Não foi possível remover a Viagem {tripDto?.TripNumber} da base de dados.";
             }
 
             return result;
@@ -300,7 +300,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripService.FindAll", null);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Viagens na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Viagens na base de dados.";
             }
 
             return result;
@@ -353,7 +353,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripService.FindById", id);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar os registros de Viagens na base de dados. Erro: {ex.Message}";
+                    $"Não foi possível acessar os registros de Viagens na base de dados.";
             }
 
             return result;
@@ -394,7 +394,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripService.FindByTripNumber", tripNumber);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível buscar a Viagem pelo número {tripNumber}. Erro: {ex.Message}";
+                    $"Não foi possível buscar a Viagem pelo número {tripNumber}.";
             }
 
             return result;
@@ -437,7 +437,7 @@ namespace TSI.Nexus.Services
                 );
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar as Viagens do BusinessPartner {businessPartnerId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar as Viagens do BusinessPartner {businessPartnerId}.";
             }
 
             return result;
@@ -476,7 +476,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripService.FindByDriverId", driverId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar as Viagens do Motorista {driverId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar as Viagens do Motorista {driverId}.";
             }
 
             return result;
@@ -513,7 +513,7 @@ namespace TSI.Nexus.Services
                 _logService.LogException(ex, "TripService.FindByVehicleId", vehicleId);
                 result.Status = ResponseStatus.Error;
                 result.Message =
-                    $"Não foi possível acessar as Viagens do Veículo {vehicleId}. Erro: {ex.Message}";
+                    $"Não foi possível acessar as Viagens do Veículo {vehicleId}.";
             }
 
             return result;
