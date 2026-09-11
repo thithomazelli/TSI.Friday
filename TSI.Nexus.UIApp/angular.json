@@ -52,8 +52,7 @@
             "scripts": [
               "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js",
               "node_modules/overlayscrollbars/browser/overlayscrollbars.browser.es5.min.js",
-              "node_modules/admin-lte/dist/js/adminlte.min.js",
-              "node_modules/apexcharts/dist/apexcharts.min.js"
+              "node_modules/admin-lte/dist/js/adminlte.min.js"
             ]
           },
           "configurations": {

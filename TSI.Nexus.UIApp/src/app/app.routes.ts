@@ -1,13 +1,16 @@
 import { Routes } from '@angular/router';
 import { AuthorizationGuard } from './core/guards/authorization.guard';
-import { HomeComponent } from './home/home.component';
 import { NotFoundComponent } from './shared/components/errors/not-found/not-found.component';
 
 export const routes: Routes = [
   {
     path: '',
     canActivate: [AuthorizationGuard],
-    component: HomeComponent,
+    // loadComponent, not a direct component reference: HomeComponent pulls in the
+    // dashboard charts (ApexCharts, ~600KB), and app.routes.ts itself loads eagerly - a
+    // direct reference here would put that weight in the initial bundle for every route,
+    // not just the dashboard.
+    loadComponent: () => import('./home/home.component').then((m) => m.HomeComponent),
   },
   {
     path: 'account',
@@ -69,7 +72,7 @@ export const routes: Routes = [
   {
     path: 'home',
     canActivate: [AuthorizationGuard],
-    component: HomeComponent,
+    loadComponent: () => import('./home/home.component').then((m) => m.HomeComponent),
   },
   {
     path: 'not-found',
