@@ -55,8 +55,8 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { vehicle });
+                .Setup(_ => _.GetByIdAsync(vehicle.Id))
+                .ReturnsAsync(vehicle);
             _repository
                 .Setup(_ => _.AnyAsync(It.IsAny<Expression<Func<VehicleMaintenance, bool>>>()))
                 .ReturnsAsync(true);
@@ -91,8 +91,8 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { vehicle });
+                .Setup(_ => _.GetByIdAsync(vehicle.Id))
+                .ReturnsAsync(vehicle);
             _repository
                 .Setup(_ => _.AnyAsync(It.IsAny<Expression<Func<VehicleMaintenance, bool>>>()))
                 .ReturnsAsync(false);
@@ -131,8 +131,8 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { vehicle });
+                .Setup(_ => _.GetByIdAsync(vehicle.Id))
+                .ReturnsAsync(vehicle);
             _repository
                 .Setup(_ => _.AnyAsync(It.IsAny<Expression<Func<VehicleMaintenance, bool>>>()))
                 .ReturnsAsync(false);
@@ -174,8 +174,8 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { vehicle });
+                .Setup(_ => _.GetByIdAsync(vehicle.Id))
+                .ReturnsAsync(vehicle);
             _repository
                 .Setup(_ => _.AnyAsync(It.IsAny<Expression<Func<VehicleMaintenance, bool>>>()))
                 .ReturnsAsync(true);
@@ -253,8 +253,8 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { vehicle });
+                .Setup(_ => _.GetByIdAsync(vehicle.Id))
+                .ReturnsAsync(vehicle);
             _repository
                 .Setup(_ => _.AnyAsync(It.IsAny<Expression<Func<VehicleMaintenance, bool>>>()))
                 .ReturnsAsync(false);
@@ -354,8 +354,8 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle>());
+                .Setup(_ => _.GetByIdAsync(_vehicleId))
+                .ReturnsAsync((Vehicle)null);
 
             // Act
             var result = await _service.Add(maintenance);
@@ -384,8 +384,8 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { vehicle });
+                .Setup(_ => _.GetByIdAsync(vehicle.Id))
+                .ReturnsAsync(vehicle);
 
             // Act
             var result = await _service.Add(maintenance);
@@ -434,8 +434,8 @@ namespace TSI.Nexus.Services.Tests.Services
             var maintenance = new VehicleMaintenance { Id = Guid.NewGuid(), VehicleId = _vehicleId };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { vehicle });
+                .Setup(_ => _.GetByIdAsync(vehicle.Id))
+                .ReturnsAsync(vehicle);
             _repository
                 .Setup(_ => _.AnyAsync(It.IsAny<Expression<Func<VehicleMaintenance, bool>>>()))
                 .ReturnsAsync(false);

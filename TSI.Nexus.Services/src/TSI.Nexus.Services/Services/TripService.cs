@@ -168,8 +168,8 @@ namespace TSI.Nexus.Services
                     return result;
                 }
 
-                var previousTrips = await _repository.QueryAsync(t => t.Id == tripEntity.Id);
-                var previousStatus = previousTrips.FirstOrDefault()?.Status;
+                var previousTrip = await _repository.GetByIdAsync(tripEntity.Id);
+                var previousStatus = previousTrip?.Status;
 
                 await _repository.UpdateAsync(tripEntity);
 
@@ -658,8 +658,7 @@ namespace TSI.Nexus.Services
                 return string.Empty;
             }
 
-            var existingTrips = await _repository.QueryAsync(t => t.Id == tripId);
-            var existing = existingTrips.FirstOrDefault();
+            var existing = await _repository.GetByIdAsync(tripId);
 
             return existing == null ? string.Empty : GetOwnershipErrorMessage(existing.CreateUserId);
         }
@@ -678,8 +677,7 @@ namespace TSI.Nexus.Services
                 return string.Empty;
             }
 
-            var vehicles = await _vehicleRepository.QueryAsync(v => v.Id == trip.VehicleId);
-            var vehicle = vehicles.FirstOrDefault();
+            var vehicle = await _vehicleRepository.GetByIdAsync(trip.VehicleId.Value);
 
             if (vehicle == null)
             {

@@ -318,8 +318,7 @@ namespace TSI.Nexus.Services
         /// </summary>
         private async Task SyncVehicleStatusAsync(Guid vehicleId)
         {
-            var vehicles = await _vehicleRepository.QueryAsync(v => v.Id == vehicleId);
-            var vehicle = vehicles.FirstOrDefault();
+            var vehicle = await _vehicleRepository.GetByIdAsync(vehicleId);
 
             if (vehicle == null || vehicle.Status == VehicleStatus.Inactive)
             {

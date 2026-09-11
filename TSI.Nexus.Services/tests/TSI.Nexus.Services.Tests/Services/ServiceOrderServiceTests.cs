@@ -129,8 +129,8 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(_ => _.AnyAsync(It.IsAny<Expression<Func<ServiceOrder, bool>>>()))
                 .ReturnsAsync(false);
             _driverRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Driver, bool>>>()))
-                .ReturnsAsync(new List<Driver> { driver });
+                .Setup(_ => _.GetByIdAsync(driverId))
+                .ReturnsAsync(driver);
 
             // Act
             var result = await _service.GenerateForTrip(trip);
@@ -161,8 +161,8 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(_ => _.AnyAsync(It.IsAny<Expression<Func<ServiceOrder, bool>>>()))
                 .ReturnsAsync(false);
             _driverRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Driver, bool>>>()))
-                .ReturnsAsync(new List<Driver>());
+                .Setup(_ => _.GetByIdAsync(driverId))
+                .ReturnsAsync((Driver)null);
 
             // Act
             var result = await _service.GenerateForTrip(trip);

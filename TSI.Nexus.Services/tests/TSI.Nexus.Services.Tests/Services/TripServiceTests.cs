@@ -163,9 +163,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 Status = VehicleStatus.Blocked,
             };
 
-            _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { blockedVehicle });
+            _vehicleRepository.Setup(_ => _.GetByIdAsync(vehicleId)).ReturnsAsync(blockedVehicle);
 
             // Act
             var result = await _tripService.Add(tripDto);
@@ -205,9 +203,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 DailyRate = 300.00M,
             };
 
-            _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { availableVehicle });
+            _vehicleRepository.Setup(_ => _.GetByIdAsync(vehicleId)).ReturnsAsync(availableVehicle);
 
             Trip capturedTrip = null;
             _repository
@@ -775,9 +771,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 DriverId = driverId,
             };
 
-            _repository
-                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Trip, bool>>>()))
-                .ReturnsAsync(new List<Trip> { previousTrip });
+            _repository.Setup(r => r.GetByIdAsync(tripId)).ReturnsAsync(previousTrip);
 
             // Act
             await _tripService.Update(tripDto);
@@ -811,9 +805,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 DriverId = driverId,
             };
 
-            _repository
-                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Trip, bool>>>()))
-                .ReturnsAsync(new List<Trip> { previousTrip });
+            _repository.Setup(r => r.GetByIdAsync(tripId)).ReturnsAsync(previousTrip);
 
             // Act
             await _tripService.Update(tripDto);
@@ -836,9 +828,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             var existingTrip = new Trip { Id = tripId, CreateUserId = "owner-user-id" };
 
-            _repository
-                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Trip, bool>>>()))
-                .ReturnsAsync(new List<Trip> { existingTrip });
+            _repository.Setup(r => r.GetByIdAsync(tripId)).ReturnsAsync(existingTrip);
 
             _currentUserService.Setup(_ => _.IsInRole("Admin")).Returns(false);
             _currentUserService.Setup(_ => _.GetUserId()).Returns("another-user-id");
@@ -984,9 +974,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 Status = VehicleStatus.Inactive,
             };
 
-            _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { inactiveVehicle });
+            _vehicleRepository.Setup(_ => _.GetByIdAsync(vehicleId)).ReturnsAsync(inactiveVehicle);
 
             // Act
             var result = await _tripService.Add(tripDto);
@@ -1101,9 +1089,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 Status = VehicleStatus.Blocked,
             };
 
-            _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { blockedVehicle });
+            _vehicleRepository.Setup(_ => _.GetByIdAsync(vehicleId)).ReturnsAsync(blockedVehicle);
 
             // Act
             var result = await _tripService.Update(tripDto);
@@ -1152,9 +1138,7 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             var previousTrip = new Trip { Id = tripId, Status = OrderStatus.Open, DriverId = null };
-            _repository
-                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Trip, bool>>>()))
-                .ReturnsAsync(new List<Trip> { previousTrip });
+            _repository.Setup(r => r.GetByIdAsync(tripId)).ReturnsAsync(previousTrip);
 
             // Act
             await _tripService.Update(tripDto);

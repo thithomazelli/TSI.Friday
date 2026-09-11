@@ -223,8 +223,7 @@ namespace TSI.Nexus.Services
                     return result;
                 }
 
-                var drivers = await _driverRepository.QueryAsync(d => d.Id == trip.DriverId);
-                var driver = drivers.FirstOrDefault();
+                var driver = await _driverRepository.GetByIdAsync(trip.DriverId.Value);
 
                 if (driver == null)
                 {

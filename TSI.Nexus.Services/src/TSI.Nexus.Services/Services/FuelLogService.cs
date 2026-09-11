@@ -223,8 +223,7 @@ namespace TSI.Nexus.Services
                 return;
             }
 
-            var vehicles = await _vehicleRepository.QueryAsync(v => v.Id == vehicleId);
-            var vehicle = vehicles.FirstOrDefault();
+            var vehicle = await _vehicleRepository.GetByIdAsync(vehicleId);
 
             if (vehicle != null && odometer > vehicle.Odometer)
             {

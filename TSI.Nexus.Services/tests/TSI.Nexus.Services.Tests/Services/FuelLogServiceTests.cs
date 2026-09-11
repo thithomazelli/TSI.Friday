@@ -51,8 +51,8 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { vehicle });
+                .Setup(_ => _.GetByIdAsync(_vehicleId))
+                .ReturnsAsync(vehicle);
 
             // Act
             var result = await _service.Add(fuelLog);
@@ -78,8 +78,8 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { vehicle });
+                .Setup(_ => _.GetByIdAsync(_vehicleId))
+                .ReturnsAsync(vehicle);
 
             // Act
             await _service.Add(fuelLog);
@@ -104,8 +104,8 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle> { vehicle });
+                .Setup(_ => _.GetByIdAsync(_vehicleId))
+                .ReturnsAsync(vehicle);
 
             // Act
             await _service.Add(fuelLog);
@@ -203,7 +203,7 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             Assert.Equal(ResponseStatus.Success, result.Status);
             _vehicleRepository.Verify(
-                _ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()),
+                _ => _.GetByIdAsync(It.IsAny<Guid>()),
                 Times.Never
             );
         }
@@ -214,8 +214,8 @@ namespace TSI.Nexus.Services.Tests.Services
             // Arrange
             var fuelLog = new FuelLog { Id = Guid.NewGuid(), VehicleId = _vehicleId, Odometer = 500 };
             _vehicleRepository
-                .Setup(_ => _.QueryAsync(It.IsAny<Expression<Func<Vehicle, bool>>>()))
-                .ReturnsAsync(new List<Vehicle>());
+                .Setup(_ => _.GetByIdAsync(_vehicleId))
+                .ReturnsAsync((Vehicle)null);
 
             // Act
             var result = await _service.Add(fuelLog);
