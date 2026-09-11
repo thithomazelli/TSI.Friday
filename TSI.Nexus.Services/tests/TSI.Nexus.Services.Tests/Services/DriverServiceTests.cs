@@ -3,6 +3,7 @@ using Moq;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Services.Tests.Services
@@ -197,6 +198,122 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             Assert.Equal(ResponseStatus.Success, result.Status);
             Assert.Equal(_driverListMock, result.Data);
+        }
+
+        [Fact]
+        public async Task DriverService_FindAllPaged_ShouldReturnPagedDrivers_WhenDataExists()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Driver, bool>>>(),
+                        It.IsAny<Func<IQueryable<Driver>, IOrderedQueryable<Driver>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Driver, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((_driverListMock, _driverListMock.Count));
+
+            // Act
+            var result = await _driverService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50 }
+            );
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(_driverListMock.Count, result.Data!.TotalCount);
+            Assert.Equal(_driverListMock.Count, result.Data.Items.Count());
+        }
+
+        [Fact]
+        public async Task DriverService_FindAllPaged_ShouldReturnEmpty_WhenFleetModuleDisabled()
+        {
+            // Arrange
+            _featureToggleServiceMock
+                .Setup(_ => _.IsEnabledAsync(FeatureToggleKeys.Driver, FeatureToggleKeys.FleetModule))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _driverService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Empty(result.Data!.Items);
+            Assert.Equal(0, result.Data.TotalCount);
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Driver, bool>>>(),
+                        It.IsAny<Func<IQueryable<Driver>, IOrderedQueryable<Driver>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<Driver, object>>[]>()
+                    ),
+                Times.Never
+            );
+        }
+
+        [Fact]
+        public async Task DriverService_FindAllPaged_ShouldComputeSkipAndTake_FromPageAndPageSize()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Driver, bool>>>(),
+                        It.IsAny<Func<IQueryable<Driver>, IOrderedQueryable<Driver>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Driver, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((new List<Driver>(), 0));
+
+            // Act
+            await _driverService.FindAllPaged(new PagedRequest { Page = 2, PageSize = 25 });
+
+            // Assert
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        25,
+                        25,
+                        It.IsAny<Expression<Func<Driver, bool>>>(),
+                        It.IsAny<Func<IQueryable<Driver>, IOrderedQueryable<Driver>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Driver, object>>[]>()
+                    ),
+                Times.Once
+            );
+        }
+
+        [Fact]
+        public async Task DriverService_FindAllPaged_ShouldReturnErrorResult_WhenRepositoryThrows()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Driver, bool>>>(),
+                        It.IsAny<Func<IQueryable<Driver>, IOrderedQueryable<Driver>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<Driver, object>>[]>()
+                    )
+                )
+                .ThrowsAsync(new Exception());
+
+            // Act
+            var result = await _driverService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
         }
 
         [Fact]

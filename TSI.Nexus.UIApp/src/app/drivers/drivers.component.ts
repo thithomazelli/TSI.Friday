@@ -1,14 +1,16 @@
-import { ChangeDetectionStrategy, Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import {
   Driver,
   DriverService,
   ModalService,
   NotificationService,
+  PagedRequest,
+  PagedResult,
   ResponseStatus,
   TranslationService,
   WebApiResponse,
 } from '@nexus/core';
-import { Subscription, tap, Subject, takeUntil } from 'rxjs';
+import { Observable, Subscription, Subject, skip, takeUntil } from 'rxjs';
 import { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community';
 
 import { DriverDetailsModalComponent } from './components/driver-details-modal/driver-details-modal.component';
@@ -50,9 +52,13 @@ export class DriversComponent implements OnInit, OnDestroy {
     };
   }
 
-  rowData: Driver[] = [];
   columnDefs: ColDef[] = [];
-  loading: boolean = false;
+
+  @ViewChild('gridRef') private gridRef?: GridComponent<Driver>;
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<Driver>> => {
+    return this.driverService.getAllPaged(request);
+  };
 
   private buildColumnDefs(): void {
     this.columnDefs = [
@@ -144,10 +150,13 @@ export class DriversComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.getDrivers();
+    // driverChanged$ replays immediately on subscribe (BehaviorSubject) - skip that first, inert
+    // emission so this doesn't purge the grid's cache before it has even loaded its first page.
     this._driverChangedSub = this.driverService.driverChanged$
-      .pipe(takeUntil(this._destroy$))
-      .subscribe(() => this.getDrivers());
+      .pipe(skip(1), takeUntil(this._destroy$))
+      .subscribe(() => {
+        this.gridRef?.gridApi?.purgeInfiniteCache();
+      });
   }
 
   ngOnDestroy(): void {
@@ -171,55 +180,27 @@ export class DriversComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<Driver>) => {
         if (response.status === ResponseStatus.Success) {
-          this.rowData = this.rowData.filter((d) => d.id !== driver.id);
+          this.gridRef?.gridApi?.purgeInfiniteCache();
         }
         this.notificationService.showMessage(response.status, response.message);
       });
   }
 
   refreshDrivers(): void {
-    this.loading = true;
-    this.driverService
-      .refresh()
-      .pipe(
-        tap({
-          next: () =>
-            this.notificationService.showMessage(
-              ResponseStatus.Success,
-              this.translationService.instant('DRIVERS.DRIVERS_REFRESHED'),
-            ),
-          error: () =>
-            this.notificationService.showMessage(
-              ResponseStatus.Error,
-              this.translationService.instant('DRIVERS.DRIVERS_REFRESH_ERROR'),
-            ),
-        }),
-        takeUntil(this._destroy$),
-      )
-      .subscribe({
-        next: (response: WebApiResponse<Driver[]>) => {
-          this.rowData = response.data ?? [];
-          this.loading = false;
-        },
-        error: () => {
-          this.loading = false;
-        },
-      });
-  }
-
-  private getDrivers(): void {
-    this.loading = true;
-    this.driverService
-      .getAll()
-      .pipe(takeUntil(this._destroy$))
-      .subscribe({
-        next: (response: WebApiResponse<Driver[]>) => {
-          this.rowData = response.data ?? [];
-          this.loading = false;
-        },
-        error: () => {
-          this.loading = false;
-        },
-      });
+    // <app-grid>'s own refresh button already purges the infinite cache (see
+    // GridComponent.onRefreshClicked) - this only needs to invalidate the separate shared getAll()
+    // cache (pickers/forms elsewhere) and show the notification.
+    this.driverService.refresh().pipe(takeUntil(this._destroy$)).subscribe({
+      next: () =>
+        this.notificationService.showMessage(
+          ResponseStatus.Success,
+          this.translationService.instant('DRIVERS.DRIVERS_REFRESHED'),
+        ),
+      error: () =>
+        this.notificationService.showMessage(
+          ResponseStatus.Error,
+          this.translationService.instant('DRIVERS.DRIVERS_REFRESH_ERROR'),
+        ),
+    });
   }
 }

@@ -1,6 +1,8 @@
+using System.Linq.Expressions;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Services
@@ -175,6 +177,46 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<Driver>>> FindAllPaged(PagedRequest request)
+        {
+            WebApiResponse<PagedResult<Driver>> result = new();
+
+            try
+            {
+                if (!await _featureToggleService.IsEnabledAsync(FeatureToggleKeys.Driver, FeatureToggleKeys.FleetModule))
+                {
+                    result.Data = new PagedResult<Driver> { Items = [], TotalCount = 0 };
+                    result.Status = ResponseStatus.Success;
+                    result.Message = "0 registro(s) encontrado(s).";
+                    return result;
+                }
+
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                var (drivers, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true
+                );
+
+                result.Data = new PagedResult<Driver> { Items = drivers, TotalCount = totalCount };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "DriverService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de Motoristas na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
         public async Task<WebApiResponse<Driver>> FindById(Guid? id)
         {
             WebApiResponse<Driver> result = new();
@@ -329,6 +371,54 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Drivers grid, mapped to the Driver property they
+        /// sort by - an unrecognized SortField (or none) falls back to the repository's own
+        /// default (CreateDate) ordering.
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<Driver, object>>> SortMap = new()
+        {
+            ["name"] = d => d.Name,
+            ["socialSecurityCard"] = d => d.SocialSecurityCard,
+            ["licenseNumber"] = d => d.LicenseNumber,
+            ["licenseCategory"] = d => d.LicenseCategory,
+            ["licenseExpiryDate"] = d => d.LicenseExpiryDate,
+            ["employmentType"] = d => d.EmploymentType,
+            ["status"] = d => d.Status,
+        };
+
+        /// <summary>
+        /// Quick filter OR's across the grid's own visible text columns.
+        /// </summary>
+        private static Expression<Func<Driver, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+
+            return d =>
+                !hasQuickFilter
+                || d.Name.Contains(quickFilter)
+                || d.SocialSecurityCard.Contains(quickFilter)
+                || d.LicenseNumber.Contains(quickFilter);
+        }
+
+        private static Func<IQueryable<Driver>, IOrderedQueryable<Driver>> BuildOrderBy(
+            PagedRequest request
+        )
+        {
+            if (
+                string.IsNullOrWhiteSpace(request.SortField)
+                || !SortMap.TryGetValue(request.SortField, out var keySelector)
+            )
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
 
         /// <summary>
         /// Should verify if the Driver is already being registered on the database.

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 
 namespace TSI.Nexus.WebAPI.Controllers
 {
@@ -87,6 +88,18 @@ namespace TSI.Nexus.WebAPI.Controllers
         public async Task<IActionResult> GetAll()
         {
             var webApiResponse = await _driverService.FindAll();
+            return Ok(webApiResponse);
+        }
+
+        /// <summary>
+        /// Server-side paged/sorted/filtered listing for the Drivers grid.
+        /// </summary>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        [HttpGet]
+        [Route("GetAllPaged")]
+        public async Task<IActionResult> GetAllPaged([FromQuery] PagedRequest request)
+        {
+            var webApiResponse = await _driverService.FindAllPaged(request);
             return Ok(webApiResponse);
         }
 

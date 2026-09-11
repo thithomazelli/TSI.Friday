@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Contracts.Interfaces
@@ -34,6 +35,13 @@ namespace TSI.Nexus.Contracts.Interfaces
         /// </summary>
         /// <returns>All registers found on the Driver database.</returns>
         Task<WebApiResponse<IEnumerable<Driver>>> FindAll();
+
+        /// <summary>
+        /// Server-side paged/sorted/filtered listing for the Drivers grid.
+        /// </summary>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        /// <returns>A single page of Drivers matching the request.</returns>
+        Task<WebApiResponse<PagedResult<Driver>>> FindAllPaged(PagedRequest request);
 
         /// <summary>
         /// Method responsible to get only one Driver based on the ID received as parameter.

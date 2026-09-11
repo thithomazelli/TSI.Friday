@@ -8,10 +8,11 @@
 
 <div class="app-content">
   <app-grid
+    #gridRef
     [baseEndPoint]="baseEndPoint"
     [className]="'SIDEBAR.DRIVERS' | translate"
-    [rowData]="rowData"
-    [loading]="loading"
+    [serverSide]="true"
+    [dataSource]="pagedDataSource"
     [columnDefs]="columnDefs"
     [refresh]="refreshDrivers.bind(this)"
     [delete]="deleteDriver.bind(this)"

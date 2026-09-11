@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
-import { ApiService, ApiType, WebApiResponse } from '@nexus/core';
+import { ApiService, ApiType, PagedRequest, PagedResult, WebApiResponse } from '@nexus/core';
 import { Driver } from '@nexus/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import { shareReplay, startWith, switchMap, tap } from 'rxjs/operators';
+import { map, shareReplay, startWith, switchMap, tap } from 'rxjs/operators';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({ providedIn: 'root' })
 export class DriverService {
@@ -28,6 +29,16 @@ export class DriverService {
 
   getAll(): Observable<WebApiResponse<Driver[]>> {
     return this.drivers$;
+  }
+
+  // Server-side paged/sorted/filtered listing for the Drivers grid - unlike getAll() above,
+  // used only by the main listing screen, never by pickers/forms that need every driver.
+  getAllPaged(request: PagedRequest): Observable<PagedResult<Driver>> {
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<Driver>>
+      >(`${this._baseEndPoint}/getAllPaged?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data!));
   }
 
   getById(id: string): Observable<WebApiResponse<Driver>> {
