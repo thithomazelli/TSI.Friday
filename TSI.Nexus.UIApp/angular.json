@@ -43,7 +43,6 @@
               "node_modules/bootstrap-icons/font/bootstrap-icons.css",
               "node_modules/primeicons/primeicons.css",
               "node_modules/overlayscrollbars/styles/overlayscrollbars.min.css",
-              "node_modules/jsvectormap/dist/jsvectormap.min.css",
               "node_modules/bootstrap/dist/css/bootstrap.min.css",
               "node_modules/@fortawesome/fontawesome-free/css/all.min.css",
               "node_modules/admin-lte/dist/css/adminlte.min.css",
@@ -54,8 +53,6 @@
               "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js",
               "node_modules/overlayscrollbars/browser/overlayscrollbars.browser.es5.min.js",
               "node_modules/admin-lte/dist/js/adminlte.min.js",
-              "node_modules/jsvectormap/dist/jsvectormap.min.js",
-              "node_modules/jsvectormap/dist/maps/world.js",
               "node_modules/apexcharts/dist/apexcharts.min.js"
             ]
           },
