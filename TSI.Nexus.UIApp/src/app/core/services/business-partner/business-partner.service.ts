@@ -8,11 +8,14 @@ import {
   BusinessPartnerType,
   Company,
   Individual,
+  PagedRequest,
+  PagedResult,
   WebApiResponse,
 } from '@nexus/core';
 
 import { BehaviorSubject, Observable } from 'rxjs';
-import { shareReplay, tap } from 'rxjs/operators';
+import { map, shareReplay, tap } from 'rxjs/operators';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({ providedIn: 'root' })
 export class BusinessPartnerService {
@@ -38,6 +41,22 @@ export class BusinessPartnerService {
 
   getSuppliers(): Observable<WebApiResponse<BusinessPartner[]>> {
     return this.getAllBusinessPartnersByType(BusinessPartnerType.Supplier);
+  }
+
+  // Server-side paged/sorted/filtered listing for the Clients/Suppliers grid - unlike
+  // getClients()/getSuppliers() above, used only by the main listing screens, never by
+  // pickers/forms that need the whole list for a type.
+  getAllPaged(
+    type: BusinessPartnerType,
+    request: PagedRequest,
+  ): Observable<PagedResult<BusinessPartner>> {
+    const route =
+      type === BusinessPartnerType.Client ? 'getAllClientsPaged' : 'getAllSuppliersPaged';
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<BusinessPartner>>
+      >(`${this._baseEndPoint}/${route}?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data!));
   }
 
   getById(id: string): Observable<WebApiResponse<BusinessPartner>> {

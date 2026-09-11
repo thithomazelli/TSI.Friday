@@ -1,10 +1,12 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ViewChild } from '@angular/core';
 import {
   BusinessPartner,
   BusinessPartnerService,
   BusinessPartnerType,
   ModalService,
   NotificationService,
+  PagedRequest,
+  PagedResult,
   ResponseStatus,
   TranslationService,
   WebApiResponse,
@@ -16,7 +18,7 @@ import {
 } from 'ag-grid-community';
 import { BusinessPartnerDetailsModalComponent } from './components/business-partner-details-modal/business-partner-details-modal.component';
 import { Router } from '@angular/router';
-import { Subject, Subscription, takeUntil, tap } from 'rxjs';
+import { Observable, Subject, Subscription, skip, takeUntil } from 'rxjs';
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
 import { TranslatePipe } from '../core/pipes/translate.pipe';
@@ -35,9 +37,19 @@ import { TranslatePipe } from '../core/pipes/translate.pipe';
 export class BusinessPartnersComponent {
   title: string = '';
   baseEndPoint: string = '';
-  rowData: BusinessPartner[] = [];
   columnDefs: ColDef[] = [];
-  loading: boolean = false;
+
+  @ViewChild('gridRef') private gridRef?: GridComponent<BusinessPartner>;
+
+  get businessPartnerType(): BusinessPartnerType {
+    return this.baseEndPoint === 'clients'
+      ? BusinessPartnerType.Client
+      : BusinessPartnerType.Supplier;
+  }
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<BusinessPartner>> => {
+    return this.businessPartnerService.getAllPaged(this.businessPartnerType, request);
+  };
 
   private _businessPartnerChangedSub?: Subscription;
   private _destroy$ = new Subject<void>();
@@ -61,11 +73,14 @@ export class BusinessPartnersComponent {
         this.buildColumnDefs();
         this.cdr.markForCheck();
       });
+    // businessPartnerChanged$ replays immediately on subscribe (BehaviorSubject) - skip that
+    // first, inert emission so this doesn't purge the grid's cache before it has even loaded
+    // its first page.
     this._businessPartnerChangedSub =
       this.businessPartnerService.businessPartnerChanged$
-        .pipe(takeUntil(this._destroy$))
+        .pipe(skip(1), takeUntil(this._destroy$))
         .subscribe(() => {
-          this.getBusinessPartners();
+          this.gridRef?.gridApi?.purgeInfiniteCache();
         });
   }
 
@@ -76,14 +91,14 @@ export class BusinessPartnersComponent {
         field: 'id',
         headerName: 'ID',
         sortable: true,
-        filter: true,
+        filter: false,
         hide: true,
       },
       {
         field: 'name',
         headerName: t('COMMON.NAME'),
         sortable: true,
-        filter: true,
+        filter: false,
         minWidth: 250,
         cellRenderer: (params: ValueFormatterParams) => {
           const value = params.value ?? '';
@@ -94,14 +109,14 @@ export class BusinessPartnersComponent {
         field: 'documentType',
         headerName: t('BUSINESS_PARTNER.DOCUMENT_TYPE'),
         sortable: true,
-        filter: true,
+        filter: false,
         flex: 1,
         minWidth: 85,
       },
       {
         headerName: t('BUSINESS_PARTNER.CPF_CNPJ'),
         sortable: true,
-        filter: true,
+        filter: false,
         flex: 1,
         minWidth: 160,
         cellRenderer: (params: ValueFormatterParams) => {
@@ -129,7 +144,7 @@ export class BusinessPartnersComponent {
         field: 'email',
         headerName: t('COMMON.EMAIL'),
         sortable: true,
-        filter: true,
+        filter: false,
         flex: 1,
         minWidth: 250,
         cellRenderer: (params: ValueFormatterParams) => {
@@ -141,7 +156,7 @@ export class BusinessPartnersComponent {
         field: 'birthday',
         headerName: t('BUSINESS_PARTNER.BIRTHDAY'),
         sortable: true,
-        filter: true,
+        filter: false,
         flex: 2,
         hide: true,
       },
@@ -149,7 +164,7 @@ export class BusinessPartnersComponent {
         field: 'phone',
         headerName: t('COMMON.PHONE'),
         sortable: true,
-        filter: true,
+        filter: false,
         flex: 2,
         hide: true,
         cellRenderer: (params: ValueFormatterParams) => {
@@ -165,7 +180,7 @@ export class BusinessPartnersComponent {
         field: 'mobile',
         headerName: t('BUSINESS_PARTNER.MOBILE'),
         sortable: true,
-        filter: true,
+        filter: false,
         minWidth: 60,
         cellRenderer: (params: ValueFormatterParams) => {
           const value = params.value ?? '';
@@ -235,10 +250,7 @@ export class BusinessPartnersComponent {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<BusinessPartner>) => {
         if (response.status === ResponseStatus.Success) {
-          this.rowData = this.rowData.filter(
-            (p) => p.id !== businessPartner.id,
-          );
-          this.cdr.markForCheck();
+          this.gridRef?.gridApi?.purgeInfiniteCache();
         }
         this.modalService.hideModal();
         this.modalService.showSweetNotification(
@@ -250,48 +262,32 @@ export class BusinessPartnersComponent {
   }
 
   refreshBusinessPartners(): void {
-    const type =
-      this.baseEndPoint === 'clients'
-        ? BusinessPartnerType.Client
-        : BusinessPartnerType.Supplier;
-
-    this.loading = true;
-    this.cdr.markForCheck();
+    // <app-grid>'s own refresh button already purges the infinite cache (see
+    // GridComponent.onRefreshClicked) - this only needs to invalidate the separate shared
+    // getClients()/getSuppliers() cache (pickers/forms elsewhere) and show the notification.
+    const type = this.businessPartnerType;
     this.businessPartnerService
       .refresh(type)
-      .pipe(
-        tap({
-          next: () =>
-            this.notificationService.showMessage(
-              ResponseStatus.Success,
-              this.translationService.instant(
-                type === BusinessPartnerType.Client
-                  ? 'BUSINESS_PARTNER.CLIENTS_REFRESHED'
-                  : 'BUSINESS_PARTNER.SUPPLIERS_REFRESHED',
-              ),
-            ),
-          error: () =>
-            this.notificationService.showMessage(
-              ResponseStatus.Error,
-              this.translationService.instant(
-                type === BusinessPartnerType.Client
-                  ? 'BUSINESS_PARTNER.CLIENTS_REFRESH_ERROR'
-                  : 'BUSINESS_PARTNER.SUPPLIERS_REFRESH_ERROR',
-              ),
-            ),
-        }),
-        takeUntil(this._destroy$),
-      )
+      .pipe(takeUntil(this._destroy$))
       .subscribe({
-        next: (response: WebApiResponse<BusinessPartner[]>) => {
-          this.rowData = response.data ?? [];
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
+        next: () =>
+          this.notificationService.showMessage(
+            ResponseStatus.Success,
+            this.translationService.instant(
+              type === BusinessPartnerType.Client
+                ? 'BUSINESS_PARTNER.CLIENTS_REFRESHED'
+                : 'BUSINESS_PARTNER.SUPPLIERS_REFRESHED',
+            ),
+          ),
+        error: () =>
+          this.notificationService.showMessage(
+            ResponseStatus.Error,
+            this.translationService.instant(
+              type === BusinessPartnerType.Client
+                ? 'BUSINESS_PARTNER.CLIENTS_REFRESH_ERROR'
+                : 'BUSINESS_PARTNER.SUPPLIERS_REFRESH_ERROR',
+            ),
+          ),
       });
   }
 
@@ -307,47 +303,5 @@ export class BusinessPartnersComponent {
       this.baseEndPoint = '';
       this.title = '';
     }
-  }
-
-  private getBusinessPartners(): void {
-    this.baseEndPoint === 'clients' ? this.getClients() : this.getSuppliers();
-  }
-
-  private getClients(): void {
-    this.loading = true;
-    this.cdr.markForCheck();
-    this.businessPartnerService
-      .getClients()
-      .pipe(takeUntil(this._destroy$))
-      .subscribe({
-        next: (response: WebApiResponse<BusinessPartner[]>) => {
-          this.rowData = response.data ?? [];
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-      });
-  }
-
-  private getSuppliers(): void {
-    this.loading = true;
-    this.cdr.markForCheck();
-    this.businessPartnerService
-      .getSuppliers()
-      .pipe(takeUntil(this._destroy$))
-      .subscribe({
-        next: (response: WebApiResponse<BusinessPartner[]>) => {
-          this.rowData = response.data ?? [];
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-      });
   }
 }

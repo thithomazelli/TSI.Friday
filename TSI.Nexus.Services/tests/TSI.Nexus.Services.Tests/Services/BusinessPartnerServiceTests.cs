@@ -402,6 +402,133 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
+        public async Task BusinessPartnerService_FindAllByTypePaged_ShouldReturnPagedClients_WhenDataExists()
+        {
+            // Arrange
+            var clientsMock = _businessPartnerListMock
+                .Where(_ => BusinessPartnerType.Client.Equals(_.Type))
+                .ToList();
+
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<BusinessPartner, bool>>>(),
+                        It.IsAny<Func<IQueryable<BusinessPartner>, IOrderedQueryable<BusinessPartner>>>(),
+                        true,
+                        It.IsAny<Expression<Func<BusinessPartner, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((clientsMock, clientsMock.Count));
+
+            // Act
+            var result = await _businessPartnerService.FindAllByTypePaged(
+                BusinessPartnerType.Client,
+                new PagedRequest { Page = 1, PageSize = 50 }
+            );
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(clientsMock.Count, result.Data!.TotalCount);
+            Assert.Equal(clientsMock.Count, result.Data.Items.Count());
+        }
+
+        [Fact]
+        public async Task BusinessPartnerService_FindAllByTypePaged_ShouldComputeSkipAndTake_FromPageAndPageSize()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<BusinessPartner, bool>>>(),
+                        It.IsAny<Func<IQueryable<BusinessPartner>, IOrderedQueryable<BusinessPartner>>>(),
+                        true,
+                        It.IsAny<Expression<Func<BusinessPartner, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((new List<BusinessPartner>(), 0));
+
+            // Act
+            await _businessPartnerService.FindAllByTypePaged(
+                BusinessPartnerType.Supplier,
+                new PagedRequest { Page = 2, PageSize = 25 }
+            );
+
+            // Assert
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        25,
+                        25,
+                        It.IsAny<Expression<Func<BusinessPartner, bool>>>(),
+                        It.IsAny<Func<IQueryable<BusinessPartner>, IOrderedQueryable<BusinessPartner>>>(),
+                        true,
+                        It.IsAny<Expression<Func<BusinessPartner, object>>[]>()
+                    ),
+                Times.Once
+            );
+        }
+
+        [Fact]
+        public async Task BusinessPartnerService_FindAllByTypePaged_ShouldReturnZero_WhenNoRegistersMatch()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<BusinessPartner, bool>>>(),
+                        It.IsAny<Func<IQueryable<BusinessPartner>, IOrderedQueryable<BusinessPartner>>>(),
+                        true,
+                        It.IsAny<Expression<Func<BusinessPartner, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((new List<BusinessPartner>(), 0));
+
+            // Act
+            var result = await _businessPartnerService.FindAllByTypePaged(
+                BusinessPartnerType.Supplier,
+                new PagedRequest()
+            );
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Empty(result.Data!.Items);
+            Assert.Equal(0, result.Data.TotalCount);
+        }
+
+        [Fact]
+        public async Task BusinessPartnerService_FindAllByTypePaged_ShouldReturnErrorResult_WhenRepositoryThrows()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<BusinessPartner, bool>>>(),
+                        It.IsAny<Func<IQueryable<BusinessPartner>, IOrderedQueryable<BusinessPartner>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<BusinessPartner, object>>[]>()
+                    )
+                )
+                .ThrowsAsync(new Exception());
+
+            // Act
+            var result = await _businessPartnerService.FindAllByTypePaged(
+                BusinessPartnerType.Client,
+                new PagedRequest()
+            );
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
+        }
+
+        [Fact]
         public async Task BusinessPartnerService_FindById_ShouldReturnABusinessPartnerSuccessfully_WhenIdIsValid()
         {
             // Arrange

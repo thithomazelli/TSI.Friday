@@ -8,10 +8,11 @@
 
 <div class="app-content">
   <app-grid
+    #gridRef
     [baseEndPoint]="baseEndPoint"
     [className]="title"
-    [rowData]="rowData"
-    [loading]="loading"
+    [serverSide]="true"
+    [dataSource]="pagedDataSource"
     [columnDefs]="columnDefs"
     [refresh]="refreshBusinessPartners.bind(this)"
     [delete]="deleteBusinessPartner.bind(this)"

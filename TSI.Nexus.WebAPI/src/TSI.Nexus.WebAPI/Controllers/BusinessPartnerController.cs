@@ -68,6 +68,36 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         /// <summary>
+        /// Server-side paged/sorted/filtered listing of Clients for the Clients grid.
+        /// </summary>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        [HttpGet]
+        [Route("GetAllClientsPaged")]
+        public async Task<IActionResult> GetAllClientsPaged([FromQuery] PagedRequest request)
+        {
+            var webApiResponse = await _businessPartnerService.FindAllByTypePaged(
+                BusinessPartnerType.Client,
+                request
+            );
+            return Ok(webApiResponse);
+        }
+
+        /// <summary>
+        /// Server-side paged/sorted/filtered listing of Suppliers for the Suppliers grid.
+        /// </summary>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        [HttpGet]
+        [Route("GetAllSuppliersPaged")]
+        public async Task<IActionResult> GetAllSuppliersPaged([FromQuery] PagedRequest request)
+        {
+            var webApiResponse = await _businessPartnerService.FindAllByTypePaged(
+                BusinessPartnerType.Supplier,
+                request
+            );
+            return Ok(webApiResponse);
+        }
+
+        /// <summary>
         /// Get businessPartner by id
         /// </summary>
         /// <param name="businessPartnerId">BusinessPartner id to be used in the search</param>

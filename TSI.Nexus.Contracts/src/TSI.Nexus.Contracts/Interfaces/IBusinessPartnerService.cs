@@ -25,6 +25,16 @@ namespace TSI.Nexus.Contracts.Interfaces
         );
 
         /// <summary>
+        /// Server-side paged/sorted/filtered listing for the Clients/Suppliers grid.
+        /// </summary>
+        /// <param name="businessPartnerType">Whether to list Clients or Suppliers.</param>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        Task<WebApiResponse<PagedResult<BusinessPartnerDto>>> FindAllByTypePaged(
+            BusinessPartnerType businessPartnerType,
+            PagedRequest request
+        );
+
+        /// <summary>
         /// Method responsible to get only one BusinessPartner based on the ID received as parameter.
         /// </summary>
         /// <param name="id">The ID to be used on the search.</param>

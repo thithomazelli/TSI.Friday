@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿using System.Linq.Expressions;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
@@ -125,6 +126,52 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<BusinessPartnerDto>>> FindAllByTypePaged(
+            BusinessPartnerType businessPartnerType,
+            PagedRequest request
+        )
+        {
+            WebApiResponse<PagedResult<BusinessPartnerDto>> result = new();
+
+            try
+            {
+                var filter = BuildFilter(businessPartnerType, request);
+                var orderBy = BuildOrderBy(request);
+
+                // asNoTracking: true - this is a pure list/grid read, never saved back. Unlike
+                // FindAllByType, Transactions isn't included here: it's only used afterwards
+                // (via AutoMapper) to compute NextEmptyTransactionId, which the grid never
+                // displays - loading every Transaction for every row on every page would defeat
+                // the point of paginating this list in the first place.
+                var (businessPartners, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true,
+                    includes: c => c.Addresses
+                );
+
+                result.Data = new PagedResult<BusinessPartnerDto>
+                {
+                    Items = _mapper.Map<IEnumerable<BusinessPartnerDto>>(businessPartners).ToList(),
+                    TotalCount = totalCount,
+                };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "BusinessPartnerService.FindAllByTypePaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message =
+                    $"Não foi possível acessar os registros de {_businessPartnerMap[businessPartnerType]} na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
         public async Task<WebApiResponse<BusinessPartnerDto>> FindById(Guid? id)
         {
             WebApiResponse<BusinessPartnerDto> result = new();
@@ -181,6 +228,61 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Clients/Suppliers grid, mapped to the BusinessPartner
+        /// property they sort by - an unrecognized SortField (or none) falls back to the
+        /// repository's own default (CreateDate) ordering.
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<BusinessPartner, object>>> SortMap =
+            new()
+            {
+                ["name"] = b => b.Name,
+                ["documentType"] = b => b.DocumentType,
+                ["email"] = b => b.Email,
+                ["phone"] = b => b.Phone,
+                ["mobile"] = b => b.Mobile,
+            };
+
+        /// <summary>
+        /// Type is always required (Clients and Suppliers are two separate grids); the quick
+        /// filter then OR's across the grid's own visible text columns.
+        /// </summary>
+        private static Expression<Func<BusinessPartner, bool>> BuildFilter(
+            BusinessPartnerType businessPartnerType,
+            PagedRequest request
+        )
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+
+            return b =>
+                b.Type == businessPartnerType
+                && (
+                    !hasQuickFilter
+                    || b.Name.Contains(quickFilter)
+                    || b.Email.Contains(quickFilter)
+                    || b.DocumentType.Contains(quickFilter)
+                );
+        }
+
+        private static Func<
+            IQueryable<BusinessPartner>,
+            IOrderedQueryable<BusinessPartner>
+        > BuildOrderBy(PagedRequest request)
+        {
+            if (
+                string.IsNullOrWhiteSpace(request.SortField)
+                || !SortMap.TryGetValue(request.SortField, out var keySelector)
+            )
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
 
         #endregion Private methods
     }
