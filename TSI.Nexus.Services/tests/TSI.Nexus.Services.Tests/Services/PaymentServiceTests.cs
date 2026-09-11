@@ -874,7 +874,9 @@ namespace TSI.Nexus.Services.Tests.Services
                     Date = now,
                 },
             };
-            _repository.Setup(r => r.GetAllAsync()).ReturnsAsync(payments);
+            _repository
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Payment, bool>>>(), true))
+                .ReturnsAsync(payments);
 
             // Act
             var result = await _paymentService.GetPaymentsHistory();
@@ -904,7 +906,9 @@ namespace TSI.Nexus.Services.Tests.Services
                     Date = new DateTime(2026, 2, 10, 0, 0, 0, DateTimeKind.Utc),
                 },
             };
-            _repository.Setup(r => r.GetAllAsync()).ReturnsAsync(payments);
+            _repository
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Payment, bool>>>(), true))
+                .ReturnsAsync(payments);
 
             // Act
             var result = await _paymentService.GetPaymentsHistory(start, end);
@@ -918,7 +922,9 @@ namespace TSI.Nexus.Services.Tests.Services
         public async Task PaymentService_GetPaymentsHistory_ShouldReturnError_WhenRepositoryThrows()
         {
             // Arrange
-            _repository.Setup(r => r.GetAllAsync()).ThrowsAsync(new Exception("boom"));
+            _repository
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Payment, bool>>>(), true))
+                .ThrowsAsync(new Exception("boom"));
 
             // Act
             var result = await _paymentService.GetPaymentsHistory();
@@ -960,7 +966,9 @@ namespace TSI.Nexus.Services.Tests.Services
                     Type = PaymentType.Incoming,
                 },
             };
-            _repository.Setup(r => r.GetAllAsync()).ReturnsAsync(payments);
+            _repository
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Payment, bool>>>(), true))
+                .ReturnsAsync(payments);
 
             // Act
             var result = await _paymentService.GetPaymentsGroupByCategory();
@@ -995,7 +1003,9 @@ namespace TSI.Nexus.Services.Tests.Services
                     Type = PaymentType.Incoming,
                 },
             };
-            _repository.Setup(r => r.GetAllAsync()).ReturnsAsync(payments);
+            _repository
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Payment, bool>>>(), true))
+                .ReturnsAsync(payments);
 
             // Act
             var result = await _paymentService.GetPaymentsGroupByCategory(PaymentType.Incoming);
@@ -1031,7 +1041,9 @@ namespace TSI.Nexus.Services.Tests.Services
                     Type = PaymentType.Outgoing,
                 },
             };
-            _repository.Setup(r => r.GetAllAsync()).ReturnsAsync(payments);
+            _repository
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Payment, bool>>>(), true))
+                .ReturnsAsync(payments);
 
             // Act
             var result = await _paymentService.GetPaymentsGroupByCategory(null, start, end);
@@ -1046,7 +1058,9 @@ namespace TSI.Nexus.Services.Tests.Services
         public async Task PaymentService_GetPaymentsGroupByCategory_ShouldReturnError_WhenRepositoryThrows()
         {
             // Arrange
-            _repository.Setup(r => r.GetAllAsync()).ThrowsAsync(new Exception("boom"));
+            _repository
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Payment, bool>>>(), true))
+                .ThrowsAsync(new Exception("boom"));
 
             // Act
             var result = await _paymentService.GetPaymentsGroupByCategory();

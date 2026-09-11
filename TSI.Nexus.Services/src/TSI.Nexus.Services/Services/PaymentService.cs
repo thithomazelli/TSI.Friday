@@ -463,8 +463,6 @@ namespace TSI.Nexus.Services
 
             try
             {
-                var payments = await _repository.GetAllAsync();
-
                 // Determine period: if start/end provided use them (normalize to month start/end), otherwise last12 months
                 DateTime now = DateTime.UtcNow.Date;
                 DateTime firstOfCurrentMonth = new DateTime(now.Year, now.Month, 1);
@@ -497,6 +495,17 @@ namespace TSI.Nexus.Services
                         .Select(i => periodStart.AddMonths(i))
                         .ToList();
                 }
+
+                // Pushes the date-range filter to SQL instead of loading every Payment ever
+                // recorded on every dashboard load - the table only grows. The 1-day padding on
+                // each side absorbs the ToUniversalTime() conversion below, so the exact boundary
+                // check (unchanged) still runs in memory, just against this much smaller subset.
+                var rangeStart = periodStart.AddDays(-1);
+                var rangeEnd = periodEnd.AddDays(1);
+                var payments = await _repository.QueryAsync(
+                    p => p.Date >= rangeStart && p.Date < rangeEnd,
+                    true
+                );
 
                 // filtra apenas o período relevante e normaliza datas para o primeiro dia do mês
                 var filtered = payments
@@ -591,17 +600,28 @@ namespace TSI.Nexus.Services
                     periodEnd = endMonthFirst.AddMonths(1);
                 }
 
-                // Load transactions with payments
-                var payments = await _repository.GetAllAsync();
+                // Pushes the date-range (and type, when given) filter to SQL instead of loading
+                // every Payment ever recorded on every dashboard load - the table only grows. The
+                // 1-day padding on each side absorbs the ToUniversalTime() conversion below, so
+                // the exact boundary check (unchanged) still runs in memory, just against this
+                // much smaller subset.
+                var rangeStart = periodStart.AddDays(-1);
+                var rangeEnd = periodEnd.AddDays(1);
+                var payments = type.HasValue
+                    ? await _repository.QueryAsync(
+                        p => p.Date >= rangeStart && p.Date < rangeEnd && p.Type == type.Value,
+                        true
+                    )
+                    : await _repository.QueryAsync(
+                        p => p.Date >= rangeStart && p.Date < rangeEnd,
+                        true
+                    );
 
-                // Filter transactions by type (if provided), then flatten payments and filter by period
-                var filteredPayments = payments.AsEnumerable();
-                if (type.HasValue)
-                {
-                    filteredPayments = filteredPayments.Where(t => t.Type == type.Value);
-                }
-
-                var paymentDataForCharts = filteredPayments
+                var paymentDataForCharts = payments
+                    // Redundant with the SQL-side p.Type == type.Value filter above, but the set
+                    // is already small at this point, and keeping it guards against provider
+                    // translation differences instead of trusting the query alone.
+                    .Where(p => !type.HasValue || p.Type == type.Value)
                     .Select(p => new
                     {
                         Category = string.IsNullOrWhiteSpace(p.Category) ? "" : p.Category,
