@@ -18,6 +18,18 @@ export function toPagedQueryString(request: PagedRequest): string {
   if (request.quickFilter) {
     params.set('quickFilter', request.quickFilter);
   }
+  if (request.startDate) {
+    params.set('startDate', request.startDate);
+  }
+  if (request.endDate) {
+    params.set('endDate', request.endDate);
+  }
+  for (const status of request.statuses ?? []) {
+    params.append('statuses', status);
+  }
+  for (const type of request.types ?? []) {
+    params.append('types', type);
+  }
 
   return params.toString();
 }

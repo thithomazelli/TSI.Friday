@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import { ApiService, ApiType, WebApiResponse, Order } from '@nexus/core';
+import { map, tap } from 'rxjs/operators';
+import { ApiService, ApiType, PagedRequest, PagedResult, WebApiResponse, Order } from '@nexus/core';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({
   providedIn: 'root',
@@ -22,6 +23,14 @@ export class OrderService {
           this._orders$.next(response.data);
         }),
       );
+  }
+
+  getAllPaged(request: PagedRequest): Observable<PagedResult<Order>> {
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<Order>>
+      >(`${this._baseEndPoint}/getAllPaged?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data));
   }
 
   getById(orderId: string): Observable<WebApiResponse<Order>> {

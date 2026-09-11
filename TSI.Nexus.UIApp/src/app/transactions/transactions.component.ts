@@ -1,8 +1,10 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 
 import {
   ApiType,
   ModalService,
+  PagedRequest,
+  PagedResult,
   Transaction,
   ResponseStatus,
   WebApiResponse,
@@ -17,7 +19,7 @@ import {
   ValueGetterParams,
 } from 'ag-grid-community';
 import { TransactionDetailsModalComponent } from './components/transaction-details-modal/transaction-details-modal.component';
-import { Observable, Subject, Subscription, takeUntil } from 'rxjs';
+import { Observable, Subject, Subscription, skip, takeUntil } from 'rxjs';
 import { NgIf } from '@angular/common';
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
@@ -93,6 +95,8 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   filterType = { Incoming: false, Outgoing: false };
   showFiltersOnInit = false;
 
+  @ViewChild('gridRef') private gridRef?: GridComponent<Transaction>;
+
   private _transactionChangedSub?: Subscription;
   private _destroy$ = new Subject<void>();
 
@@ -104,6 +108,25 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
   ) {}
 
+  // True for the main Transactions listing screen (server-side paginated); false for the tab
+  // embedded inside a BusinessPartner details page, which stays client-side exactly as before -
+  // mirrors getTransactions()'s own branching.
+  get isTopLevelList(): boolean {
+    return this.entity === '' || this.parentData?.id == null;
+  }
+
+  // Note: filterType (Incoming/Outgoing) is intentionally not forwarded here - it already does
+  // not filter anything client-side either, since TransactionDto.Type has no mapping from the
+  // Transaction entity (see TransactionService.BuildFilter's comment on the backend).
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<Transaction>> => {
+    return this.transactionService.getAllPaged({
+      ...request,
+      startDate: this.filterStartDate ?? undefined,
+      endDate: this.filterEndDate ?? undefined,
+      statuses: this.getSelectedStatuses(),
+    });
+  };
+
   ngOnInit(): void {
     this.setFiltersFromQueryParams();
     this.initializeGrid();
@@ -113,10 +136,19 @@ export class TransactionsComponent implements OnInit, OnDestroy {
         this.initializeGrid();
         this.cdr.markForCheck();
       });
-    this._transactionChangedSub = this.transactionService.transactionChanged$
+
+    const transactionChanged$ = this.isTopLevelList
+      ? this.transactionService.transactionChanged$.pipe(skip(1))
+      : this.transactionService.transactionChanged$;
+
+    this._transactionChangedSub = transactionChanged$
       .pipe(takeUntil(this._destroy$))
       .subscribe(() => {
-        this.getTransactions(() => this.applyFilters());
+        if (this.isTopLevelList) {
+          this.gridRef?.gridApi?.purgeInfiniteCache();
+        } else {
+          this.getTransactions(() => this.applyFilters());
+        }
       });
   }
 
@@ -141,9 +173,13 @@ export class TransactionsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<Transaction>) => {
         if (response.status === ResponseStatus.Success) {
-          this.filteredRowData = this.filteredRowData.filter(
-            (p) => p.id !== transaction.id,
-          );
+          if (this.isTopLevelList) {
+            this.gridRef?.gridApi?.purgeInfiniteCache();
+          } else {
+            this.filteredRowData = this.filteredRowData.filter(
+              (p) => p.id !== transaction.id,
+            );
+          }
           this.cdr.markForCheck();
         }
         this.modalService.hideModal();
@@ -156,10 +192,21 @@ export class TransactionsComponent implements OnInit, OnDestroy {
   }
 
   refreshTransactions(): void {
+    if (this.isTopLevelList) {
+      this.notificationService.showMessage(
+        ResponseStatus.Success,
+        this.translationService.instant('TRANSACTIONS.TRANSACTIONS_REFRESHED'),
+      );
+      return;
+    }
     this.getTransactions(() => this.applyFilters(), true);
   }
 
   applyFilters(): void {
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     let filtered = [...this.rowData];
     // Filter by date range (start and end)
     if (this.filterStartDate || this.filterEndDate) {
@@ -208,7 +255,17 @@ export class TransactionsComponent implements OnInit, OnDestroy {
     this.filterEndDate = null;
     this.filterStatus = { Approved: false, Pending: false, Delayed: false };
     this.filterType = { Incoming: false, Outgoing: false };
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     this.filteredRowData = [...this.rowData];
+  }
+
+  private getSelectedStatuses(): string[] {
+    return Object.entries(this.filterStatus)
+      .filter(([, checked]) => checked)
+      .map(([label]) => label);
   }
 
   private initializeGrid(): void {

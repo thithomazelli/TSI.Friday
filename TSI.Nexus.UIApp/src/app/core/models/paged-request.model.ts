@@ -8,4 +8,8 @@ export interface PagedRequest {
   sortField?: string;
   sortDescending?: boolean;
   quickFilter?: string;
+  startDate?: string;
+  endDate?: string;
+  statuses?: string[];
+  types?: string[];
 }

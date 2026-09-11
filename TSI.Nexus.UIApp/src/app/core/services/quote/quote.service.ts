@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import { ApiService, ApiType, WebApiResponse, Quote } from '@nexus/core';
+import { map, tap } from 'rxjs/operators';
+import { ApiService, ApiType, PagedRequest, PagedResult, WebApiResponse, Quote } from '@nexus/core';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({
   providedIn: 'root',
@@ -22,6 +23,14 @@ export class QuoteService {
           this._quotes$.next(response.data);
         }),
       );
+  }
+
+  getAllPaged(request: PagedRequest): Observable<PagedResult<Quote>> {
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<Quote>>
+      >(`${this._baseEndPoint}/getAllPaged?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data));
   }
 
   getById(quoteId: string): Observable<WebApiResponse<Quote>> {

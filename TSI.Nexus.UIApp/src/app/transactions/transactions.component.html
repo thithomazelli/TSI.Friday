@@ -9,9 +9,12 @@
 
 <div class="app-content">
   <app-grid
+    #gridRef
     [compactView]="compact"
     [className]="'SIDEBAR.TRANSACTIONS' | translate"
     [rowData]="filteredRowData"
+    [serverSide]="isTopLevelList"
+    [dataSource]="pagedDataSource"
     [loading]="loading"
     [columnDefs]="columnDefs"
     [baseEndPoint]="baseEndPoint"

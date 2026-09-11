@@ -5,6 +5,7 @@ import {
   OnDestroy,
   OnInit,
   Output,
+  ViewChild,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
@@ -16,6 +17,8 @@ import {
   Order,
   Trip,
   Transaction,
+  PagedRequest,
+  PagedResult,
   Payment,
   WebApiResponse,
   PaymentStatus,
@@ -32,7 +35,7 @@ import {
   ValueGetterParams,
 } from 'ag-grid-community';
 import { PaymentDetailsModalComponent } from './components/payment-details-modal/payment-details-modal.component';
-import { Observable, Subject, Subscription, takeUntil } from 'rxjs';
+import { Observable, Subject, Subscription, skip, takeUntil } from 'rxjs';
 import { NgIf } from '@angular/common';
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
@@ -112,6 +115,8 @@ export class PaymentsComponent implements OnInit, OnDestroy {
   filterType = { Incoming: false, Outgoing: false };
   showFiltersOnInit = false;
 
+  @ViewChild('gridRef') private gridRef?: GridComponent<Payment>;
+
   private _paymentChangedSub?: Subscription;
   private _destroy$ = new Subject<void>();
 
@@ -123,6 +128,23 @@ export class PaymentsComponent implements OnInit, OnDestroy {
     private translationService: TranslationService,
   ) {}
 
+  // True for the main Payments listing screen (server-side paginated); false for every tab
+  // embedded inside an Order/Trip/BusinessPartner/Driver details page, which stays client-side
+  // exactly as before - mirrors getPayment()'s own branching.
+  get isTopLevelList(): boolean {
+    return this.entity === '';
+  }
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<Payment>> => {
+    return this.paymentService.getAllPaged({
+      ...request,
+      startDate: this.filterStartDate ?? undefined,
+      endDate: this.filterEndDate ?? undefined,
+      statuses: this.getSelectedStatuses(),
+      types: this.getSelectedTypes(),
+    });
+  };
+
   ngOnInit(): void {
     this.initializeColumnDefs();
     this.translationService.language$
@@ -131,10 +153,19 @@ export class PaymentsComponent implements OnInit, OnDestroy {
     this.route.queryParams.subscribe((params) => {
       this.setFiltersFromQueryParams(params);
       this.showFiltersOnInit = this.hasInitialFilters();
-      this._paymentChangedSub = this.paymentService.paymentChanged$
+
+      const paymentChanged$ = this.isTopLevelList
+        ? this.paymentService.paymentChanged$.pipe(skip(1))
+        : this.paymentService.paymentChanged$;
+
+      this._paymentChangedSub = paymentChanged$
         .pipe(takeUntil(this._destroy$))
         .subscribe(() => {
-          this.getPayment(() => this.applyFilters(), false);
+          if (this.isTopLevelList) {
+            this.gridRef?.gridApi?.purgeInfiniteCache();
+          } else {
+            this.getPayment(() => this.applyFilters(), false);
+          }
         });
     });
   }
@@ -167,9 +198,13 @@ export class PaymentsComponent implements OnInit, OnDestroy {
       .subscribe((response: WebApiResponse<Payment>) => {
         const isSuccess = response.status === ResponseStatus.Success;
         if (isSuccess) {
-          this.filteredRowData = this.filteredRowData.filter(
-            (p) => p.id !== payment.id,
-          );
+          if (this.isTopLevelList) {
+            this.gridRef?.gridApi?.purgeInfiniteCache();
+          } else {
+            this.filteredRowData = this.filteredRowData.filter(
+              (p) => p.id !== payment.id,
+            );
+          }
         }
 
         this.modalService.hideModal();
@@ -182,6 +217,13 @@ export class PaymentsComponent implements OnInit, OnDestroy {
   }
 
   refreshOrders(): void {
+    if (this.isTopLevelList) {
+      this.notificationService.showMessage(
+        ResponseStatus.Success,
+        this.translationService.instant('PAYMENTS.PAYMENTS_REFRESHED'),
+      );
+      return;
+    }
     this.getPayment(() => this.applyFilters(), true);
   }
 
@@ -206,6 +248,10 @@ export class PaymentsComponent implements OnInit, OnDestroy {
   }
 
   applyFilters(): void {
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     let filtered = [...this.rowData];
     // Filter by date range (start and end)
     if (this.filterStartDate || this.filterEndDate) {
@@ -254,7 +300,23 @@ export class PaymentsComponent implements OnInit, OnDestroy {
     this.filterEndDate = null;
     this.filterStatus = { Approved: false, Pending: false, Delayed: false };
     this.filterType = { Incoming: false, Outgoing: false };
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     this.filteredRowData = [...this.rowData];
+  }
+
+  private getSelectedStatuses(): string[] {
+    return Object.entries(this.filterStatus)
+      .filter(([, checked]) => checked)
+      .map(([label]) => label);
+  }
+
+  private getSelectedTypes(): string[] {
+    return Object.entries(this.filterType)
+      .filter(([, checked]) => checked)
+      .map(([label]) => label);
   }
 
   private initializeColumnDefs(): void {
@@ -478,7 +540,11 @@ export class PaymentsComponent implements OnInit, OnDestroy {
     this.paymentService
       .update(updatedPayment)
       .subscribe((response: WebApiResponse<Payment>) => {
-        this.getPayment(() => this.applyFilters(), false);
+        if (this.isTopLevelList) {
+          this.gridRef?.gridApi?.purgeInfiniteCache();
+        } else {
+          this.getPayment(() => this.applyFilters(), false);
+        }
         this.modalService.hideModal();
         this.modalService.showSweetNotification(
           '',

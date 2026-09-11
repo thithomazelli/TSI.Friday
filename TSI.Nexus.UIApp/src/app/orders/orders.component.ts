@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import {
   ApiType,
   Company,
@@ -7,6 +7,8 @@ import {
   NotificationService,
   Order,
   OrderService,
+  PagedRequest,
+  PagedResult,
   ResponseStatus,
   TranslationService,
   WebApiResponse,
@@ -17,7 +19,7 @@ import {
   ValueFormatterParams,
 } from 'ag-grid-community';
 import { OrderDetailsModalComponent } from './components/order-details-modal/order-details-modal.component';
-import { Observable, Subject, Subscription, takeUntil } from 'rxjs';
+import { Observable, Subject, Subscription, skip, takeUntil } from 'rxjs';
 import { NgIf } from '@angular/common';
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
@@ -66,6 +68,8 @@ export class OrdersComponent implements OnInit, OnDestroy {
   };
   showFiltersOnInit = false;
 
+  @ViewChild('gridRef') private gridRef?: GridComponent<Order>;
+
   private _orderChangedSub?: Subscription;
   private _destroy$ = new Subject<void>();
 
@@ -77,6 +81,22 @@ export class OrdersComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
   ) {}
 
+  // True for the main Orders listing screen (server-side paginated); false for the tab embedded
+  // inside a BusinessPartner details page, which stays client-side exactly as before - mirrors
+  // getOrders()'s own branching.
+  get isTopLevelList(): boolean {
+    return this.entity === '' || this.parentData?.id == null;
+  }
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<Order>> => {
+    return this.orderService.getAllPaged({
+      ...request,
+      startDate: this.filterStartDate ?? undefined,
+      endDate: this.filterEndDate ?? undefined,
+      statuses: this.getSelectedStatuses(),
+    });
+  };
+
   ngOnInit(): void {
     this.setFiltersFromQueryParams();
     this.initializeGrid();
@@ -87,10 +107,18 @@ export class OrdersComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       });
 
-    this._orderChangedSub = this.orderService.orderChanged$
+    const orderChanged$ = this.isTopLevelList
+      ? this.orderService.orderChanged$.pipe(skip(1))
+      : this.orderService.orderChanged$;
+
+    this._orderChangedSub = orderChanged$
       .pipe(takeUntil(this._destroy$))
       .subscribe(() => {
-        this.getOrders(() => this.applyFilters());
+        if (this.isTopLevelList) {
+          this.gridRef?.gridApi?.purgeInfiniteCache();
+        } else {
+          this.getOrders(() => this.applyFilters());
+        }
       });
   }
 
@@ -129,9 +157,13 @@ export class OrdersComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<Order>) => {
         if (response.status === ResponseStatus.Success) {
-          this.filteredRowData = this.filteredRowData.filter(
-            (p) => p.id !== order.id,
-          );
+          if (this.isTopLevelList) {
+            this.gridRef?.gridApi?.purgeInfiniteCache();
+          } else {
+            this.filteredRowData = this.filteredRowData.filter(
+              (p) => p.id !== order.id,
+            );
+          }
           this.cdr.markForCheck();
         }
         this.modalService.hideModal();
@@ -144,10 +176,21 @@ export class OrdersComponent implements OnInit, OnDestroy {
   }
 
   refreshOrders(): void {
+    if (this.isTopLevelList) {
+      this.notificationService.showMessage(
+        ResponseStatus.Success,
+        this.translationService.instant('ORDERS.ORDERS_REFRESHED'),
+      );
+      return;
+    }
     this.getOrders(() => this.applyFilters(), true);
   }
 
   applyFilters(): void {
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     let filtered = [...this.rowData];
     // Filter by date range (start and end) using createDate
     if (this.filterStartDate || this.filterEndDate) {
@@ -190,7 +233,17 @@ export class OrdersComponent implements OnInit, OnDestroy {
       WaitingPayment: false,
       Closed: false,
     };
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     this.filteredRowData = [...this.rowData];
+  }
+
+  private getSelectedStatuses(): string[] {
+    return Object.entries(this.filterStatus)
+      .filter(([, checked]) => checked)
+      .map(([label]) => label);
   }
 
   private initializeGrid(): void {

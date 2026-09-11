@@ -29,10 +29,13 @@
   </div>
 
   <app-grid
+    #gridRef
     [compactView]="compact"
     [className]="'SIDEBAR.QUOTES' | translate"
     [canAdd]="false"
     [rowData]="filteredRowData"
+    [serverSide]="isTopLevelList"
+    [dataSource]="pagedDataSource"
     [loading]="loading"
     [columnDefs]="columnDefs"
     [baseEndPoint]="baseEndPoint"

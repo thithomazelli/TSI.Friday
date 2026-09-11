@@ -9,9 +9,12 @@
 
 <div class="app-content">
   <app-grid
+    #gridRef
     [className]="'SIDEBAR.PAYMENTS' | translate"
     [compactView]="compact"
     [rowData]="filteredRowData"
+    [serverSide]="isTopLevelList"
+    [dataSource]="pagedDataSource"
     [loading]="loading"
     [columnDefs]="columnDefs"
     [baseEndPoint]="baseEndPoint"

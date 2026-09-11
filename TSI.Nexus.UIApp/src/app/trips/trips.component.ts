@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import {
   ApiType,
   Company,
@@ -6,6 +6,8 @@ import {
   Individual,
   ModalService,
   NotificationService,
+  PagedRequest,
+  PagedResult,
   Trip,
   TripService,
   Vehicle,
@@ -19,7 +21,7 @@ import {
   ValueFormatterParams,
 } from 'ag-grid-community';
 import { TripDetailsModalComponent } from './components/trip-details-modal/trip-details-modal.component';
-import { Observable, Subject, Subscription, takeUntil } from 'rxjs';
+import { Observable, Subject, Subscription, skip, takeUntil } from 'rxjs';
 import { NgIf } from '@angular/common';
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
@@ -67,6 +69,8 @@ export class TripsComponent implements OnInit, OnDestroy {
   };
   showFiltersOnInit = false;
 
+  @ViewChild('gridRef') private gridRef?: GridComponent<Trip>;
+
   private _tripChangedSub?: Subscription;
   private _destroy$ = new Subject<void>();
 
@@ -77,6 +81,32 @@ export class TripsComponent implements OnInit, OnDestroy {
     private translationService: TranslationService,
   ) {}
 
+  // True for the main Trips listing screen (server-side paginated); false for the tab embedded
+  // inside a Vehicle/Driver/BusinessPartner details page, which shows a small, already-scoped
+  // subset and stays client-side exactly as before - mirrors the same branching getTrips() uses
+  // to pick which fetch method to call.
+  get isTopLevelList(): boolean {
+    if (this.entity === 'Driver' && this.parentData?.id != null) {
+      return false;
+    }
+    if (this.entity === 'Vehicle' && this.parentData?.id != null) {
+      return false;
+    }
+    if (this.entity !== '' && this.parentData?.id != null) {
+      return false;
+    }
+    return true;
+  }
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<Trip>> => {
+    return this.tripService.getAllPaged({
+      ...request,
+      startDate: this.filterStartDate ?? undefined,
+      endDate: this.filterEndDate ?? undefined,
+      statuses: this.getSelectedStatuses(),
+    });
+  };
+
   ngOnInit(): void {
     this.setFiltersFromQueryParams();
     this.initializeGrid();
@@ -84,10 +114,21 @@ export class TripsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe(() => this.initializeGrid());
 
-    this._tripChangedSub = this.tripService.tripChanged$
+    // For the top-level list, the grid fetches its own first page once ag-Grid is ready - the
+    // BehaviorSubject's immediate replay on subscribe is skipped so it doesn't also trigger a
+    // pointless getTrips()/getAll() call; only later, real change notifications matter there.
+    const tripChanged$ = this.isTopLevelList
+      ? this.tripService.tripChanged$.pipe(skip(1))
+      : this.tripService.tripChanged$;
+
+    this._tripChangedSub = tripChanged$
       .pipe(takeUntil(this._destroy$))
       .subscribe(() => {
-        this.getTrips(() => this.applyFilters());
+        if (this.isTopLevelList) {
+          this.gridRef?.gridApi?.purgeInfiniteCache();
+        } else {
+          this.getTrips(() => this.applyFilters());
+        }
       });
   }
 
@@ -134,9 +175,13 @@ export class TripsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<Trip>) => {
         if (response.status === ResponseStatus.Success) {
-          this.filteredRowData = this.filteredRowData.filter(
-            (p) => p.id !== trip.id,
-          );
+          if (this.isTopLevelList) {
+            this.gridRef?.gridApi?.purgeInfiniteCache();
+          } else {
+            this.filteredRowData = this.filteredRowData.filter(
+              (p) => p.id !== trip.id,
+            );
+          }
         }
         this.modalService.hideModal();
         this.modalService.showSweetNotification(
@@ -148,10 +193,24 @@ export class TripsComponent implements OnInit, OnDestroy {
   }
 
   refreshTrips(): void {
+    // For the top-level list, <app-grid>'s own refresh button already purges the infinite cache
+    // (see GridComponent.onRefreshClicked) - calling getTrips() here would additionally load the
+    // entire table, defeating the point of pagination. Only the notification is this call's job.
+    if (this.isTopLevelList) {
+      this.notificationService.showMessage(
+        ResponseStatus.Success,
+        this.translationService.instant('TRIPS.TRIPS_REFRESHED'),
+      );
+      return;
+    }
     this.getTrips(() => this.applyFilters(), true);
   }
 
   applyFilters(): void {
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     let filtered = [...this.rowData];
     if (this.filterStartDate || this.filterEndDate) {
       filtered = filtered.filter((item) => {
@@ -192,7 +251,17 @@ export class TripsComponent implements OnInit, OnDestroy {
       WaitingPayment: false,
       Closed: false,
     };
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     this.filteredRowData = [...this.rowData];
+  }
+
+  private getSelectedStatuses(): string[] {
+    return Object.entries(this.filterStatus)
+      .filter(([, checked]) => checked)
+      .map(([label]) => label);
   }
 
   private initializeGrid(): void {

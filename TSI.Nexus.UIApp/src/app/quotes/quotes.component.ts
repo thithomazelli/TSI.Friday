@@ -1,5 +1,5 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { Observable, Subject, Subscription, takeUntil } from 'rxjs';
+import { Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Observable, Subject, Subscription, skip, takeUntil } from 'rxjs';
 
 import {
   ApiType,
@@ -9,6 +9,8 @@ import {
   Individual,
   ModalService,
   NotificationService,
+  PagedRequest,
+  PagedResult,
   Quote,
   QuoteService,
   QuoteType,
@@ -71,6 +73,8 @@ export class QuotesComponent implements OnInit, OnDestroy {
   showFiltersOnInit = false;
   isFleetModuleEnabled = true;
 
+  @ViewChild('gridRef') private gridRef?: GridComponent<Quote>;
+
   private _quoteChangedSub?: Subscription;
   private _destroy$ = new Subject<void>();
 
@@ -82,6 +86,22 @@ export class QuotesComponent implements OnInit, OnDestroy {
     private translationService: TranslationService,
   ) {}
 
+  // True for the main Quotes listing screen (server-side paginated); false for the tab embedded
+  // inside a BusinessPartner details page, which stays client-side exactly as before - mirrors
+  // getQuotes()'s own branching.
+  get isTopLevelList(): boolean {
+    return this.entity === '' || this.parentData?.id == null;
+  }
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<Quote>> => {
+    return this.quoteService.getAllPaged({
+      ...request,
+      startDate: this.filterStartDate ?? undefined,
+      endDate: this.filterEndDate ?? undefined,
+      statuses: this.getSelectedStatuses(),
+    });
+  };
+
   ngOnInit(): void {
     this.setFiltersFromQueryParams();
     this.initializeGrid();
@@ -89,10 +109,18 @@ export class QuotesComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe(() => this.initializeGrid());
 
-    this._quoteChangedSub = this.quoteService.quoteChanged$
+    const quoteChanged$ = this.isTopLevelList
+      ? this.quoteService.quoteChanged$.pipe(skip(1))
+      : this.quoteService.quoteChanged$;
+
+    this._quoteChangedSub = quoteChanged$
       .pipe(takeUntil(this._destroy$))
       .subscribe(() => {
-        this.getQuotes(() => this.applyFilters());
+        if (this.isTopLevelList) {
+          this.gridRef?.gridApi?.purgeInfiniteCache();
+        } else {
+          this.getQuotes(() => this.applyFilters());
+        }
       });
 
     this.featureFlagService
@@ -158,9 +186,13 @@ export class QuotesComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<Quote>) => {
         if (response.status === ResponseStatus.Success) {
-          this.filteredRowData = this.filteredRowData.filter(
-            (p) => p.id !== quote.id,
-          );
+          if (this.isTopLevelList) {
+            this.gridRef?.gridApi?.purgeInfiniteCache();
+          } else {
+            this.filteredRowData = this.filteredRowData.filter(
+              (p) => p.id !== quote.id,
+            );
+          }
         }
         this.modalService.hideModal();
         this.modalService.showSweetNotification(
@@ -172,10 +204,21 @@ export class QuotesComponent implements OnInit, OnDestroy {
   }
 
   refreshQuotes(): void {
+    if (this.isTopLevelList) {
+      this.notificationService.showMessage(
+        ResponseStatus.Success,
+        this.translationService.instant('QUOTES.QUOTES_REFRESHED'),
+      );
+      return;
+    }
     this.getQuotes(() => this.applyFilters(), true);
   }
 
   applyFilters(): void {
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     let filtered = [...this.rowData];
     if (this.filterStartDate || this.filterEndDate) {
       filtered = filtered.filter((item) => {
@@ -216,7 +259,17 @@ export class QuotesComponent implements OnInit, OnDestroy {
       WaitingPayment: false,
       Closed: false,
     };
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     this.filteredRowData = [...this.rowData];
+  }
+
+  private getSelectedStatuses(): string[] {
+    return Object.entries(this.filterStatus)
+      .filter(([, checked]) => checked)
+      .map(([label]) => label);
   }
 
   private initializeGrid(): void {

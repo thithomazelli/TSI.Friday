@@ -2,8 +2,9 @@ import { Injectable } from '@angular/core';
 import { ApiType } from '../../enums';
 import { ApiService } from '../api/api.service';
 import { WebApiResponse } from '../../utilities';
-import { Payment } from '../../models';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { Payment, PagedRequest, PagedResult } from '../../models';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
+import { BehaviorSubject, Observable, map, tap } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -25,6 +26,14 @@ export class PaymentService {
           this._payments$.next(response.data);
         }),
       );
+  }
+
+  getAllPaged(request: PagedRequest): Observable<PagedResult<Payment>> {
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<Payment>>
+      >(`${this._baseEndPoint}/getAllPaged?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data));
   }
 
   getByEntityId(
