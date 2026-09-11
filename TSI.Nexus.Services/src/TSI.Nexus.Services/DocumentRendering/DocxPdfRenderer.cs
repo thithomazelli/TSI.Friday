@@ -749,25 +749,41 @@ namespace TSI.Nexus.Services.DocumentRendering
 
             private List<string> WrapPlainText(string text, XFont font, double maxWidthPt)
             {
+                // Track the current line as a list of words plus its running measured width instead
+                // of re-measuring an ever-growing concatenated string on every word (which is what
+                // made this O(n^2) for long cell text): each word is now measured and joined exactly
+                // once, regardless of how many words end up sharing a line.
+                var spaceWidthPt = _gfx.MeasureString(" ", font).Width;
                 var lines = new List<string>();
-                var currentLine = string.Empty;
+                var currentWords = new List<string>();
+                var currentWidthPt = 0.0;
+
                 foreach (var word in text.Split(' '))
                 {
-                    var candidate = currentLine.Length == 0 ? word : currentLine + " " + word;
-                    if (_gfx.MeasureString(candidate, font).Width > maxWidthPt && currentLine.Length > 0)
+                    var wordWidthPt = _gfx.MeasureString(word, font).Width;
+                    var candidateWidthPt =
+                        currentWords.Count == 0
+                            ? wordWidthPt
+                            : currentWidthPt + spaceWidthPt + wordWidthPt;
+
+                    if (candidateWidthPt > maxWidthPt && currentWords.Count > 0)
                     {
-                        lines.Add(currentLine);
-                        currentLine = word;
+                        lines.Add(string.Join(" ", currentWords));
+                        currentWords = [word];
+                        currentWidthPt = wordWidthPt;
                     }
                     else
                     {
-                        currentLine = candidate;
+                        currentWords.Add(word);
+                        currentWidthPt = candidateWidthPt;
                     }
                 }
-                if (currentLine.Length > 0 || lines.Count == 0)
+
+                if (currentWords.Count > 0 || lines.Count == 0)
                 {
-                    lines.Add(currentLine);
+                    lines.Add(string.Join(" ", currentWords));
                 }
+
                 return lines;
             }
 
