@@ -20,6 +20,7 @@ namespace TSI.Nexus.Services
         private readonly IJwtService _jwtService;
         private readonly SignInManager<User> _signInManager;
         private readonly UserManager<User> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IEmailService _emailService;
         private readonly IConfiguration _config;
         private readonly ILogService _logService;
@@ -37,6 +38,7 @@ namespace TSI.Nexus.Services
             IJwtService jwtService,
             SignInManager<User> signInManager,
             UserManager<User> userManager,
+            RoleManager<IdentityRole> roleManager,
             IEmailService emailService,
             IConfiguration config,
             IRepository<User> repository,
@@ -46,6 +48,7 @@ namespace TSI.Nexus.Services
             _jwtService = jwtService;
             _signInManager = signInManager;
             _userManager = userManager;
+            _roleManager = roleManager;
             _emailService = emailService;
             _config = config;
             _repository = repository;
@@ -632,15 +635,36 @@ namespace TSI.Nexus.Services
 
             try
             {
-                var users = await _repository.GetAllAsync();
+                var users = await _repository.GetAllAsync(true);
 
-                // Use a loop to create DTOs for each user to include role information
-                var userDtos = new List<UserDto>();
-                foreach (var user in users)
+                // Batches role lookups by role (a handful of roles exist, e.g. Admin/User/Master)
+                // instead of one GetRolesAsync() round-trip per user - what used to be N+1 queries
+                // for a list of N users is now R+1, where R is the small, fixed number of roles.
+                var userIdToRole = new Dictionary<string, string>();
+                foreach (var role in _roleManager.Roles)
                 {
-                    var userDto = await CreateApplicationUserDto(user, false);
-                    userDtos.Add(userDto);
+                    var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
+                    foreach (var userInRole in usersInRole)
+                    {
+                        userIdToRole[userInRole.Id] = role.Name;
+                    }
                 }
+
+                var userDtos = users
+                    .Select(user => new UserDto
+                    {
+                        Id = user.Id,
+                        UserName = user.UserName,
+                        Email = user.Email,
+                        EmailConfirmed = user.EmailConfirmed,
+                        FirstName = user.FirstName,
+                        LastName = user.LastName,
+                        Photo = user.Photo,
+                        Role = userIdToRole.GetValueOrDefault(user.Id),
+                        Theme = user.Theme,
+                        Language = user.Language,
+                    })
+                    .ToList();
                 result.Data = userDtos;
                 result.Status = ResponseStatus.Success;
                 result.Message =

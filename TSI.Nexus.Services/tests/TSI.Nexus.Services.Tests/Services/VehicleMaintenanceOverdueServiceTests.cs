@@ -68,8 +68,17 @@ namespace TSI.Nexus.Services.Tests.Services
             Assert.Equal(1, result.VehiclesBlocked);
             Assert.Equal(MaintenanceStatus.Overdue, maintenance.Status);
             Assert.Equal(VehicleStatus.Blocked, vehicle.Status);
-            _maintenanceRepository.Verify(_ => _.UpdateAsync(maintenance), Times.Once);
-            _vehicleRepository.Verify(_ => _.UpdateAsync(vehicle), Times.Once);
+            _maintenanceRepository.Verify(
+                _ =>
+                    _.UpdateRangeAsync(
+                        It.Is<IEnumerable<VehicleMaintenance>>(list => list.Contains(maintenance))
+                    ),
+                Times.Once
+            );
+            _vehicleRepository.Verify(
+                _ => _.UpdateRangeAsync(It.Is<IEnumerable<Vehicle>>(list => list.Contains(vehicle))),
+                Times.Once
+            );
         }
 
         [Fact]
@@ -104,7 +113,10 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             Assert.Equal(1, result.MaintenancesUpdated);
             Assert.Equal(0, result.VehiclesBlocked);
-            _vehicleRepository.Verify(_ => _.UpdateAsync(It.IsAny<Vehicle>()), Times.Never);
+            _vehicleRepository.Verify(
+                _ => _.UpdateRangeAsync(It.IsAny<IEnumerable<Vehicle>>()),
+                Times.Never
+            );
         }
 
         [Fact]

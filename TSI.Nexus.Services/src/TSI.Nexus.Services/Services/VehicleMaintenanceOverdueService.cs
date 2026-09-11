@@ -52,28 +52,43 @@ namespace TSI.Nexus.Services
                 maintenance.Status = MaintenanceStatus.Overdue;
                 maintenance.ModifyDate = DateTime.UtcNow;
                 maintenance.ModifyUserId = _systemUserId;
-                await _maintenanceRepository.UpdateAsync(maintenance);
                 vehicleIdsToBlock.Add(maintenance.VehicleId);
             }
 
-            var blockedCount = 0;
-            foreach (var vehicleId in vehicleIdsToBlock)
+            // One SaveChanges for every overdue maintenance in this run, instead of one
+            // round-trip per row (this can run over the whole fleet on every scheduled tick).
+            if (overdueMaintenances.Count > 0)
             {
-                var vehicles = await _vehicleRepository.QueryAsync(v => v.Id == vehicleId);
-                var vehicle = vehicles.FirstOrDefault();
+                await _maintenanceRepository.UpdateRangeAsync(overdueMaintenances);
+            }
 
-                if (
-                    vehicle != null
-                    && vehicle.Status != VehicleStatus.Blocked
-                    && vehicle.Status != VehicleStatus.Inactive
-                )
+            var blockedCount = 0;
+            if (vehicleIdsToBlock.Count > 0)
+            {
+                // One query for every candidate vehicle instead of one SELECT per vehicle.
+                var vehicles = await _vehicleRepository.QueryAsync(v =>
+                    vehicleIdsToBlock.Contains(v.Id)
+                );
+                var vehiclesToBlock = vehicles
+                    .Where(v =>
+                        v.Status != VehicleStatus.Blocked && v.Status != VehicleStatus.Inactive
+                    )
+                    .ToList();
+
+                foreach (var vehicle in vehiclesToBlock)
                 {
                     vehicle.Status = VehicleStatus.Blocked;
                     vehicle.ModifyDate = DateTime.UtcNow;
                     vehicle.ModifyUserId = _systemUserId;
-                    await _vehicleRepository.UpdateAsync(vehicle);
-                    blockedCount++;
                 }
+
+                // One SaveChanges for every vehicle blocked in this run, instead of one per row.
+                if (vehiclesToBlock.Count > 0)
+                {
+                    await _vehicleRepository.UpdateRangeAsync(vehiclesToBlock);
+                }
+
+                blockedCount = vehiclesToBlock.Count;
             }
 
             return new VehicleMaintenanceOverdueResult

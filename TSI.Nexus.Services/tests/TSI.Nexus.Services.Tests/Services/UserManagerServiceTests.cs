@@ -20,6 +20,7 @@ namespace TSI.Nexus.Services.Tests.Services
     {
         private readonly Mock<IJwtService> _jwtService;
         private readonly Mock<UserManager<User>> _userManager;
+        private readonly Mock<RoleManager<IdentityRole>> _roleManager;
         private readonly Mock<SignInManager<User>> _signInManager;
         private readonly Mock<IEmailService> _emailService;
         private readonly Mock<IConfiguration> _configuration;
@@ -68,10 +69,15 @@ namespace TSI.Nexus.Services.Tests.Services
 
             _userManager.Setup(_ => _.GetRolesAsync(It.IsAny<User>())).ReturnsAsync(new List<string> { "User" });
 
+            var roleStore = new Mock<IRoleStore<IdentityRole>>();
+            _roleManager = new Mock<RoleManager<IdentityRole>>(roleStore.Object, null, null, null, null);
+            _roleManager.Setup(_ => _.Roles).Returns(new List<IdentityRole>().AsQueryable());
+
             _service = new UserManagerService(
                 _jwtService.Object,
                 _signInManager.Object,
                 _userManager.Object,
+                _roleManager.Object,
                 _emailService.Object,
                 _configuration.Object,
                 _repository.Object,
@@ -956,7 +962,7 @@ namespace TSI.Nexus.Services.Tests.Services
         {
             // Arrange
             var users = new List<User> { new() { Id = "1" }, new() { Id = "2" } };
-            _repository.Setup(_ => _.GetAllAsync()).ReturnsAsync(users);
+            _repository.Setup(_ => _.GetAllAsync(true)).ReturnsAsync(users);
 
             // Act
             var result = await _service.FindAll();
@@ -967,10 +973,32 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
+        public async Task FindAll_ShouldAssignRole_WhenUserBelongsToARole()
+        {
+            // Arrange
+            var users = new List<User> { new() { Id = "1" }, new() { Id = "2" } };
+            _repository.Setup(_ => _.GetAllAsync(true)).ReturnsAsync(users);
+
+            var adminRole = new IdentityRole("Admin") { Id = "role-admin" };
+            _roleManager.Setup(_ => _.Roles).Returns(new List<IdentityRole> { adminRole }.AsQueryable());
+            _userManager
+                .Setup(_ => _.GetUsersInRoleAsync("Admin"))
+                .ReturnsAsync(new List<User> { users[0] });
+
+            // Act
+            var result = await _service.FindAll();
+
+            // Assert
+            var dtos = result.Data!.ToList();
+            Assert.Equal("Admin", dtos.Single(d => d.Id == "1").Role);
+            Assert.Null(dtos.Single(d => d.Id == "2").Role);
+        }
+
+        [Fact]
         public async Task FindAll_ShouldReturnError_WhenRepositoryThrows()
         {
             // Arrange
-            _repository.Setup(_ => _.GetAllAsync()).ThrowsAsync(new Exception("boom"));
+            _repository.Setup(_ => _.GetAllAsync(true)).ThrowsAsync(new Exception("boom"));
 
             // Act
             var result = await _service.FindAll();

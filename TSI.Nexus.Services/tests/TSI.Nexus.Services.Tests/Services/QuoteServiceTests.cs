@@ -720,7 +720,9 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             var product = new Product { Id = productId, Name = "Produto", QuantityInStock = 10 };
-            _productRepository.Setup(r => r.GetByIdAsync(productId)).ReturnsAsync(product);
+            _productRepository
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Product, bool>>>(), true))
+                .ReturnsAsync(new List<Product> { product });
             _orderService
                 .Setup(_ => _.Add(It.IsAny<OrderDto>()))
                 .ReturnsAsync(new WebApiResponse<OrderDto> { Status = ResponseStatus.Success });
@@ -770,8 +772,9 @@ namespace TSI.Nexus.Services.Tests.Services
 
             var lowStockProduct = new Product { Id = productId, Name = "Produto1", QuantityInStock = 1 };
             var okProduct = new Product { Id = otherProductId, Name = "Produto2", QuantityInStock = 5 };
-            _productRepository.Setup(r => r.GetByIdAsync(productId)).ReturnsAsync(lowStockProduct);
-            _productRepository.Setup(r => r.GetByIdAsync(otherProductId)).ReturnsAsync(okProduct);
+            _productRepository
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Product, bool>>>(), true))
+                .ReturnsAsync(new List<Product> { lowStockProduct, okProduct });
 
             // Act
             var result = await _quoteService.ConvertToOrder(quoteDto);
@@ -805,7 +808,9 @@ namespace TSI.Nexus.Services.Tests.Services
             };
 
             var lowStockProduct = new Product { Id = productId, Name = "Produto1", QuantityInStock = 0 };
-            _productRepository.Setup(r => r.GetByIdAsync(productId)).ReturnsAsync(lowStockProduct);
+            _productRepository
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Product, bool>>>(), true))
+                .ReturnsAsync(new List<Product> { lowStockProduct });
 
             // Act
             var result = await _quoteService.ConvertToOrder(quoteDto);
@@ -867,7 +872,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 },
             };
             _productRepository
-                .Setup(r => r.GetByIdAsync(It.IsAny<Guid?>()))
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Product, bool>>>(), true))
                 .ThrowsAsync(new Exception("boom"));
 
             // Act

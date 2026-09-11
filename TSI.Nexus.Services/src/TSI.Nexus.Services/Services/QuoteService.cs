@@ -430,6 +430,28 @@ namespace TSI.Nexus.Services
                 var outOfStock = new List<string>();
                 var outOfStockIds = new HashSet<Guid>();
 
+                // Batches the stock check into a single query instead of one GetByIdAsync per
+                // line item - a quote with many products used to cost N round-trips here.
+                var stockCheckProductIds = (
+                    quoteDto.QuoteProducts ?? Enumerable.Empty<QuoteProductDto>()
+                )
+                    .Where(item =>
+                        item.ProductType == ProductType.Sale
+                        || item.ProductType == ProductType.Rental
+                    )
+                    .Select(item => item.ProductId)
+                    .Distinct()
+                    .ToList();
+
+                var productsById = stockCheckProductIds.Count > 0
+                    ? (
+                        await _productRepository.QueryAsync(
+                            p => stockCheckProductIds.Contains(p.Id),
+                            true
+                        )
+                    ).ToDictionary(p => p.Id)
+                    : new Dictionary<Guid, Product>();
+
                 foreach (var item in quoteDto.QuoteProducts ?? Enumerable.Empty<QuoteProductDto>())
                 {
                     if (
@@ -437,7 +459,7 @@ namespace TSI.Nexus.Services
                         || item.ProductType == ProductType.Rental
                     )
                     {
-                        var product = await _productRepository.GetByIdAsync(item.ProductId);
+                        productsById.TryGetValue(item.ProductId, out var product);
                         var available = product?.QuantityInStock ?? 0;
                         if (item.Quantity > available)
                         {
