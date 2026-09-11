@@ -102,6 +102,13 @@ namespace TSI.Nexus.Contracts.Interfaces
         Task<WebApiResponse<IEnumerable<UserDto>>> FindAll();
 
         /// <summary>
+        /// Server-side paged/sorted/filtered listing for the Users grid.
+        /// </summary>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        /// <returns>A single page of Users matching the request.</returns>
+        Task<WebApiResponse<PagedResult<UserDto>>> FindAllPaged(PagedRequest request);
+
+        /// <summary>
         /// Method responsible to get only one User based in the ID received as parameter.
         /// </summary>
         /// <param name="id">The ID to be used on the search.</param>

@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Linq.Expressions;
+using System.Text;
 using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -636,19 +637,7 @@ namespace TSI.Nexus.Services
             try
             {
                 var users = await _repository.GetAllAsync(true);
-
-                // Batches role lookups by role (a handful of roles exist, e.g. Admin/User/Master)
-                // instead of one GetRolesAsync() round-trip per user - what used to be N+1 queries
-                // for a list of N users is now R+1, where R is the small, fixed number of roles.
-                var userIdToRole = new Dictionary<string, string>();
-                foreach (var role in _roleManager.Roles)
-                {
-                    var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
-                    foreach (var userInRole in usersInRole)
-                    {
-                        userIdToRole[userInRole.Id] = role.Name;
-                    }
-                }
+                var userIdToRole = await BuildUserIdToRoleMapAsync();
 
                 var userDtos = users
                     .Select(user => new UserDto
@@ -676,6 +665,56 @@ namespace TSI.Nexus.Services
                 result.Status = ResponseStatus.Error;
                 result.Message =
                     $"Não foi possível acessar os registros de usuários na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<UserDto>>> FindAllPaged(PagedRequest request)
+        {
+            var result = new WebApiResponse<PagedResult<UserDto>>();
+
+            try
+            {
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                var (users, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true
+                );
+
+                var userIdToRole = await BuildUserIdToRoleMapAsync();
+
+                var userDtos = users
+                    .Select(user => new UserDto
+                    {
+                        Id = user.Id,
+                        UserName = user.UserName,
+                        Email = user.Email,
+                        EmailConfirmed = user.EmailConfirmed,
+                        FirstName = user.FirstName,
+                        LastName = user.LastName,
+                        Photo = user.Photo,
+                        Role = userIdToRole.GetValueOrDefault(user.Id),
+                        Theme = user.Theme,
+                        Language = user.Language,
+                    })
+                    .ToList();
+
+                result.Data = new PagedResult<UserDto> { Items = userDtos, TotalCount = totalCount };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "UserManagerService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de usuários na base de dados.";
             }
 
             return result;
@@ -710,6 +749,72 @@ namespace TSI.Nexus.Services
         #endregion
 
         #region Private Helper Methods
+
+        /// <summary>
+        /// Batches role lookups by role (a handful of roles exist, e.g. Admin/User/Master)
+        /// instead of one GetRolesAsync() round-trip per user - what would otherwise be N+1
+        /// queries for a list of N users is R+1, where R is the small, fixed number of roles.
+        /// </summary>
+        private async Task<Dictionary<string, string>> BuildUserIdToRoleMapAsync()
+        {
+            var userIdToRole = new Dictionary<string, string>();
+            foreach (var role in _roleManager.Roles)
+            {
+                var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
+                foreach (var userInRole in usersInRole)
+                {
+                    userIdToRole[userInRole.Id] = role.Name;
+                }
+            }
+
+            return userIdToRole;
+        }
+
+        /// <summary>
+        /// Known sort fields exposed by the Users grid, mapped to the User property they sort
+        /// by - an unrecognized SortField (or none) falls back to the repository's own default
+        /// (CreateDate) ordering. "fullName" (the grid's combined first+last name column) sorts
+        /// by FirstName; "role" isn't mapped since it isn't a queryable column on User itself
+        /// (it's resolved afterwards from AspNetUserRoles via BuildUserIdToRoleMapAsync).
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<User, object>>> SortMap = new()
+        {
+            ["fullName"] = u => u.FirstName,
+            ["email"] = u => u.Email,
+            ["emailConfirmed"] = u => u.EmailConfirmed,
+        };
+
+        /// <summary>
+        /// Quick filter OR's across the grid's own visible text columns.
+        /// </summary>
+        private static Expression<Func<User, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+
+            return u =>
+                !hasQuickFilter
+                || u.FirstName.Contains(quickFilter)
+                || u.LastName.Contains(quickFilter)
+                || u.Email.Contains(quickFilter);
+        }
+
+        private static Func<IQueryable<User>, IOrderedQueryable<User>> BuildOrderBy(
+            PagedRequest request
+        )
+        {
+            if (
+                string.IsNullOrWhiteSpace(request.SortField)
+                || !SortMap.TryGetValue(request.SortField, out var keySelector)
+            )
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
 
         private async Task<UserDto> CreateApplicationUserDto(User user, bool includeJwt = true)
         {

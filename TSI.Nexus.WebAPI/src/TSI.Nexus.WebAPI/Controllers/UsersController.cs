@@ -116,6 +116,19 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         /// <summary>
+        /// Server-side paged/sorted/filtered listing for the Users grid.
+        /// </summary>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        [HttpGet]
+        [Route("GetAllPaged")]
+        [Authorize(Roles = "Admin,Master")]
+        public async Task<IActionResult> GetAllPaged([FromQuery] PagedRequest request)
+        {
+            var webApiResponse = await _userManagerService.FindAllPaged(request);
+            return Ok(webApiResponse);
+        }
+
+        /// <summary>
         /// Get user by id. A caller may always fetch their own profile; only Admin/Master may
         /// fetch someone else's.
         /// </summary>

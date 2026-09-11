@@ -1,8 +1,10 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import {
   ApiType,
   ModalService,
   NotificationService,
+  PagedRequest,
+  PagedResult,
   PhotoService,
   ResponseStatus,
   TranslationService,
@@ -14,10 +16,9 @@ import {
   ColDef,
   ICellRendererParams,
   ValueFormatterParams,
-  ValueGetterParams,
 } from 'ag-grid-community';
 import { UserDetailsModalComponent } from './components/user-details-modal/user-details-modal.component';
-import { Subject, Subscription, takeUntil, tap, skip, take } from 'rxjs';
+import { Observable, Subject, Subscription, takeUntil, skip } from 'rxjs';
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
 import { TranslatePipe } from '../core/pipes/translate.pipe';
@@ -36,9 +37,13 @@ import { TranslatePipe } from '../core/pipes/translate.pipe';
 export class UsersComponent implements OnInit, OnDestroy {
   baseEndPoint = ApiType.Users;
 
-  rowData: User[] = [];
-  loading: boolean = false;
   columnDefs: ColDef[] = [];
+
+  @ViewChild('gridRef') private gridRef?: GridComponent<User>;
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<User>> => {
+    return this.userService.getAllPaged(request);
+  };
 
   private buildColumnDefs(): void {
     this.columnDefs = [
@@ -46,7 +51,7 @@ export class UsersComponent implements OnInit, OnDestroy {
       field: 'id',
       headerName: 'ID',
       sortable: true,
-      filter: true,
+      filter: false,
       // minWidth: 80,
       hide: true,
       sortingOrder: ['asc', 'desc'],
@@ -102,7 +107,7 @@ export class UsersComponent implements OnInit, OnDestroy {
       headerName: this.translationService.instant('USERS.FULL_NAME'),
       colId: 'fullName',
       sortable: true,
-      filter: true,
+      filter: false,
       width: 200,
       valueGetter: (params) => {
         const user = params.data ?? {};
@@ -121,7 +126,7 @@ export class UsersComponent implements OnInit, OnDestroy {
       field: 'email',
       headerName: this.translationService.instant('COMMON.EMAIL'),
       sortable: true,
-      filter: true,
+      filter: false,
       width: 300,
       resizable: true,
     },
@@ -129,18 +134,15 @@ export class UsersComponent implements OnInit, OnDestroy {
       field: 'emailConfirmed',
       headerName: this.translationService.instant('USERS.EMAIL_CONFIRMED'),
       sortable: true,
-      filter: true,
+      filter: false,
       maxWidth: 200,
     },
     {
       field: 'role',
       headerName: this.translationService.instant('USERS.PROFILE'),
       sortable: true,
-      filter: true,
+      filter: false,
       resizable: true,
-      filterValueGetter: (params: ValueGetterParams) => {
-        return this.getRoleLabel(params.data?.role);
-      },
       cellRenderer: (params: ICellRendererParams) => {
         return this.getRoleLabel(params.data?.role);
       },
@@ -192,10 +194,12 @@ export class UsersComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // userChanged$ replays immediately on subscribe (BehaviorSubject) - skip that first, inert
+    // emission so this doesn't purge the grid's cache before it has even loaded its first page.
     this._userChangedSub = this.userService.userChanged$
-      .pipe(takeUntil(this._destroy$))
+      .pipe(skip(1), takeUntil(this._destroy$))
       .subscribe(() => {
-        this.getUsers();
+        this.gridRef?.gridApi?.purgeInfiniteCache();
       });
   }
 
@@ -220,7 +224,7 @@ export class UsersComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<User>) => {
         if (response.status === ResponseStatus.Success) {
-          this.rowData = this.rowData.filter((p) => p.id !== user.id);
+          this.gridRef?.gridApi?.purgeInfiniteCache();
         }
         this.modalService.hideModal();
         this.modalService.showSweetNotification(
@@ -232,61 +236,19 @@ export class UsersComponent implements OnInit, OnDestroy {
   }
 
   refreshUsers(): void {
-    this.loading = true;
-    // getAll() is now the shared cached stream (see UserService), so subscribing to it no
-    // longer triggers its own fetch - skip(1) drops the value it replays immediately on
-    // subscribe (whatever is currently cached) and waits for the one fresh emission that
-    // refresh() below is about to cause.
-    this.userService
-      .getAll()
-      .pipe(
-        skip(1),
-        take(1),
-        tap({
-          next: () =>
-            this.notificationService.showMessage(
-              ResponseStatus.Success,
-              this.translationService.instant('USERS.USERS_REFRESHED'),
-            ),
-          error: () =>
-            this.notificationService.showMessage(
-              ResponseStatus.Error,
-              this.translationService.instant('USERS.USERS_REFRESH_ERROR'),
-            ),
-        }),
-        takeUntil(this._destroy$),
-      )
-      .subscribe({
-        next: (response: WebApiResponse<User[]>) => {
-          this.rowData = response.data ?? [];
-          this.loading = false;
-        },
-        error: () => {
-          this.loading = false;
-        },
-      });
+    // <app-grid>'s own refresh button already purges the infinite cache (see
+    // GridComponent.onRefreshClicked) - this only needs to invalidate the separate shared getAll()
+    // cache (pickers/forms elsewhere) and show the notification.
     this.userService.refresh();
+    this.notificationService.showMessage(
+      ResponseStatus.Success,
+      this.translationService.instant('USERS.USERS_REFRESHED'),
+    );
   }
 
   onImgError(event: Event): void {
     const img = event.target as HTMLImageElement;
     img.src = 'assets/img/no_profile.png';
-  }
-
-  private getUsers(): void {
-    this.loading = true;
-    this.userService
-      .getAll()
-      .pipe(takeUntil(this._destroy$))
-      .subscribe({
-        next: (response: WebApiResponse<User[]>) => {
-          this.rowData = response.data ?? [];
-          this.loading = false;
-        },
-        error: () => {
-          this.loading = false;
-        },
-      });
   }
 
   private getRoleLabel(role: string): string {

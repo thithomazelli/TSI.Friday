@@ -1008,6 +1008,125 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
+        public async Task FindAllPaged_ShouldReturnMappedUsers_WhenRepositorySucceeds()
+        {
+            // Arrange
+            var users = new List<User> { new() { Id = "1" }, new() { Id = "2" } };
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<User, bool>>>(),
+                        It.IsAny<Func<IQueryable<User>, IOrderedQueryable<User>>>(),
+                        true,
+                        It.IsAny<Expression<Func<User, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((users, users.Count));
+
+            // Act
+            var result = await _service.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50 });
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(users.Count, result.Data!.TotalCount);
+            Assert.Equal(users.Count, result.Data.Items.Count());
+        }
+
+        [Fact]
+        public async Task FindAllPaged_ShouldAssignRole_WhenUserBelongsToARole()
+        {
+            // Arrange
+            var users = new List<User> { new() { Id = "1" }, new() { Id = "2" } };
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<User, bool>>>(),
+                        It.IsAny<Func<IQueryable<User>, IOrderedQueryable<User>>>(),
+                        true,
+                        It.IsAny<Expression<Func<User, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((users, users.Count));
+
+            var adminRole = new IdentityRole("Admin") { Id = "role-admin" };
+            _roleManager.Setup(_ => _.Roles).Returns(new List<IdentityRole> { adminRole }.AsQueryable());
+            _userManager
+                .Setup(_ => _.GetUsersInRoleAsync("Admin"))
+                .ReturnsAsync(new List<User> { users[0] });
+
+            // Act
+            var result = await _service.FindAllPaged(new PagedRequest());
+
+            // Assert
+            var dtos = result.Data!.Items.ToList();
+            Assert.Equal("Admin", dtos.Single(d => d.Id == "1").Role);
+            Assert.Null(dtos.Single(d => d.Id == "2").Role);
+        }
+
+        [Fact]
+        public async Task FindAllPaged_ShouldComputeSkipAndTake_FromPageAndPageSize()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<User, bool>>>(),
+                        It.IsAny<Func<IQueryable<User>, IOrderedQueryable<User>>>(),
+                        true,
+                        It.IsAny<Expression<Func<User, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((new List<User>(), 0));
+
+            // Act
+            await _service.FindAllPaged(new PagedRequest { Page = 2, PageSize = 25 });
+
+            // Assert
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        25,
+                        25,
+                        It.IsAny<Expression<Func<User, bool>>>(),
+                        It.IsAny<Func<IQueryable<User>, IOrderedQueryable<User>>>(),
+                        true,
+                        It.IsAny<Expression<Func<User, object>>[]>()
+                    ),
+                Times.Once
+            );
+        }
+
+        [Fact]
+        public async Task FindAllPaged_ShouldReturnError_WhenRepositoryThrows()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<User, bool>>>(),
+                        It.IsAny<Func<IQueryable<User>, IOrderedQueryable<User>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<User, object>>[]>()
+                    )
+                )
+                .ThrowsAsync(new Exception("boom"));
+
+            // Act
+            var result = await _service.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
+        }
+
+        [Fact]
         public async Task FindById_ShouldReturnUser_WhenFound()
         {
             // Arrange

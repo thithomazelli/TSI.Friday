@@ -3,8 +3,9 @@ import { ApiType } from '../../enums';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { User } from '../../models';
 import { WebApiResponse } from '../../utilities';
-import { ApiService } from '@nexus/core';
-import { shareReplay, startWith, switchMap, tap } from 'rxjs/operators';
+import { ApiService, PagedRequest, PagedResult } from '@nexus/core';
+import { map, shareReplay, startWith, switchMap, tap } from 'rxjs/operators';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({
   providedIn: 'root',
@@ -28,6 +29,16 @@ export class UserService {
 
   getAll(): Observable<WebApiResponse<User[]>> {
     return this.users$;
+  }
+
+  // Server-side paged/sorted/filtered listing for the Users grid - unlike getAll() above, used
+  // only by the main listing screen, never by pickers/forms that need every user.
+  getAllPaged(request: PagedRequest): Observable<PagedResult<User>> {
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<User>>
+      >(`${this._baseEndPoint}/getAllPaged?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data!));
   }
 
   getById(id: string): Observable<WebApiResponse<User>> {
