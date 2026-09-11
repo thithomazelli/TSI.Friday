@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
-import { ApiService, ApiType, WebApiResponse } from '@nexus/core';
+import { ApiService, ApiType, PagedRequest, PagedResult, WebApiResponse } from '@nexus/core';
 import { Product } from '@nexus/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import { shareReplay, startWith, switchMap, tap } from 'rxjs/operators';
+import { map, shareReplay, startWith, switchMap, tap } from 'rxjs/operators';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({ providedIn: 'root' })
 export class ProductService {
@@ -28,6 +29,16 @@ export class ProductService {
 
   getAll(): Observable<WebApiResponse<Product[]>> {
     return this.products$;
+  }
+
+  // Server-side paged/sorted/filtered listing for the Products grid - unlike getAll() above,
+  // used only by the main listing screen, never by pickers/forms that need the whole catalog.
+  getAllPaged(request: PagedRequest): Observable<PagedResult<Product>> {
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<Product>>
+      >(`${this._baseEndPoint}/getAllPaged?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data!));
   }
 
   getById(id: string): Observable<WebApiResponse<Product>> {

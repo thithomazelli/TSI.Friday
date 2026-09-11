@@ -30,6 +30,9 @@ export function toPagedQueryString(request: PagedRequest): string {
   for (const type of request.types ?? []) {
     params.append('types', type);
   }
+  if (request.lowStockOnly) {
+    params.set('lowStockOnly', String(request.lowStockOnly));
+  }
 
   return params.toString();
 }

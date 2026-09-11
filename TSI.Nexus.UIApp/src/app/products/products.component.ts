@@ -1,15 +1,17 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import {
   ModalService,
   NotificationService,
+  PagedRequest,
+  PagedResult,
   Product,
   ResponseStatus,
   TranslationService,
   WebApiResponse,
 } from '@nexus/core';
 import { ProductService } from '../core/services/product/product.service';
-import { Subscription, tap, Subject, takeUntil, skip, take } from 'rxjs';
+import { Observable, Subscription, Subject, skip, takeUntil } from 'rxjs';
 import {
   ColDef,
   ValueFormatterParams,
@@ -55,14 +57,21 @@ export class ProductsComponent implements OnInit, OnDestroy {
     };
   }
 
-  rowData: Product[] = [];
-  filteredRowData: Product[] = [];
-  loading: boolean = false;
   columnDefs: ColDef[] = [];
 
+  @ViewChild('gridRef') private gridRef?: GridComponent<Product>;
+
   // Set from the ?stockStatus=Low query param (navbar stock alert's "ver todos"): same "<=3" rule
-  // as the alert itself, includes both zero and low stock.
+  // as the alert itself, includes both zero and low stock. Passed through to the server as
+  // lowStockOnly instead of filtering client-side, now that the grid is server-side paginated.
   private _stockStatusFilter: string | null = null;
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<Product>> => {
+    return this.productService.getAllPaged({
+      ...request,
+      lowStockOnly: this._stockStatusFilter === 'Low',
+    });
+  };
 
   private buildColumnDefs(): void {
     this.columnDefs = [
@@ -215,10 +224,12 @@ export class ProductsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this._stockStatusFilter = this.activatedRoute.snapshot.queryParamMap.get('stockStatus');
 
+    // productChanged$ replays immediately on subscribe (BehaviorSubject) - skip that first, inert
+    // emission so this doesn't purge the grid's cache before it has even loaded its first page.
     this._productChangedSub = this.productService.productChanged$
-      .pipe(takeUntil(this._destroy$))
+      .pipe(skip(1), takeUntil(this._destroy$))
       .subscribe(() => {
-        this.getProducts();
+        this.gridRef?.gridApi?.purgeInfiniteCache();
       });
   }
 
@@ -243,9 +254,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<Product>) => {
         if (response.status === ResponseStatus.Success) {
-          this.rowData = this.rowData.filter((p) => p.id !== product.id);
-          this.applyStockStatusFilter();
-          this.cdr.markForCheck();
+          this.gridRef?.gridApi?.purgeInfiniteCache();
         }
         this.modalService.hideModal();
         this.modalService.showSweetNotification(
@@ -257,75 +266,14 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 
   refreshProducts(): void {
-    this.loading = true;
-    this.cdr.markForCheck();
-    // getAll() is now the shared cached stream (see ProductService), so subscribing to it no
-    // longer triggers its own fetch - skip(1) drops the value it replays immediately on
-    // subscribe (whatever is currently cached) and waits for the one fresh emission that
-    // refresh() below is about to cause.
-    this.productService
-      .getAll()
-      .pipe(
-        skip(1),
-        take(1),
-        tap({
-          next: () =>
-            this.notificationService.showMessage(
-              ResponseStatus.Success,
-              this.translationService.instant('PRODUCTS.PRODUCTS_REFRESHED'),
-            ),
-          error: () =>
-            this.notificationService.showMessage(
-              ResponseStatus.Error,
-              this.translationService.instant('PRODUCTS.PRODUCTS_REFRESH_ERROR'),
-            ),
-        }),
-        takeUntil(this._destroy$),
-      )
-      .subscribe({
-        next: (response: WebApiResponse<Product[]>) => {
-          this.rowData = response.data ?? [];
-          this.applyStockStatusFilter();
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-      });
+    // <app-grid>'s own refresh button already purges the infinite cache (see
+    // GridComponent.onRefreshClicked) - this only needs to invalidate the separate shared getAll()
+    // cache (pickers/forms elsewhere) and show the notification.
     this.productService.refresh();
-  }
-
-  private getProducts(): void {
-    this.loading = true;
-    this.cdr.markForCheck();
-    // This screen is the authoritative product list, so it can't settle for whatever the shared
-    // cache happens to hold (e.g. left over from a picker opened on a previous visit) - subscribe
-    // first, then force a fresh fetch so every other getAll() consumer picks up the same result.
-    this.productService
-      .getAll()
-      .pipe(takeUntil(this._destroy$))
-      .subscribe({
-        next: (response: WebApiResponse<Product[]>) => {
-          this.rowData = response.data ?? [];
-          this.applyStockStatusFilter();
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-      });
-    this.productService.refresh();
-  }
-
-  private applyStockStatusFilter(): void {
-    this.filteredRowData =
-      this._stockStatusFilter === 'Low'
-        ? this.rowData.filter((p) => (p.quantityInStock ?? 0) <= 3)
-        : this.rowData;
+    this.notificationService.showMessage(
+      ResponseStatus.Success,
+      this.translationService.instant('PRODUCTS.PRODUCTS_REFRESHED'),
+    );
   }
 
   private getUnitLabel(unit: string): string {

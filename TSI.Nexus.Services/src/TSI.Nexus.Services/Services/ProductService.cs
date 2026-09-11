@@ -1,6 +1,8 @@
-﻿using TSI.Nexus.Contracts.Enums;
+﻿using System.Linq.Expressions;
+using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Services
@@ -173,6 +175,38 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<Product>>> FindAllPaged(PagedRequest request)
+        {
+            WebApiResponse<PagedResult<Product>> result = new();
+
+            try
+            {
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                var (products, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true
+                );
+
+                result.Data = new PagedResult<Product> { Items = products, TotalCount = totalCount };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "ProductService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de Produtos na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
         public async Task<WebApiResponse<Product>> FindById(Guid? id)
         {
             WebApiResponse<Product> result = new();
@@ -227,6 +261,58 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Products grid, mapped to the Product property they
+        /// sort by - an unrecognized SortField (or none) falls back to the repository's own
+        /// default (CreateDate) ordering.
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<Product, object>>> SortMap = new()
+        {
+            ["sku"] = p => p.Sku,
+            ["name"] = p => p.Name,
+            ["quantityInStock"] = p => p.QuantityInStock,
+            ["price"] = p => p.Price,
+            ["category"] = p => p.Category,
+            ["unit"] = p => p.Unit,
+            ["type"] = p => p.Type,
+        };
+
+        /// <summary>
+        /// Combines the quick filter (OR across the grid's own visible text columns) with the
+        /// low-stock filter the navbar stock alert's "ver todos" link applies - same "&lt;=3" rule
+        /// the client-side version used, now applied server-side alongside pagination.
+        /// </summary>
+        private static Expression<Func<Product, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+            var lowStockOnly = request.LowStockOnly == true;
+
+            return p =>
+                (!hasQuickFilter
+                    || p.Sku.Contains(quickFilter)
+                    || p.Name.Contains(quickFilter)
+                    || p.Category.Contains(quickFilter))
+                && (!lowStockOnly || p.QuantityInStock <= 3);
+        }
+
+        private static Func<IQueryable<Product>, IOrderedQueryable<Product>> BuildOrderBy(
+            PagedRequest request
+        )
+        {
+            if (
+                string.IsNullOrWhiteSpace(request.SortField)
+                || !SortMap.TryGetValue(request.SortField, out var keySelector)
+            )
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
 
         /// <summary>
         /// Should verify if the Product is already being registered on the database.

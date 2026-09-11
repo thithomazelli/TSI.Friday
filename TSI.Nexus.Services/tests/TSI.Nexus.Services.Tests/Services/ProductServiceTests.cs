@@ -4,6 +4,7 @@ using Moq;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Services.Tests.Services
@@ -505,6 +506,126 @@ namespace TSI.Nexus.Services.Tests.Services
 
             expectedResult.Should().BeEquivalentTo(result);
             _repository.Verify(_ => _.GetAllAsync(), Times.Once);
+        }
+
+        [Fact]
+        public async Task ProductService_FindAllPaged_ShouldReturnPagedProducts_WhenDataExists()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Product, bool>>>(),
+                        It.IsAny<Func<IQueryable<Product>, IOrderedQueryable<Product>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Product, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((_productListMock, _productListMock.Count));
+
+            // Act
+            var result = await _productService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50 }
+            );
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(_productListMock.Count, result.Data!.TotalCount);
+            Assert.Equal(_productListMock.Count, result.Data.Items.Count());
+            Assert.Equal($"{_productListMock.Count} registro(s) encontrado(s).", result.Message);
+        }
+
+        [Fact]
+        public async Task ProductService_FindAllPaged_ShouldComputeSkipAndTake_FromPageAndPageSize()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Product, bool>>>(),
+                        It.IsAny<Func<IQueryable<Product>, IOrderedQueryable<Product>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Product, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((new List<Product>(), 0));
+
+            // Act
+            await _productService.FindAllPaged(new PagedRequest { Page = 3, PageSize = 20 });
+
+            // Assert
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        40,
+                        20,
+                        It.IsAny<Expression<Func<Product, bool>>>(),
+                        It.IsAny<Func<IQueryable<Product>, IOrderedQueryable<Product>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Product, object>>[]>()
+                    ),
+                Times.Once
+            );
+        }
+
+        [Fact]
+        public async Task ProductService_FindAllPaged_ShouldReturnErrorResult_WhenRepositoryThrows()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Product, bool>>>(),
+                        It.IsAny<Func<IQueryable<Product>, IOrderedQueryable<Product>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<Product, object>>[]>()
+                    )
+                )
+                .ThrowsAsync(new Exception());
+
+            // Act
+            var result = await _productService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
+            Assert.Equal(
+                "Não foi possível acessar os registros de Produtos na base de dados.",
+                result.Message
+            );
+        }
+
+        [Fact]
+        public async Task ProductService_FindAllPaged_ShouldReturnZero_WhenNoProductsMatchFilter()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Product, bool>>>(),
+                        It.IsAny<Func<IQueryable<Product>, IOrderedQueryable<Product>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Product, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((new List<Product>(), 0));
+
+            // Act
+            var result = await _productService.FindAllPaged(
+                new PagedRequest { QuickFilter = "no-such-sku" }
+            );
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Empty(result.Data!.Items);
+            Assert.Equal(0, result.Data.TotalCount);
         }
 
         [Fact]

@@ -8,10 +8,11 @@
 
 <div class="app-content">
   <app-grid
+    #gridRef
     [baseEndPoint]="baseEndPoint"
     [className]="'SIDEBAR.PRODUCTS' | translate"
-    [rowData]="filteredRowData"
-    [loading]="loading"
+    [serverSide]="true"
+    [dataSource]="pagedDataSource"
     [columnDefs]="columnDefs"
     [refresh]="refreshProducts.bind(this)"
     [delete]="deleteProduct.bind(this)"

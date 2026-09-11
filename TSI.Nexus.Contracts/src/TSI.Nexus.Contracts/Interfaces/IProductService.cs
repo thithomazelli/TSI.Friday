@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Contracts.Interfaces
@@ -34,6 +35,14 @@ namespace TSI.Nexus.Contracts.Interfaces
         /// </summary>
         /// <returns>All registers found on The product database.</returns>
         Task<WebApiResponse<IEnumerable<Product>>> FindAll();
+
+        /// <summary>
+        /// Server-side paged/sorted/filtered listing for the Products grid (ag-Grid Infinite Row
+        /// Model) - unlike FindAll(), used only by the main listing screen, never by pickers/forms
+        /// that need the whole catalog.
+        /// </summary>
+        /// <param name="request">The requested page, sort, quick-filter text and low-stock filter.</param>
+        Task<WebApiResponse<PagedResult<Product>>> FindAllPaged(PagedRequest request);
 
         /// <summary>
         /// Method responsible to get only one Product based on the ID received as parameter.

@@ -12,4 +12,6 @@ export interface PagedRequest {
   endDate?: string;
   statuses?: string[];
   types?: string[];
+  /** Products-only: mirrors the navbar low-stock alert's "ver todos" link. */
+  lowStockOnly?: boolean;
 }

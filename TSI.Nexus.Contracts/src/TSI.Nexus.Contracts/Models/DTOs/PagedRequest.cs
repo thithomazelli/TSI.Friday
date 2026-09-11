@@ -31,5 +31,8 @@ namespace TSI.Nexus.Contracts.Models.DTOs
         public List<string> Statuses { get; set; }
 
         public List<string> Types { get; set; }
+
+        /// <summary>Products-only: mirrors the navbar low-stock alert's "ver todos" link.</summary>
+        public bool? LowStockOnly { get; set; }
     }
 }
