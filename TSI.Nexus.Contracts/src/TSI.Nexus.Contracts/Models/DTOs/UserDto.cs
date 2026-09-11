@@ -24,7 +24,12 @@ namespace TSI.Nexus.Contracts.Models.DTOs
 
         public string LastName { get; set; }
 
+        // Carries the token from the service to the controller only, which sets it as an httpOnly
+        // cookie and clears this field before the DTO is serialized to the client - the client
+        // itself never needs to see the raw token, only TokenExpiresAtUtc below.
         public string JWT { get; set; }
+
+        public DateTime? TokenExpiresAtUtc { get; set; }
 
         public string Photo { get; set; }
 

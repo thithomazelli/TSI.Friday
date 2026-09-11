@@ -16,7 +16,7 @@ export class ApiService {
 
   get<T>(apiUrl: string, headers?: HttpHeaders): Observable<T> {
     return this.httpClient
-      .get<T>(`${environment.appUrl}/api/${apiUrl}`, { headers })
+      .get<T>(`${environment.appUrl}/api/${apiUrl}`, { headers, withCredentials: true })
       .pipe(timeout(REQUEST_TIMEOUT_MS));
   }
 
@@ -25,25 +25,25 @@ export class ApiService {
   // raw bytes instead of trying (and failing) to JSON.parse them.
   getBlob(apiUrl: string): Observable<Blob> {
     return this.httpClient
-      .get(`${environment.appUrl}/api/${apiUrl}`, { responseType: 'blob' })
+      .get(`${environment.appUrl}/api/${apiUrl}`, { responseType: 'blob', withCredentials: true })
       .pipe(timeout(REQUEST_TIMEOUT_MS));
   }
 
   post<T>(apiUrl: string, model: any): Observable<T> {
     return this.httpClient
-      .post<T>(`${environment.appUrl}/api/${apiUrl}`, model)
+      .post<T>(`${environment.appUrl}/api/${apiUrl}`, model, { withCredentials: true })
       .pipe(timeout(REQUEST_TIMEOUT_MS));
   }
 
   put<T>(apiUrl: string, model: any): Observable<T> {
     return this.httpClient
-      .put<T>(`${environment.appUrl}/api/${apiUrl}`, model)
+      .put<T>(`${environment.appUrl}/api/${apiUrl}`, model, { withCredentials: true })
       .pipe(timeout(REQUEST_TIMEOUT_MS));
   }
 
   delete<T>(apiUrl: string, model: any): Observable<T> {
     return this.httpClient
-      .delete<T>(`${environment.appUrl}/api/${apiUrl}`, { body: model })
+      .delete<T>(`${environment.appUrl}/api/${apiUrl}`, { body: model, withCredentials: true })
       .pipe(timeout(REQUEST_TIMEOUT_MS));
   }
 }

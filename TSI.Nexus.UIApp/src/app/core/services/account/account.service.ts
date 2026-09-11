@@ -10,10 +10,9 @@ import {
   User,
   WebApiResponse,
 } from '@nexus/core';
-import { map, Observable, of, ReplaySubject } from 'rxjs';
+import { map, Observable, ReplaySubject } from 'rxjs';
 import { finalize, shareReplay } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
-import { HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
 
 @Injectable({
@@ -40,57 +39,59 @@ export class AccountService {
   ) {}
 
   /**
-   * Returns true when token is expired or invalid. False when token is present and not expired.
+   * Returns true when the token's expiry is missing, unparseable, or in the past. False when
+   * still within its validity window (plus clock-skew tolerance).
    */
-  isTokenExpired(token: string | null): boolean {
-    if (!token) {
+  isTokenExpired(expiresAtUtc: string | null | undefined): boolean {
+    if (!expiresAtUtc) {
       return true;
     }
 
-    try {
-      const parts = token.split('.');
-      if (parts.length < 2) return true;
-      const payload = JSON.parse(
-        atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')),
-      );
-      if (!payload || !payload.exp) {
-        return true;
-      }
-      // exp is in seconds since epoch
-      const exp = Number(payload.exp) * 1000;
-      return Date.now() >= exp + this.clockSkewToleranceMs;
-    } catch {
+    const exp = new Date(expiresAtUtc).getTime();
+    if (Number.isNaN(exp)) {
       return true;
+    }
+    return Date.now() >= exp + this.clockSkewToleranceMs;
+  }
+
+  /**
+   * Reads the last-known user (including token expiry) straight from localStorage, without
+   * touching the network or the user$ stream - used at app bootstrap and on navigation to decide
+   * whether a session is even worth trying to renew, before calling refreshUser().
+   */
+  getStoredUser(): User | null {
+    try {
+      const raw = localStorage.getItem(environment.userKey);
+      return raw ? (JSON.parse(raw) as User) : null;
+    } catch {
+      return null;
     }
   }
 
-  refreshUser(jwt: string | null) {
-    if (jwt === null) {
-      this._userSource.next(null);
-      return of(undefined);
-    }
+  /** Marks the session as logged-out locally, without navigating - see getStoredUser() callers. */
+  emitNoUser(): void {
+    this._userSource.next(null);
+  }
 
+  refreshUser(): Observable<void> {
     // if a refresh is already in-flight, return the existing observable
     if (this._refresh$) {
       return this._refresh$;
     }
 
-    let headers = new HttpHeaders();
-    headers = headers.set('Authorization', `Bearer ${jwt}`);
-
-    const req$ = this.apiService
-      .get<User>('account/refresh-user-token', headers)
-      .pipe(
-        map((user: User) => {
-          this.setUser(user);
-        }),
-        // ensure the in-flight observable is cleared when completed or errored
-        finalize(() => {
-          this._refresh$ = undefined;
-        }),
-        // share the single underlying request for multiple subscribers
-        shareReplay(1),
-      );
+    // The httpOnly auth cookie rides along automatically (withCredentials on ApiService) - no
+    // token to attach here.
+    const req$ = this.apiService.get<User>('account/refresh-user-token').pipe(
+      map((user: User) => {
+        this.setUser(user);
+      }),
+      // ensure the in-flight observable is cleared when completed or errored
+      finalize(() => {
+        this._refresh$ = undefined;
+      }),
+      // share the single underlying request for multiple subscribers
+      shareReplay(1),
+    );
 
     // store and return the in-flight observable
     this._refresh$ = req$;
@@ -127,9 +128,6 @@ export class AccountService {
     return this.apiService.post<User>('account/login', model).pipe(
       map((user: User) => {
         this.setUser(user);
-        if (user.jwt) {
-          this.startAutoLogout(user.jwt);
-        }
       }),
     );
   }
@@ -142,6 +140,10 @@ export class AccountService {
     } catch {
       // ignore
     }
+
+    // Best-effort: clears the httpOnly cookie server-side. Fire-and-forget - local state above is
+    // already cleared, so a network failure here doesn't block navigating to login.
+    this.apiService.post('account/logout', {}).subscribe({ error: () => {} });
 
     // Navigate to logout page then to login; if navigation promise never resolves,
     // at least the client state is already cleared.
@@ -161,56 +163,32 @@ export class AccountService {
       });
   }
 
-  getJWT(): string | null {
-    const key = localStorage.getItem(environment.userKey);
-
-    if (!key) {
-      return null;
-    }
-
-    const user: User = JSON.parse(key);
-    return user.jwt;
-  }
-
   // Timer para autologoff
   private logoutTimer: any;
   /**
-   * Inicia ou reinicia o timer de autologoff baseado no exp do token JWT.
+   * Inicia ou reinicia o timer de autologoff baseado na expiração do token.
    * Chame este método sempre que um novo token for emitido (login, refresh, etc).
    */
-  startAutoLogout(token: string | null) {
+  startAutoLogout(expiresAtUtc: string | null | undefined) {
     if (this.logoutTimer) {
       clearTimeout(this.logoutTimer);
     }
-    if (!token) {
+    if (!expiresAtUtc) {
       this.logout();
       return;
     }
-    try {
-      const parts = token.split('.');
-      if (parts.length < 2) {
-        this.logout();
-        return;
-      }
-      const payload = JSON.parse(
-        atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')),
-      );
-      if (!payload || !payload.exp) {
-        this.logout();
-        return;
-      }
-      const expiresAt = Number(payload.exp) * 1000;
-      const now = Date.now();
-      const timeout = expiresAt - now;
-      if (timeout > 0) {
-        this.logoutTimer = setTimeout(() => {
-          this.attemptRenewalOrLogout(token);
-        }, timeout);
-      } else {
-        this.attemptRenewalOrLogout(token);
-      }
-    } catch {
+    const expiresAt = new Date(expiresAtUtc).getTime();
+    if (Number.isNaN(expiresAt)) {
       this.logout();
+      return;
+    }
+    const timeout = expiresAt - Date.now();
+    if (timeout > 0) {
+      this.logoutTimer = setTimeout(() => {
+        this.attemptRenewalOrLogout();
+      }, timeout);
+    } else {
+      this.attemptRenewalOrLogout();
     }
   }
 
@@ -222,8 +200,8 @@ export class AccountService {
    * On success, refreshUser()'s setUser() call reschedules this same timer against the new
    * token's expiry.
    */
-  private attemptRenewalOrLogout(token: string): void {
-    this.refreshUser(token).subscribe({
+  private attemptRenewalOrLogout(): void {
+    this.refreshUser().subscribe({
       next: () => {},
       error: () => this.logout(),
     });
@@ -234,35 +212,16 @@ export class AccountService {
       return;
     }
 
-    // ensure roles from token payload
-    try {
-      if (user.jwt) {
-        const token = user.jwt;
-        const parts = token.split('.');
-        if (parts.length >= 2) {
-          const payload = JSON.parse(
-            atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')),
-          );
-          const roles =
-            payload['role'] ||
-            payload['roles'] ||
-            payload[
-              'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'
-            ];
-          if (roles) {
-            if (Array.isArray(roles)) {
-              user.roles = roles;
-            } else if (typeof roles === 'string') {
-              user.roles = [roles];
-            }
-          }
-        }
-        // Sempre reinicia o timer de autologoff ao setar novo usuário/token
-        this.startAutoLogout(token);
-      }
-    } catch (e) {
-      // ignore decode errors
+    // `role` (singular) is what the backend DTO actually carries - `roles` (array) used to be
+    // decoded from the JWT's role claim(s), but the token itself is no longer readable client-side
+    // (httpOnly cookie). The backend only ever assigns one role per user, so a single-element
+    // array preserves exactly what every `roles.includes(...)`/`roles.some(...)` check needs.
+    if (user.role) {
+      user.roles = [user.role];
     }
+
+    // Sempre reinicia o timer de autologoff ao setar novo usuário/token
+    this.startAutoLogout(user.tokenExpiresAtUtc);
 
     localStorage.setItem(environment.userKey, JSON.stringify(user));
     this._userSource.next(user);

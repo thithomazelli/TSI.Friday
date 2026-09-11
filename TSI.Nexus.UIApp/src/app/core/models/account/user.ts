@@ -5,7 +5,9 @@ export interface User {
   emailConfirmed: boolean;
   firstName: string;
   lastName: string;
-  jwt: string;
+  // The JWT itself never reaches the client - it travels in an httpOnly cookie the server sets.
+  // This is only the expiry, so the app can schedule its own renewal/auto-logout timer.
+  tokenExpiresAtUtc: string | null;
   photo: string;
   role?: string;
   roles?: string[];

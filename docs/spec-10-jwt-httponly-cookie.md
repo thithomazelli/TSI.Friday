@@ -188,3 +188,32 @@ verificar `TokenExpiresAtUtc` e a ausência de `JWT`.
 6. Confirmar que uma chamada `curl -H "Authorization: Bearer <token>"` direta (sem cookie) ainda
    autentica — garante que o `OnMessageReceived` não quebrou o caminho por header pra
    Swagger/ferramentas manuais.
+
+## 6. Primeira tentativa (revertida) e causa raiz
+
+A primeira implementação (commit `e706bcf`) passou pela verificação local (item 5 acima, com
+`ng serve`/`dotnet run` em HTTPS) e foi deployada em produção, mas quebrou o login real: o usuário
+autenticava e caía de volta pro login logo em seguida (ciclo `getAll` → 401 → tentativa de renovação
+→ logout automático). Revertida imediatamente (`f452813`) pra restaurar o serviço.
+
+Causa raiz identificada nesta sessão, relendo o `web.config` da API de produção
+(`web.config.Production.Serodio.xml`/`web.config`): `hostingModel="OutOfProcess"` — o IIS termina a
+conexão HTTPS real do navegador e repassa a requisição pro processo Kestrel via loopback como HTTP
+puro. Sem `app.UseForwardedHeaders(...)` no pipeline (ausente no `Program.cs` até agora), a aplicação
+enxergava `Request.IsHttps`/`Request.Scheme` incorretamente mesmo com o cliente usando HTTPS de
+verdade — um problema documentado pela própria Microsoft para exatamente esse cenário
+(IIS OutOfProcess + ASP.NET Core Module), e que afeta especificamente `Secure`/`SameSite` em cookies
+e fluxos CORS com credenciais, sem tocar em nada do fluxo antigo baseado em header `Authorization`
+(por isso o resto do app continuou funcionando normalmente com a implementação antiga). Bate com a
+segunda hipótese já registrada na auditoria de segurança.
+
+**Retentativa (`Program.cs`)**: adicionado `app.UseForwardedHeaders(new ForwardedHeadersOptions {
+ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto })` como a
+primeira middleware do pipeline, antes de `UseCors`/`UseHttpsRedirection`/autenticação. Os defaults
+de `KnownProxies`/`KnownNetworks` (loopback) já cobrem o hop IIS↔Kestrel na mesma máquina, sem
+precisar de configuração adicional.
+
+Não há como confirmar essa causa com evidência direta de produção neste ambiente (egress bloqueado
+pro domínio real) — o teste real segue sendo o próximo deploy. Se o login voltar a quebrar da mesma
+forma, o próximo passo é pegar o header `Set-Cookie` da resposta de login no DevTools de produção
+antes de tentar de novo.
