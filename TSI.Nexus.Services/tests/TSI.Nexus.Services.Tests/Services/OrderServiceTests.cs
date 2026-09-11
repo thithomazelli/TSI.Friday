@@ -212,6 +212,7 @@ namespace TSI.Nexus.Services.Tests.Services
                     r.GetByIdAsync(
                         id,
                         true,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -237,6 +238,7 @@ namespace TSI.Nexus.Services.Tests.Services
                     r.GetByIdAsync(
                         id,
                         true,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -259,6 +261,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
@@ -294,6 +297,7 @@ namespace TSI.Nexus.Services.Tests.Services
                     r.GetByIdAsync(
                         id,
                         true,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -323,6 +327,7 @@ namespace TSI.Nexus.Services.Tests.Services
                     r.GetByIdAsync(
                         id,
                         true,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -348,6 +353,7 @@ namespace TSI.Nexus.Services.Tests.Services
                     r.GetByIdAsync(
                         id,
                         true,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -367,6 +373,7 @@ namespace TSI.Nexus.Services.Tests.Services
             _repository
                 .Setup(r =>
                     r.GetAllAsync(
+                        true,
                         true,
                         o => o.BusinessPartner,
                         o => o.OrderProducts,
@@ -391,6 +398,7 @@ namespace TSI.Nexus.Services.Tests.Services
             _repository.Verify(
                 r =>
                     r.GetAllAsync(
+                        true,
                         true,
                         o => o.BusinessPartner,
                         o => o.OrderProducts,
@@ -640,6 +648,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 r =>
                     r.GetAllAsync(
                         true,
+                        true,
                         It.IsAny<Expression<Func<Order, object>>>(),
                         It.IsAny<Expression<Func<Order, object>>>(),
                         It.IsAny<Expression<Func<Order, object>>>(),
@@ -656,6 +665,7 @@ namespace TSI.Nexus.Services.Tests.Services
             _repository
                 .Setup(r =>
                     r.GetAllAsync(
+                        true,
                         true,
                         It.IsAny<Expression<Func<Order, object>>>(),
                         It.IsAny<Expression<Func<Order, object>>>(),
@@ -700,6 +710,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,

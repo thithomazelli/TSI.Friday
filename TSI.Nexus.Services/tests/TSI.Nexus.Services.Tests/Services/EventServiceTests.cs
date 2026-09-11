@@ -41,7 +41,7 @@ namespace TSI.Nexus.Services.Tests.Services
             _currentUserService.Setup(c => c.GetUserId()).Returns("current-user-id");
             _userRepository
                 .Setup(r =>
-                    r.QueryAsync(It.IsAny<Expression<Func<User, bool>>>())
+                    r.QueryAsync(It.IsAny<Expression<Func<User, bool>>>(), true)
                 )
                 .ReturnsAsync(new List<User>());
 
@@ -155,6 +155,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         It.IsAny<object>(),
+                        true,
                         It.IsAny<Expression<Func<Event, object>>[]>()
                     )
                 )
@@ -181,6 +182,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.QueryAsync(
                         It.IsAny<Expression<Func<Event, bool>>>(),
+                        true,
                         It.IsAny<Expression<Func<Event, object>>[]>()
                     )
                 )
@@ -213,6 +215,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.QueryAsync(
                         It.IsAny<Expression<Func<Event, bool>>>(),
+                        true,
                         It.IsAny<Expression<Func<Event, object>>[]>()
                     )
                 )
@@ -279,7 +282,7 @@ namespace TSI.Nexus.Services.Tests.Services
             var id = Guid.NewGuid();
             _repository
                 .Setup(r =>
-                    r.GetByIdAsync(It.IsAny<object>(), It.IsAny<Expression<Func<Event, object>>[]>())
+                    r.GetByIdAsync(It.IsAny<object>(), true, It.IsAny<Expression<Func<Event, object>>[]>())
                 )
                 .ReturnsAsync((Event)null!);
 
@@ -298,7 +301,7 @@ namespace TSI.Nexus.Services.Tests.Services
             // Arrange
             _repository
                 .Setup(r =>
-                    r.GetByIdAsync(It.IsAny<object>(), It.IsAny<Expression<Func<Event, object>>[]>())
+                    r.GetByIdAsync(It.IsAny<object>(), true, It.IsAny<Expression<Func<Event, object>>[]>())
                 )
                 .ThrowsAsync(new Exception("boom"));
 
@@ -326,11 +329,11 @@ namespace TSI.Nexus.Services.Tests.Services
             };
             _repository
                 .Setup(r =>
-                    r.GetByIdAsync(It.IsAny<object>(), It.IsAny<Expression<Func<Event, object>>[]>())
+                    r.GetByIdAsync(It.IsAny<object>(), true, It.IsAny<Expression<Func<Event, object>>[]>())
                 )
                 .ReturnsAsync(entity);
             _userRepository
-                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<User, bool>>>()))
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<User, bool>>>(), true))
                 .ReturnsAsync(new List<User> { new() { Id = "user-1", FirstName = "Ana", LastName = "Silva" } });
 
             // Act
@@ -346,7 +349,7 @@ namespace TSI.Nexus.Services.Tests.Services
         {
             // Arrange
             var items = new List<Event> { new() { Id = Guid.NewGuid(), Title = "Evento", OrderId = Guid.NewGuid() } };
-            _repository.Setup(r => r.GetAllAsync(It.IsAny<Expression<Func<Event, object>>[]>())).ReturnsAsync(items);
+            _repository.Setup(r => r.GetAllAsync(true, It.IsAny<Expression<Func<Event, object>>[]>())).ReturnsAsync(items);
 
             // Act
             var result = await _eventService.FindAll();
@@ -364,7 +367,7 @@ namespace TSI.Nexus.Services.Tests.Services
             // failure here propagates instead of turning into an Error WebApiResponse. Documented
             // as current behavior; see the final report for this finding.
             _repository
-                .Setup(r => r.GetAllAsync(It.IsAny<Expression<Func<Event, object>>[]>()))
+                .Setup(r => r.GetAllAsync(true, It.IsAny<Expression<Func<Event, object>>[]>()))
                 .ThrowsAsync(new Exception("boom"));
 
             // Act & Assert
@@ -377,6 +380,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.QueryAsync(
                         It.IsAny<Expression<Func<Event, bool>>>(),
+                        true,
                         It.IsAny<Expression<Func<Event, object>>[]>()
                     )
                 )
@@ -547,6 +551,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.QueryAsync(
                         It.IsAny<Expression<Func<Event, bool>>>(),
+                        true,
                         It.IsAny<Expression<Func<Event, object>>[]>()
                     )
                 )
@@ -572,10 +577,10 @@ namespace TSI.Nexus.Services.Tests.Services
                 },
             };
             _repository
-                .Setup(r => r.GetAllAsync(It.IsAny<Expression<Func<Event, object>>[]>()))
+                .Setup(r => r.GetAllAsync(true, It.IsAny<Expression<Func<Event, object>>[]>()))
                 .ReturnsAsync(items);
             _userRepository
-                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<User, bool>>>()))
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<User, bool>>>(), true))
                 .ThrowsAsync(new Exception("boom"));
 
             // Act

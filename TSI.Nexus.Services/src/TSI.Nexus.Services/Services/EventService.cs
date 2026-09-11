@@ -159,7 +159,10 @@ namespace TSI.Nexus.Services
         /// <inheritdoc />
         public async Task<WebApiResponse<IEnumerable<EventDto>>> FindAll()
         {
-            var items = await _repository.GetAllAsync(_includes);
+            // asNoTracking: true - every Find* method here is a pure read mapped to a DTO, never
+            // saved back; skipping change tracking matters more here than elsewhere given how wide
+            // the shared _includes graph is.
+            var items = await _repository.GetAllAsync(true, _includes);
             return await ToResponseAsync(items);
         }
 
@@ -170,7 +173,7 @@ namespace TSI.Nexus.Services
 
             try
             {
-                var item = await _repository.GetByIdAsync(id, _includes);
+                var item = await _repository.GetByIdAsync(id, true, _includes);
                 result.Data = _mapper.Map<EventDto>(item);
                 if (result.Data != null)
                 {
@@ -198,6 +201,7 @@ namespace TSI.Nexus.Services
         {
             var items = await _repository.QueryAsync(
                 e => e.CreatedByUserId == userId || e.Participants.Any(p => p.UserId == userId),
+                true,
                 _includes
             );
             return await ToResponseAsync(items);
@@ -223,6 +227,7 @@ namespace TSI.Nexus.Services
                         && e.Transaction.BusinessPartnerId == businessPartnerId
                     )
                     || (e.Payment != null && e.Payment.BusinessPartnerId == businessPartnerId),
+                true,
                 _includes
             );
             return await ToResponseAsync(items);
@@ -231,7 +236,7 @@ namespace TSI.Nexus.Services
         /// <inheritdoc />
         public async Task<WebApiResponse<IEnumerable<EventDto>>> FindByQuoteId(Guid? quoteId)
         {
-            var items = await _repository.QueryAsync(e => e.QuoteId == quoteId, _includes);
+            var items = await _repository.QueryAsync(e => e.QuoteId == quoteId, true, _includes);
             return await ToResponseAsync(items);
         }
 
@@ -243,6 +248,7 @@ namespace TSI.Nexus.Services
                     e.OrderId == orderId
                     || (e.Transaction != null && e.Transaction.OrderId == orderId)
                     || (e.Payment != null && e.Payment.OrderId == orderId),
+                true,
                 _includes
             );
             return await ToResponseAsync(items);
@@ -258,6 +264,7 @@ namespace TSI.Nexus.Services
                     e.PurchaseOrderId == purchaseOrderId
                     || (e.Transaction != null && e.Transaction.PurchaseOrderId == purchaseOrderId)
                     || (e.Payment != null && e.Payment.PurchaseOrderId == purchaseOrderId),
+                true,
                 _includes
             );
             return await ToResponseAsync(items);
@@ -271,6 +278,7 @@ namespace TSI.Nexus.Services
                     e.TripId == tripId
                     || (e.Transaction != null && e.Transaction.TripId == tripId)
                     || (e.Payment != null && e.Payment.TripId == tripId),
+                true,
                 _includes
             );
             return await ToResponseAsync(items);
@@ -285,6 +293,7 @@ namespace TSI.Nexus.Services
                 e =>
                     e.TransactionId == transactionId
                     || (e.Payment != null && e.Payment.TransactionId == transactionId),
+                true,
                 _includes
             );
             return await ToResponseAsync(items);
@@ -293,21 +302,21 @@ namespace TSI.Nexus.Services
         /// <inheritdoc />
         public async Task<WebApiResponse<IEnumerable<EventDto>>> FindByPaymentId(Guid? paymentId)
         {
-            var items = await _repository.QueryAsync(e => e.PaymentId == paymentId, _includes);
+            var items = await _repository.QueryAsync(e => e.PaymentId == paymentId, true, _includes);
             return await ToResponseAsync(items);
         }
 
         /// <inheritdoc />
         public async Task<WebApiResponse<IEnumerable<EventDto>>> FindByVehicleId(Guid? vehicleId)
         {
-            var items = await _repository.QueryAsync(e => e.VehicleId == vehicleId, _includes);
+            var items = await _repository.QueryAsync(e => e.VehicleId == vehicleId, true, _includes);
             return await ToResponseAsync(items);
         }
 
         /// <inheritdoc />
         public async Task<WebApiResponse<IEnumerable<EventDto>>> FindByDriverId(Guid? driverId)
         {
-            var items = await _repository.QueryAsync(e => e.DriverId == driverId, _includes);
+            var items = await _repository.QueryAsync(e => e.DriverId == driverId, true, _includes);
             return await ToResponseAsync(items);
         }
 
@@ -318,6 +327,7 @@ namespace TSI.Nexus.Services
         {
             var items = await _repository.QueryAsync(
                 e => e.VehicleMaintenanceId == vehicleMaintenanceId,
+                true,
                 _includes
             );
             return await ToResponseAsync(items);
@@ -326,7 +336,7 @@ namespace TSI.Nexus.Services
         /// <inheritdoc />
         public async Task<WebApiResponse<IEnumerable<EventDto>>> FindByFuelLogId(Guid? fuelLogId)
         {
-            var items = await _repository.QueryAsync(e => e.FuelLogId == fuelLogId, _includes);
+            var items = await _repository.QueryAsync(e => e.FuelLogId == fuelLogId, true, _includes);
             return await ToResponseAsync(items);
         }
 
@@ -388,7 +398,7 @@ namespace TSI.Nexus.Services
                 return;
             }
 
-            var users = await _userRepository.QueryAsync(u => userIds.Contains(u.Id));
+            var users = await _userRepository.QueryAsync(u => userIds.Contains(u.Id), true);
             var userNames = users.ToDictionary(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim());
 
             foreach (var eventDto in events)

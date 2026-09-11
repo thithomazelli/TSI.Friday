@@ -66,6 +66,24 @@ namespace TSI.Nexus.Contracts.Interfaces
 
         /// <summary>
         /// This function will be not receive parameter and should be returns all registers found in this entity.
+        /// Pass true for splitQuery when includes combine two or more collection navigations (e.g.
+        /// Order.OrderProducts + Order.Payments) - a single query with several Include()s on
+        /// collections produces a cross-join whose row count multiplies with every extra collection,
+        /// even though it collapses back correctly client-side. AsSplitQuery() issues one query per
+        /// collection instead, avoiding that blowup.
+        /// </summary>
+        /// <param name="asNoTracking">When true, the result is not tracked by the change tracker.</param>
+        /// <param name="splitQuery">When true, EF Core issues one query per collection include instead of a single joined query.</param>
+        /// <param name="includes">The objects to be included in the search.</param>
+        /// <returns>Returns all registers found in this entity.</returns>
+        Task<IList<T>> GetAllAsync(
+            bool asNoTracking,
+            bool splitQuery,
+            params Expression<Func<T, object>>[] includes
+        );
+
+        /// <summary>
+        /// This function will be not receive parameter and should be returns all registers found in this entity.
         /// </summary>
         /// <param name="includes">The objects to be included in the search.</param>
         /// <returns>Returns all registers found in this entity.</returns>
@@ -108,6 +126,26 @@ namespace TSI.Nexus.Contracts.Interfaces
         Task<T> GetByIdAsync(
             object id,
             bool asNoTracking,
+            params Expression<Func<T, object>>[] includes
+        );
+
+        /// <summary>
+        /// This function will be receive the "ID" as parameter and should be returns the object found.
+        /// Pass true for splitQuery when includes combine two or more collection navigations (e.g.
+        /// Order.OrderProducts + Order.Payments) - a single query with several Include()s on
+        /// collections produces a cross-join whose row count multiplies with every extra collection,
+        /// even though it collapses back correctly client-side. AsSplitQuery() issues one query per
+        /// collection instead, avoiding that blowup.
+        /// </summary>
+        /// <param name="id">The ID value to be used on the search.</param>
+        /// <param name="asNoTracking">When true, the result is not tracked by the change tracker.</param>
+        /// <param name="splitQuery">When true, EF Core issues one query per collection include instead of a single joined query.</param>
+        /// <param name="includes">The objects to be included in the search.</param>
+        /// <returns>Returns the object found</returns>
+        Task<T> GetByIdAsync(
+            object id,
+            bool asNoTracking,
+            bool splitQuery,
             params Expression<Func<T, object>>[] includes
         );
 

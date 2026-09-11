@@ -259,7 +259,12 @@ namespace TSI.Nexus.Services
                 }
 
                 // asNoTracking: true - this is a pure list/grid read, never saved back.
+                // splitQuery: true - PurchaseOrderProducts and Payments are both collections;
+                // combined in one joined query their row counts multiply per purchase order (a
+                // cross join), even though EF resolves it back correctly - AsSplitQuery() issues
+                // one query per collection instead.
                 var purchaseOrders = await _repository.GetAllAsync(
+                    true,
                     true,
                     o => o.BusinessPartner,
                     o => o.PurchaseOrderProducts,
@@ -301,8 +306,11 @@ namespace TSI.Nexus.Services
                     return result;
                 }
 
+                // splitQuery: true - PurchaseOrderProducts and Transaction.Payments are both
+                // collections; see the same note on FindAll() above.
                 var purchaseOrder = await _repository.GetByIdAsync(
                     id,
+                    true,
                     true,
                     o => o.BusinessPartner,
                     op => op.PurchaseOrderProducts,

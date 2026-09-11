@@ -157,6 +157,38 @@ namespace TSI.Nexus.Repository
         }
 
         /// <inheritdoc />
+        public async Task<T> GetByIdAsync(
+            object id,
+            bool asNoTracking,
+            bool splitQuery,
+            params Expression<Func<T, object>>[] includes
+        )
+        {
+            if (!splitQuery)
+            {
+                return await GetByIdAsync(id, asNoTracking, includes);
+            }
+
+            IQueryable<T> query = asNoTracking
+                ? _myDbContext.Set<T>().AsNoTracking()
+                : _myDbContext.Set<T>();
+
+            if (includes != null)
+            {
+                foreach (var include in includes)
+                {
+                    query = query.Include(include);
+                }
+            }
+
+            var entity = await query
+                .AsSplitQuery()
+                .SingleOrDefaultAsync(e => EF.Property<object>(e, "Id").Equals(id));
+
+            return entity ?? throw new KeyNotFoundException($"Entity '{id}' not found.");
+        }
+
+        /// <inheritdoc />
         public async Task<T> GetByNameAsync(string name)
         {
             var entity = await _myDbContext.Set<T>().FindAsync(name);
@@ -364,6 +396,36 @@ namespace TSI.Nexus.Repository
             }
 
             return await query.OrderBy(e => EF.Property<DateTime>(e, "CreateDate")).ToListAsync();
+        }
+
+        /// <inheritdoc />
+        public async Task<IList<T>> GetAllAsync(
+            bool asNoTracking,
+            bool splitQuery,
+            params Expression<Func<T, object>>[] includes
+        )
+        {
+            if (!splitQuery)
+            {
+                return await GetAllAsync(asNoTracking, includes);
+            }
+
+            IQueryable<T> query = asNoTracking
+                ? _myDbContext.Set<T>().AsNoTracking()
+                : _myDbContext.Set<T>();
+
+            if (includes != null && includes.Length > 0)
+            {
+                foreach (var include in includes)
+                {
+                    query = query.Include(include);
+                }
+            }
+
+            return await query
+                .AsSplitQuery()
+                .OrderBy(e => EF.Property<DateTime>(e, "CreateDate"))
+                .ToListAsync();
         }
 
         /// <inheritdoc />
