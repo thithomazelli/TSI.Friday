@@ -1,4 +1,6 @@
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -45,6 +47,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-business-partner-form',
     templateUrl: './business-partner-form.component.html',
     styleUrl: './business-partner-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgClass,
         ReactiveFormsModule,
@@ -93,6 +96,7 @@ export class BusinessPartnerFormComponent
     private modalService: ModalService,
     private notificationService: NotificationService,
     private routerService: Router,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -203,9 +207,14 @@ export class BusinessPartnerFormComponent
         );
 
         if (idx !== -1) {
-          this.data!.addresses[idx] = new Address({ ...raw.address });
+          this.data!.addresses = this.data!.addresses.map((addr, i) =>
+            i === idx ? new Address({ ...raw.address }) : addr,
+          );
         } else if (raw.address?.street != '') {
-          this.data!.addresses.push(new Address({ ...raw.address }));
+          this.data!.addresses = [
+            ...this.data!.addresses,
+            new Address({ ...raw.address }),
+          ];
         }
       }
 
@@ -325,10 +334,13 @@ export class BusinessPartnerFormComponent
 
     if (this.selectedAddressIndex !== null && this.data?.addresses) {
       // Atualiza o endereço editado
-      this.data.addresses[this.selectedAddressIndex] = address;
+      const index = this.selectedAddressIndex;
+      this.data.addresses = this.data.addresses.map((addr, i) =>
+        i === index ? address : addr,
+      );
     } else {
       // Adiciona novo endereço
-      this.data!.addresses.push(address);
+      this.data!.addresses = [...this.data!.addresses, address];
     }
 
     this.initAddressInfo();
@@ -622,6 +634,7 @@ export class BusinessPartnerFormComponent
       const formattedMessage = this.formatErrorMessage(response.message);
       this.notificationService.showMessage(response.status, formattedMessage);
       this.data = response.data;
+      this.cdr.markForCheck();
     } else {
       this.routerService.navigateByUrl(
         `/${this._baseEndPoint}/${response.data.id}`,

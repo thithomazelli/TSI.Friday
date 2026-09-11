@@ -1,5 +1,7 @@
 import { Subscription, tap, of, combineLatestWith } from 'rxjs';
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -59,6 +61,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-trip-form',
     templateUrl: './trip-form.component.html',
     styleUrl: './trip-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         AlertBannerComponentComponent,
         ReactiveFormsModule,
@@ -131,6 +134,7 @@ export class TripFormComponent
     private vehicleService: VehicleService,
     private routerService: Router,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -154,15 +158,13 @@ export class TripFormComponent
         if (!this.data) {
           return;
         }
-        if (!this.data.tripDrivers) {
-          this.data.tripDrivers = [];
-        }
-        this.data.tripDrivers.push(tripDriver);
+        this.data.tripDrivers = [...(this.data.tripDrivers ?? []), tripDriver];
         this.modalService.showNotification(
           true,
           '',
           this.translationService.instant('TRIPS.DRIVER_ADDED_SUCCESS'),
         );
+        this.cdr.markForCheck();
       }),
     );
   }
@@ -338,6 +340,7 @@ export class TripFormComponent
         .value?.trim();
       if (!businessPartnerName) {
         this.cleanClientSelection();
+        this.cdr.markForCheck();
         return;
       }
       const sub = this.businessPartnersArray$.subscribe((clients) => {
@@ -375,10 +378,12 @@ export class TripFormComponent
                     } else {
                       this.cleanClientSelection();
                     }
+                    this.cdr.markForCheck();
                   });
                 this._subscriptions.push(clientFormSub);
               } else {
                 this.cleanClientSelection();
+                this.cdr.markForCheck();
               }
             });
           this._subscriptions.push(confirmSub);
@@ -604,11 +609,13 @@ export class TripFormComponent
       const plate = this.form.get('vehiclePlate')!.value?.trim();
       if (!plate) {
         this.cleanVehicleSelection();
+        this.cdr.markForCheck();
         return;
       }
       const found = this.vehicles.find((v) => v.plate === plate);
       if (found) {
         this.selectVehicle(found);
+        this.cdr.markForCheck();
         return;
       }
       this.modalService.showSweetNotification(
@@ -617,6 +624,7 @@ export class TripFormComponent
         'warning',
       );
       this.cleanVehicleSelection();
+      this.cdr.markForCheck();
     }, 200);
   }
 
@@ -693,6 +701,7 @@ export class TripFormComponent
         .value?.trim();
       if (!driverName) {
         this.cleanInlineTripDriverSelection();
+        this.cdr.markForCheck();
         return;
       }
       const found = this.drivers.find((d) => d.name === driverName);
@@ -719,15 +728,17 @@ export class TripFormComponent
             .afterClosed()
             .subscribe((result: WebApiResponse<Driver> | undefined) => {
               if (result?.data) {
-                this.drivers.push(result.data);
+                this.drivers = [...this.drivers, result.data];
                 this.selectInlineTripDriver(result.data);
               } else {
                 this.cleanInlineTripDriverSelection();
               }
+              this.cdr.markForCheck();
             });
           this._subscriptions.push(driverFormSub);
         } else {
           this.cleanInlineTripDriverSelection();
+          this.cdr.markForCheck();
         }
       });
     }, 200);
@@ -776,10 +787,7 @@ export class TripFormComponent
     if (!this.data) {
       return;
     }
-    if (!this.data.tripDrivers) {
-      this.data.tripDrivers = [];
-    }
-    this.data.tripDrivers.push(tripDriver);
+    this.data.tripDrivers = [...(this.data.tripDrivers ?? []), tripDriver];
     this.cleanInlineTripDriverSelection();
   }
 
@@ -787,7 +795,7 @@ export class TripFormComponent
     if (!this.data?.tripDrivers) {
       return;
     }
-    this.data.tripDrivers.splice(index, 1);
+    this.data.tripDrivers = this.data.tripDrivers.filter((_, i) => i !== index);
   }
 
   private cleanInlineTripDriverSelection(): void {
@@ -858,6 +866,7 @@ export class TripFormComponent
     if (this.isEdit && this.data) {
       this.notificationService.showMessage(response.status, response.message);
       this.data = response.data;
+      this.cdr.markForCheck();
     } else {
       this.routerService.navigateByUrl(
         `/${this._baseEndPoint}/${response.data.id}`,

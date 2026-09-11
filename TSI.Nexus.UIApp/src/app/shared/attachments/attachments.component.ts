@@ -1,4 +1,12 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  Input,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import { MenuItem } from 'primeng/api';
 import {
   Attachment,
@@ -24,6 +32,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
     selector: 'app-attachments',
     templateUrl: './attachments.component.html',
     styleUrl: './attachments.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgIf,
         Bind,
@@ -94,6 +103,7 @@ export class AttachmentsComponent implements OnInit {
     private attachmentService: AttachmentService,
     private modalService: ModalService,
     private notificationService: NotificationService,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -183,6 +193,7 @@ export class AttachmentsComponent implements OnInit {
     this.showAddDialog = true;
     setTimeout(() => {
       if (this.fileInput) this.fileInput.nativeElement.value = '';
+      this.cdr.markForCheck();
     });
   }
 
@@ -210,6 +221,7 @@ export class AttachmentsComponent implements OnInit {
           if (res.status === ResponseStatus.Success) {
             this.loadAttachments();
           }
+          this.cdr.markForCheck();
         },
         error: () => {
           this.notificationService.showMessage(
@@ -240,6 +252,11 @@ export class AttachmentsComponent implements OnInit {
         children: [],
         files: [],
       };
+      // In-place push (not reassignment) is intentional here: this is triggered directly by this
+      // component's own template click/enter binding, so OnPush already marks the view dirty and
+      // NgForOf's differ picks up the appended item on the next check regardless of array
+      // reference. Reassigning currentFolder would also break isAtRoot()'s === check against
+      // rootFolder when adding a folder at the root.
       this.currentFolder.children.push(newFolder);
     }
     this.showFolderDialog = false;
@@ -267,6 +284,7 @@ export class AttachmentsComponent implements OnInit {
                 this.selectedFile = null;
                 this.loadAttachments();
               }
+              this.cdr.markForCheck();
             },
             error: () => {
               this.notificationService.showMessage(
@@ -405,6 +423,7 @@ export class AttachmentsComponent implements OnInit {
           if (res.status === ResponseStatus.Success) {
             this.loadAttachments();
           }
+          this.cdr.markForCheck();
         },
         error: () => {
           this.notificationService.showMessage(
@@ -454,12 +473,14 @@ export class AttachmentsComponent implements OnInit {
         this.buildTree();
         this.navigateToPath(currentPath);
         this.loading = false;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.attachments = [];
         this.buildTree();
         this.navigateToPath(currentPath);
         this.loading = false;
+        this.cdr.markForCheck();
       },
     });
   }

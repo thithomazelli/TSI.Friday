@@ -1,5 +1,7 @@
 import { combineLatestWith, of, Subscription, tap } from 'rxjs';
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -54,6 +56,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-quote-form',
     templateUrl: './quote-form.component.html',
     styleUrl: './quote-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         AlertBannerComponentComponent,
         ReactiveFormsModule,
@@ -147,6 +150,7 @@ export class QuoteFormComponent
     private vehicleService: VehicleService,
     private routerService: Router,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -169,8 +173,8 @@ export class QuoteFormComponent
 
     this._subscriptions.push(
       this.quoteProductService.quoteProductAdded$.subscribe((quoteProduct) => {
-        if (quoteProduct) {
-          this.data?.quoteProducts?.push(quoteProduct);
+        if (quoteProduct && this.data) {
+          this.data.quoteProducts = [...(this.data.quoteProducts ?? []), quoteProduct];
           this.updatePriceFields();
           this.updateTotalPriceFields();
           this.modalService.showNotification(
@@ -178,6 +182,7 @@ export class QuoteFormComponent
             '',
             this.translationService.instant('QUOTES.PRODUCT_ADDED_SUCCESS'),
           );
+          this.cdr.markForCheck();
         }
       }),
     );
@@ -333,6 +338,7 @@ export class QuoteFormComponent
         .value?.trim();
       if (!businessPartnerName) {
         this.cleanClientSelection();
+        this.cdr.markForCheck();
         return;
       }
       const sub = this.businessPartnersArray$.subscribe((clients) => {
@@ -370,10 +376,12 @@ export class QuoteFormComponent
                     } else {
                       this.cleanClientSelection();
                     }
+                    this.cdr.markForCheck();
                   });
                 this._subscriptions.push(clientFormSub);
               } else {
                 this.cleanClientSelection();
+                this.cdr.markForCheck();
               }
             });
           this._subscriptions.push(confirmSub);
@@ -387,7 +395,7 @@ export class QuoteFormComponent
     if (!this.data?.quoteProducts) {
       return;
     }
-    this.data.quoteProducts.splice(index, 1);
+    this.data.quoteProducts = this.data.quoteProducts.filter((_, i) => i !== index);
     this.updatePriceFields();
     this.updateTotalPriceFields();
   }
@@ -550,6 +558,7 @@ export class QuoteFormComponent
       const plate = quoteTrip.get('vehiclePlate')!.value?.trim();
       if (!plate) {
         this.cleanQuoteTripVehicle();
+        this.cdr.markForCheck();
         return;
       }
       const found = this.vehicles.find((v) => v.plate === plate);
@@ -558,6 +567,7 @@ export class QuoteFormComponent
       } else {
         this.cleanQuoteTripVehicle();
       }
+      this.cdr.markForCheck();
     }, 200);
   }
 
@@ -577,6 +587,7 @@ export class QuoteFormComponent
       const name = quoteTrip.get('driverName')!.value?.trim();
       if (!name) {
         this.cleanQuoteTripDriver();
+        this.cdr.markForCheck();
         return;
       }
       const found = this.drivers.find((d) => d.name === name);
@@ -585,6 +596,7 @@ export class QuoteFormComponent
       } else {
         this.cleanQuoteTripDriver();
       }
+      this.cdr.markForCheck();
     }, 200);
   }
 
@@ -708,6 +720,7 @@ export class QuoteFormComponent
     if (this.isEdit && this.data) {
       this.notificationService.showMessage(response.status, response.message);
       this.data = response.data;
+      this.cdr.markForCheck();
     } else {
       this.routerService.navigateByUrl(
         `/${this._baseEndPoint}/${response.data.id}`,
