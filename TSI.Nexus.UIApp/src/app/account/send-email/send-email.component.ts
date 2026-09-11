@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -15,6 +15,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
     selector: 'app-send-email',
     templateUrl: './send-email.component.html',
     styleUrl: './send-email.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         ReactiveFormsModule,
         ValidationMessagesComponent,
@@ -29,7 +30,8 @@ export class SendEmailComponent extends FormBaseComponent implements OnInit {
     private modalService: ModalService,
     private formBuilder: FormBuilder,
     private router: Router,
-    private activatedRoute: ActivatedRoute
+    private activatedRoute: ActivatedRoute,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -43,6 +45,7 @@ export class SendEmailComponent extends FormBaseComponent implements OnInit {
           this.mode = this.activatedRoute.snapshot.paramMap.get('mode') || '';
           this.initializeForm();
         }
+        this.cdr.markForCheck();
       },
     });
   }
@@ -83,8 +86,9 @@ export class SendEmailComponent extends FormBaseComponent implements OnInit {
             if (response.error.errors) {
               this.errorMessages = response.error.errors;
             } else {
-              this.errorMessages.push(response.error);
+              this.errorMessages = [...this.errorMessages, response.error];
             }
+            this.cdr.markForCheck();
           },
         });
     } else if (this.mode.includes('forgot-username-or-password')) {
@@ -103,8 +107,9 @@ export class SendEmailComponent extends FormBaseComponent implements OnInit {
             if (response.error.errors) {
               this.errorMessages = response.error.errors;
             } else {
-              this.errorMessages.push(response.error);
+              this.errorMessages = [...this.errorMessages, response.error];
             }
+            this.cdr.markForCheck();
           },
         });
     }

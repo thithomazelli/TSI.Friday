@@ -1,4 +1,12 @@
-import { Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  Input,
+  OnChanges,
+  OnInit,
+  SimpleChanges,
+} from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef } from '@angular/material/dialog';
 import { Router } from '@angular/router';
@@ -41,6 +49,7 @@ import type { VehicleMaintenanceDetailsModalComponent } from '../vehicle-mainten
     selector: 'app-vehicle-maintenance-form',
     templateUrl: './vehicle-maintenance-form.component.html',
     styleUrl: './vehicle-maintenance-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         ReactiveFormsModule,
         NgIf,
@@ -107,6 +116,7 @@ export class VehicleMaintenanceFormComponent
     private vehicleService: VehicleService,
     private routerService: Router,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -117,6 +127,7 @@ export class VehicleMaintenanceFormComponent
     if (!this.vehicleId) {
       this.vehicleService.getAll().subscribe((response) => {
         this.vehicles = response.data ?? [];
+        this.cdr.markForCheck();
       });
     }
   }
@@ -128,11 +139,13 @@ export class VehicleMaintenanceFormComponent
   }
 
   onProductPickerItemAdded(item: VehicleMaintenanceProduct): void {
-    this.vehicleMaintenanceProducts.push(item);
+    this.vehicleMaintenanceProducts = [...this.vehicleMaintenanceProducts, item];
   }
 
   removeProduct(index: number): void {
-    this.vehicleMaintenanceProducts.splice(index, 1);
+    this.vehicleMaintenanceProducts = this.vehicleMaintenanceProducts.filter(
+      (_, i) => i !== index,
+    );
   }
 
   submit(): Observable<WebApiResponse<VehicleMaintenance> | null> {
@@ -243,6 +256,7 @@ export class VehicleMaintenanceFormComponent
     if (this.isEdit && this.data) {
       this.notificationService.showMessage(response.status, response.message);
       this.data = response.data;
+      this.cdr.markForCheck();
     } else if (response.status === ResponseStatus.Success) {
       this.routerService.navigateByUrl(`/${this._baseEndPoint}/${response.data.id}`);
     } else {

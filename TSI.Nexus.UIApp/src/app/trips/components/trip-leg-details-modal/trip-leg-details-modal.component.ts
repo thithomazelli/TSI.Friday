@@ -1,4 +1,10 @@
-import { Component, Inject, OnDestroy } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  Inject,
+  OnDestroy,
+} from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import {
@@ -17,6 +23,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-trip-leg-details-modal',
     templateUrl: './trip-leg-details-modal.component.html',
     styleUrl: './trip-leg-details-modal.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         ReactiveFormsModule,
         DateFieldComponent,
@@ -41,6 +48,7 @@ export class TripLegDetailsModalComponent implements OnDestroy {
     private tripLegService: TripLegService,
     private notificationService: NotificationService,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     const existing: TripLeg | null = dialogData?.data ?? null;
     this.isEdit = dialogData?.isEdit ?? !!existing?.id;
@@ -130,6 +138,7 @@ export class TripLegDetailsModalComponent implements OnDestroy {
         if (response.status === ResponseStatus.Success) {
           this.dialogRef.close(response);
         }
+        this.cdr.markForCheck();
       },
       error: () => {
         this.saving = false;
@@ -137,6 +146,7 @@ export class TripLegDetailsModalComponent implements OnDestroy {
           ResponseStatus.Error,
           this.translationService.instant('TRIPS.SAVE_LEGS_ERROR'),
         );
+        this.cdr.markForCheck();
       },
     });
   }
@@ -175,6 +185,7 @@ export class TripLegDetailsModalComponent implements OnDestroy {
         const failed = responses.find((r) => r.status !== ResponseStatus.Success);
         if (failed) {
           this.notificationService.showMessage(failed.status, failed.message);
+          this.cdr.markForCheck();
           return;
         }
         this.notificationService.showMessage(
@@ -184,6 +195,7 @@ export class TripLegDetailsModalComponent implements OnDestroy {
             : this.translationService.instant('TRIPS.LEG_ADDED_PLURAL', { count: legs.length + '' }),
         );
         this.dialogRef.close(responses);
+        this.cdr.markForCheck();
       },
       error: () => {
         this.saving = false;
@@ -191,6 +203,7 @@ export class TripLegDetailsModalComponent implements OnDestroy {
           ResponseStatus.Error,
           this.translationService.instant('TRIPS.SAVE_LEGS_ERROR'),
         );
+        this.cdr.markForCheck();
       },
     });
   }

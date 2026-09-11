@@ -5,6 +5,8 @@ import {
   AG_GRID_LOCALE_ES,
 } from '@ag-grid-community/locale';
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
@@ -50,6 +52,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     selector: 'app-grid',
     templateUrl: './grid.component.html',
     styleUrl: './grid.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     animations: [cardCollapseAnimation],
     imports: [
         NgIf,
@@ -162,6 +165,7 @@ export class GridComponent<T> implements OnInit, OnChanges, OnDestroy {
     private routerService: Router,
     private activatedRoute: ActivatedRoute,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     this.localeText =
       AG_GRID_LOCALES[this.translationService.current] ?? AG_GRID_LOCALE_BR;
@@ -199,6 +203,7 @@ export class GridComponent<T> implements OnInit, OnChanges, OnDestroy {
         'overlayLoadingTemplate',
         this.overlayLoadingTemplate,
       );
+      this.cdr.markForCheck();
     });
 
     // Server-side quick filter can't use ag-Grid's own [quickFilterText] (that only filters

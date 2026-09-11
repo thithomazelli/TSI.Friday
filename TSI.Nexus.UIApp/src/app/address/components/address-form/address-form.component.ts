@@ -1,6 +1,8 @@
 import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -40,6 +42,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-address-form',
     templateUrl: './address-form.component.html',
     styleUrl: './address-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgClass,
         ReactiveFormsModule,
@@ -93,6 +96,7 @@ export class AddressFormComponent
     private notificationService: NotificationService,
     private selectableOptionService: SelectableOptionService,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -309,6 +313,7 @@ export class AddressFormComponent
                 this.form.get('city')?.setValue(cidadeFinal);
                 this.form.get('city')?.updateValueAndValidity();
                 this.form.updateValueAndValidity();
+                this.cdr.markForCheck();
               });
           } else {
             // Estado não encontrado, força placeholder
@@ -332,6 +337,7 @@ export class AddressFormComponent
               this.estados = estados;
               patchAndLoadCities();
               estadosSub.unsubscribe();
+              this.cdr.markForCheck();
             });
         }
       } else {
@@ -347,6 +353,7 @@ export class AddressFormComponent
               this.estados = estados;
               patchAndLoadCities();
               estadosSub.unsubscribe();
+              this.cdr.markForCheck();
             });
         }
       }
@@ -416,6 +423,7 @@ export class AddressFormComponent
         );
         cityControl?.updateValueAndValidity();
         this.form.updateValueAndValidity();
+        this.cdr.markForCheck();
       });
   }
 
@@ -424,6 +432,7 @@ export class AddressFormComponent
       .getByGroup(SelectableOptionGroup.AddressType)
       .subscribe((response) => {
         this.addressTypeOptions = response.data ?? [];
+        this.cdr.markForCheck();
       });
   }
 
@@ -446,6 +455,7 @@ export class AddressFormComponent
         if (this.form && this.form.get('city')) {
           this.form.get('city')?.setValue(null);
         }
+        this.cdr.markForCheck();
       });
   }
 
@@ -481,6 +491,7 @@ export class AddressFormComponent
             cityControl?.setValue(cidadeFinal);
             cityControl?.updateValueAndValidity();
             this.form.updateValueAndValidity();
+            this.cdr.markForCheck();
           }, 150);
         } else {
           this.notificationService.showMessage(
@@ -488,15 +499,18 @@ export class AddressFormComponent
             this.translationService.instant('ADDRESS.CEP_NOT_FOUND'),
           );
         }
+        this.cdr.markForCheck();
       },
       error: () => {
         this.notificationService.showMessage(
           ResponseStatus.Error,
           this.translationService.instant('ADDRESS.CEP_LOOKUP_ERROR'),
         );
+        this.cdr.markForCheck();
       },
       complete: () => {
         this.loadingCep = false;
+        this.cdr.markForCheck();
       },
     });
   }

@@ -1,4 +1,11 @@
-import { Component, OnInit, Renderer2, OnDestroy, NgZone } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  Renderer2,
+  OnDestroy,
+  NgZone,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { AccountService, TranslationService } from './core';
 import { filter, map, Observable, Subscription } from 'rxjs';
@@ -15,6 +22,7 @@ import { FooterComponent } from './shared/footer/footer.component';
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgClass, AsyncPipe, RouterOutlet, NavbarComponent, SidebarComponent, FooterComponent],
 })
 export class AppComponent implements OnInit, OnDestroy {

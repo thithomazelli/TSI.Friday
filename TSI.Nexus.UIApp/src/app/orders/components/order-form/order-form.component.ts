@@ -1,5 +1,7 @@
 import { of, Subscription, tap } from 'rxjs';
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -55,6 +57,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-order-form',
     templateUrl: './order-form.component.html',
     styleUrl: './order-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         AlertBannerComponentComponent,
         ReactiveFormsModule,
@@ -129,6 +132,7 @@ export class OrderFormComponent
     private orderProductService: OrderProductService,
     private routerService: Router,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -143,8 +147,8 @@ export class OrderFormComponent
 
     this._subscriptions.push(
       this.orderProductService.orderProductAdded$.subscribe((orderProduct) => {
-        if (orderProduct) {
-          this.data?.orderProducts?.push(orderProduct);
+        if (orderProduct && this.data) {
+          this.data.orderProducts = [...(this.data.orderProducts ?? []), orderProduct];
           this.updatePriceFields();
           this.updateTotalPriceFields();
           this.modalService.showNotification(
@@ -152,6 +156,7 @@ export class OrderFormComponent
             '',
             this.translationService.instant('ORDERS.PRODUCT_ADDED_SUCCESS'),
           );
+          this.cdr.markForCheck();
         }
       }),
     );
@@ -302,7 +307,7 @@ export class OrderFormComponent
     if (!this.data?.orderProducts) {
       return;
     }
-    this.data.orderProducts.splice(index, 1);
+    this.data.orderProducts = this.data.orderProducts.filter((_, i) => i !== index);
     this.updatePriceFields();
     this.updateTotalPriceFields();
   }
@@ -324,7 +329,10 @@ export class OrderFormComponent
   }
 
   onProductPickerItemAdded(item: OrderProduct): void {
-    this.data?.orderProducts?.push(item);
+    if (!this.data) {
+      return;
+    }
+    this.data.orderProducts = [...(this.data.orderProducts ?? []), item];
     this.updatePriceFields();
     this.updateTotalPriceFields();
   }
@@ -340,6 +348,7 @@ export class OrderFormComponent
         .value?.trim();
       if (!businessPartnerName) {
         this.cleanClientSelection();
+        this.cdr.markForCheck();
         return;
       }
       // Sempre checa a lista de clientes, mesmo se businessPartnerId estiver vazio
@@ -379,10 +388,12 @@ export class OrderFormComponent
                     } else {
                       this.cleanClientSelection();
                     }
+                    this.cdr.markForCheck();
                   });
                 this._subscriptions.push(clientFormSub);
               } else {
                 this.cleanClientSelection();
+                this.cdr.markForCheck();
               }
             });
           this._subscriptions.push(confirmSub);
@@ -594,6 +605,7 @@ export class OrderFormComponent
     if (this.isEdit && this.data) {
       this.notificationService.showMessage(response.status, response.message);
       this.data = response.data;
+      this.cdr.markForCheck();
     } else {
       this.routerService.navigateByUrl(
         `/${this._baseEndPoint}/${response.data.id}`,

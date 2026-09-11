@@ -1,4 +1,6 @@
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnInit,
@@ -46,6 +48,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-product-form',
     templateUrl: './product-form.component.html',
     styleUrls: ['./product-form.component.scss'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgClass,
         ReactiveFormsModule,
@@ -102,6 +105,7 @@ export class ProductFormComponent
     private routerService: Router,
     private selectableOptionService: SelectableOptionService,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -137,6 +141,7 @@ export class ProductFormComponent
       .getByGroup(SelectableOptionGroup.ProductCategory)
       .subscribe((response) => {
         this.categories = response.data ?? [];
+        this.cdr.markForCheck();
       });
   }
 
@@ -307,6 +312,7 @@ export class ProductFormComponent
     if (this.isEdit && this.data) {
       this.notificationService.showMessage(response.status, response.message);
       this.data = response.data;
+      this.cdr.markForCheck();
     } else {
       this.routerService.navigateByUrl(
         `/${this._baseEndPoint}/${response.data.id}`,

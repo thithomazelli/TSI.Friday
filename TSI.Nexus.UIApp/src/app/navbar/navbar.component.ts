@@ -1,6 +1,8 @@
 // ...existing code...
 import {
   AfterViewInit,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   OnDestroy,
   OnInit,
@@ -25,6 +27,7 @@ import { FeatureToggleKeys } from '../core/models/feature-toggle.model';
     selector: 'app-navbar',
     templateUrl: './navbar.component.html',
     styleUrls: ['./navbar.component.scss'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgIf,
         PaymentNotificationComponent,
@@ -76,6 +79,7 @@ export class NavbarComponent implements OnInit, AfterViewInit, OnDestroy {
     private accountService: AccountService,
     private photoService: PhotoService,
     private featureFlagService: FeatureFlagService,
+    private cdr: ChangeDetectorRef,
   ) {
     const fleetEnabled$ = this.featureFlagService.isEnabled(FeatureToggleKeys.FleetModule);
     const financeEnabled$ = this.featureFlagService.isEnabled(FeatureToggleKeys.FinanceModule);
@@ -124,6 +128,7 @@ export class NavbarComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch {
       /* swallow fullscreen errors */
     }
+    this.cdr.markForCheck();
   }
 
   ngOnInit(): void {
@@ -132,6 +137,7 @@ export class NavbarComponent implements OnInit, AfterViewInit, OnDestroy {
         this.data!.photo = response.photoPath;
         this.loadUserPhoto(response.photoPath);
       }
+      this.cdr.markForCheck();
     });
 
     this.user$.subscribe((user) => {
@@ -139,10 +145,10 @@ export class NavbarComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (user?.photo) {
         this.loadUserPhoto(user.photo);
-        return;
+      } else {
+        this.imageUrl = 'assets/img/no_profile.png';
       }
-
-      this.imageUrl = 'assets/img/no_profile.png';
+      this.cdr.markForCheck();
     });
   }
 
@@ -226,9 +232,11 @@ export class NavbarComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         this.lastBlobUrl = URL.createObjectURL(blob);
         this.imageUrl = this.lastBlobUrl;
+        this.cdr.markForCheck();
       },
       error: () => {
         this.imageUrl = 'assets/img/no_profile.png';
+        this.cdr.markForCheck();
       },
     });
   }

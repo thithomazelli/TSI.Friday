@@ -1,4 +1,6 @@
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -43,6 +45,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-trip-driver-form',
     templateUrl: './trip-driver-form.component.html',
     styleUrl: './trip-driver-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgClass,
         ReactiveFormsModule,
@@ -98,6 +101,7 @@ export class TripDriverFormComponent
     private notificationService: NotificationService,
     private translationService: TranslationService,
     private tripDriverService: TripDriverService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -207,6 +211,7 @@ export class TripDriverFormComponent
       const driverName = this.form.get('driverName')!.value?.trim();
       if (!driverName) {
         this.cleanDriverSelection();
+        this.cdr.markForCheck();
         return;
       }
       const sub = this.driversArray$.subscribe((drivers) => {
@@ -237,9 +242,11 @@ export class TripDriverFormComponent
                   } else {
                     this.cleanDriverSelection();
                   }
+                  this.cdr.markForCheck();
                 });
             } else {
               this.cleanDriverSelection();
+              this.cdr.markForCheck();
             }
           });
         }

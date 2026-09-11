@@ -1,4 +1,6 @@
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -52,6 +54,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-purchase-order-products-form',
     templateUrl: './purchase-order-products-form.component.html',
     styleUrl: './purchase-order-products-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgClass,
         ReactiveFormsModule,
@@ -122,6 +125,7 @@ export class PurchaseOrderProductsFormComponent
     private purchaseOrderProductService: PurchaseOrderProductService,
     private productService: ProductService,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -244,6 +248,7 @@ export class PurchaseOrderProductsFormComponent
       const productSku = this.form.get('productSku')!.value?.trim();
       if (!productSku) {
         this.cleanProductSelection();
+        this.cdr.markForCheck();
         return;
       }
       const sub = this.productsArray$.subscribe((products) => {
@@ -277,9 +282,11 @@ export class PurchaseOrderProductsFormComponent
                   } else {
                     this.cleanProductSelection();
                   }
+                  this.cdr.markForCheck();
                 });
             } else {
               this.cleanProductSelection();
+              this.cdr.markForCheck();
             }
           });
         }
@@ -293,6 +300,7 @@ export class PurchaseOrderProductsFormComponent
       const productName = this.form.get('productName')!.value?.trim();
       if (!productName) {
         this.cleanProductSelection();
+        this.cdr.markForCheck();
         return;
       }
       const sub = this.productsArray$.subscribe((products) => {
@@ -326,9 +334,11 @@ export class PurchaseOrderProductsFormComponent
                   } else {
                     this.cleanProductSelection();
                   }
+                  this.cdr.markForCheck();
                 });
             } else {
               this.cleanProductSelection();
+              this.cdr.markForCheck();
             }
           });
         }
@@ -481,7 +491,10 @@ export class PurchaseOrderProductsFormComponent
 
   private totalPriceChange(): void {
     // Atualiza totalPrice ao inicializar no modo edição
-    setTimeout(() => this.updateTotalPrice(), 0);
+    setTimeout(() => {
+      this.updateTotalPrice();
+      this.cdr.markForCheck();
+    }, 0);
 
     // Atualiza totalPrice ao alterar produto, quantidade, preço ou desconto
     this.form.get('productSku')?.valueChanges &&

@@ -1,5 +1,7 @@
 import { of, Subscription, tap } from 'rxjs';
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -62,6 +64,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-purchase-order-form',
     templateUrl: './purchase-order-form.component.html',
     styleUrl: './purchase-order-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         AlertBannerComponentComponent,
         ReactiveFormsModule,
@@ -142,6 +145,7 @@ export class PurchaseOrderFormComponent
     private productService: ProductService,
     private routerService: Router,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -158,8 +162,11 @@ export class PurchaseOrderFormComponent
     this._subscriptions.push(
       this.purchaseOrderProductService.purchaseOrderProductAdded$.subscribe(
         (purchaseOrderProduct) => {
-          if (purchaseOrderProduct) {
-            this.data?.purchaseOrderProducts?.push(purchaseOrderProduct);
+          if (purchaseOrderProduct && this.data) {
+            this.data.purchaseOrderProducts = [
+              ...(this.data.purchaseOrderProducts ?? []),
+              purchaseOrderProduct,
+            ];
             this.updatePriceFields();
             this.updateTotalPriceFields();
             this.modalService.showNotification(
@@ -167,6 +174,7 @@ export class PurchaseOrderFormComponent
               '',
               this.translationService.instant('PURCHASE_ORDERS.PRODUCT_ADDED_SUCCESS'),
             );
+            this.cdr.markForCheck();
           }
         },
       ),
@@ -321,7 +329,9 @@ export class PurchaseOrderFormComponent
     if (!this.data?.purchaseOrderProducts) {
       return;
     }
-    this.data.purchaseOrderProducts.splice(index, 1);
+    this.data.purchaseOrderProducts = this.data.purchaseOrderProducts.filter(
+      (_, i) => i !== index,
+    );
     this.updatePriceFields();
     this.updateTotalPriceFields();
   }
@@ -343,7 +353,10 @@ export class PurchaseOrderFormComponent
   }
 
   onProductPickerItemAdded(item: PurchaseOrderProduct): void {
-    this.data?.purchaseOrderProducts?.push(item);
+    if (!this.data) {
+      return;
+    }
+    this.data.purchaseOrderProducts = [...(this.data.purchaseOrderProducts ?? []), item];
     this.updatePriceFields();
     this.updateTotalPriceFields();
   }
@@ -359,6 +372,7 @@ export class PurchaseOrderFormComponent
         .value?.trim();
       if (!businessPartnerName) {
         this.cleanSupplierSelection();
+        this.cdr.markForCheck();
         return;
       }
       // Sempre checa a lista de fornecedores, mesmo se businessPartnerId estiver vazio
@@ -398,10 +412,12 @@ export class PurchaseOrderFormComponent
                     } else {
                       this.cleanSupplierSelection();
                     }
+                    this.cdr.markForCheck();
                   });
                 this._subscriptions.push(supplierFormSub);
               } else {
                 this.cleanSupplierSelection();
+                this.cdr.markForCheck();
               }
             });
           this._subscriptions.push(confirmSub);
@@ -630,6 +646,7 @@ export class PurchaseOrderFormComponent
     if (this.isEdit && this.data) {
       this.notificationService.showMessage(response.status, response.message);
       this.data = response.data;
+      this.cdr.markForCheck();
     } else {
       this.routerService.navigateByUrl(
         `/${this._baseEndPoint}/${response.data.id}`,

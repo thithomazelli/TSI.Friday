@@ -1,4 +1,6 @@
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnInit,
@@ -59,6 +61,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-transaction-form',
     templateUrl: './transaction-form.component.html',
     styleUrls: ['./transaction-form.component.scss'],
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         AlertBannerComponentComponent,
         ReactiveFormsModule,
@@ -154,6 +157,7 @@ export class TransactionFormComponent
     private selectableOptionService: SelectableOptionService,
     private transactionService: TransactionService,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -350,6 +354,7 @@ export class TransactionFormComponent
         .value?.trim();
       if (!businessPartnerName) {
         this.cleanClientSelection();
+        this.cdr.markForCheck();
         return;
       }
       const isClient = this.form.get('type')?.value === PaymentType.Incoming;
@@ -395,10 +400,12 @@ export class TransactionFormComponent
                     } else {
                       this.cleanClientSelection();
                     }
+                    this.cdr.markForCheck();
                   });
                 this._subscriptions.push(clientFormSub);
               } else {
                 this.cleanClientSelection();
+                this.cdr.markForCheck();
               }
             });
           this._subscriptions.push(confirmSub);
@@ -413,6 +420,7 @@ export class TransactionFormComponent
       .getByGroup(SelectableOptionGroup.TransactionCategory)
       .subscribe((response) => {
         this.categories = response.data ?? [];
+        this.cdr.markForCheck();
       });
   }
 
@@ -594,6 +602,7 @@ export class TransactionFormComponent
             this.form.get('markAllPaymentsAsApproved')?.setValue(false);
             if (this.data) (this.data as any).markAllPaymentsAsApproved = false;
           }
+          this.cdr.markForCheck();
         }),
     );
   }
@@ -619,6 +628,7 @@ export class TransactionFormComponent
     if (this.isEdit && this.data) {
       this.notificationService.showMessage(response.status, response.message);
       this.data = response.data;
+      this.cdr.markForCheck();
     } else {
       this.routerService.navigateByUrl(
         `/${this._baseEndPoint}/${response.data.id}`,

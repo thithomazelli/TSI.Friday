@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import {
@@ -17,6 +17,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
     selector: 'app-register',
     templateUrl: './register.component.html',
     styleUrl: './register.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         RouterLink,
         ReactiveFormsModule,
@@ -31,6 +32,7 @@ export class RegisterComponent extends FormBaseComponent implements OnInit {
     private formBuilder: FormBuilder,
     private router: Router,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
     this.accountService.user$.pipe(take(1)).subscribe({
@@ -104,8 +106,9 @@ export class RegisterComponent extends FormBaseComponent implements OnInit {
         if (response.error.errors) {
           this.errorMessages = response.error.errors;
         } else {
-          this.errorMessages.push(response.error);
+          this.errorMessages = [...this.errorMessages, response.error];
         }
+        this.cdr.markForCheck();
       },
     });
   }

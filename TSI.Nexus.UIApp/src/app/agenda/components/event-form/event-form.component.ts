@@ -1,4 +1,12 @@
-import { Component, Input, OnChanges, OnInit, SimpleChanges } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  Input,
+  OnChanges,
+  OnInit,
+  SimpleChanges,
+} from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef } from '@angular/material/dialog';
 import { MatAutocompleteTrigger, MatAutocomplete, MatOption } from '@angular/material/autocomplete';
@@ -73,6 +81,7 @@ interface LinkConfig {
     selector: 'app-event-form',
     templateUrl: './event-form.component.html',
     styleUrl: './event-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     animations: [cardCollapseAnimation],
     imports: [
         ReactiveFormsModule,
@@ -149,6 +158,7 @@ export class EventFormComponent extends FormBaseComponent implements OnInit, OnC
     private userService: UserService,
     private routerService: Router,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -495,6 +505,7 @@ export class EventFormComponent extends FormBaseComponent implements OnInit, OnC
       .pipe(takeUntil(this._destroy$))
       .subscribe((response) => {
         this.eventTypeOptions = response.data ?? [];
+        this.cdr.markForCheck();
       });
   }
 
@@ -575,6 +586,7 @@ export class EventFormComponent extends FormBaseComponent implements OnInit, OnC
     this.notificationService.showMessage(response.status, response.message);
     if (this.isEdit) {
       this.data = response.data;
+      this.cdr.markForCheck();
     } else {
       this.routerService.navigateByUrl('/agenda');
     }

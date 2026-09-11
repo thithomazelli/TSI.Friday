@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
@@ -18,6 +18,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
     selector: 'app-login',
     templateUrl: './login.component.html',
     styleUrl: './login.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         ReactiveFormsModule,
         NgClass,
@@ -40,6 +41,7 @@ export class LoginComponent extends FormBaseComponent implements OnInit {
     private router: Router,
     private activatedRoute: ActivatedRoute,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
     this.accountService.user$.pipe(take(1)).subscribe({
@@ -92,12 +94,13 @@ export class LoginComponent extends FormBaseComponent implements OnInit {
           if (response.error.errors) {
             this.errorMessages = response.error.errors;
           } else if (typeof response.error === 'string') {
-            this.errorMessages.push(response.error);
+            this.errorMessages = [...this.errorMessages, response.error];
           } else {
             this.errorMessages = [
               this.translationService.instant('ACCOUNT.SERVER_ERROR'),
             ];
           }
+          this.cdr.markForCheck();
         },
       }),
     );

@@ -1,4 +1,6 @@
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   EventEmitter,
   Input,
@@ -36,6 +38,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-product-picker-grid',
     templateUrl: './product-picker-grid.component.html',
     styleUrl: './product-picker-grid.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         ReactiveFormsModule,
         MatAutocompleteTrigger,
@@ -80,6 +83,7 @@ export class ProductPickerGridComponent implements OnInit, OnDestroy {
     private modalService: ModalService,
     private productService: ProductService,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -97,11 +101,13 @@ export class ProductPickerGridComponent implements OnInit, OnDestroy {
       const productSku = this.inlineProductForm.get('productSku')!.value?.trim();
       if (!productSku) {
         this.cleanSelection();
+        this.cdr.markForCheck();
         return;
       }
       const found = this._products.find((p) => p.sku === productSku);
       if (found) {
         this.selectProduct(found);
+        this.cdr.markForCheck();
         return;
       }
       this.confirmAndCreateProduct({ sku: productSku });
@@ -113,11 +119,13 @@ export class ProductPickerGridComponent implements OnInit, OnDestroy {
       const productName = this.inlineProductForm.get('productName')!.value?.trim();
       if (!productName) {
         this.cleanSelection();
+        this.cdr.markForCheck();
         return;
       }
       const found = this._products.find((p) => p.name === productName);
       if (found) {
         this.selectProduct(found);
+        this.cdr.markForCheck();
         return;
       }
       this.confirmAndCreateProduct({ name: productName });
@@ -145,14 +153,16 @@ export class ProductPickerGridComponent implements OnInit, OnDestroy {
           .afterClosed()
           .subscribe((result: WebApiResponse<Product> | undefined) => {
             if (result) {
-              this._products.push(result.data);
+              this._products = [...this._products, result.data];
               this.selectProduct(result.data);
             } else {
               this.cleanSelection();
             }
+            this.cdr.markForCheck();
           });
       } else {
         this.cleanSelection();
+        this.cdr.markForCheck();
       }
     });
   }

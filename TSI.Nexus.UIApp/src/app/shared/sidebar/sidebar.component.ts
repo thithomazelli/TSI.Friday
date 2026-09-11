@@ -1,5 +1,7 @@
 import {
   AfterViewInit,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   OnDestroy,
@@ -18,6 +20,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
     selector: 'app-sidebar',
     templateUrl: './sidebar.component.html',
     styleUrl: './sidebar.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         RouterLink,
         RouterLinkActive,
@@ -56,6 +59,7 @@ export class SidebarComponent implements AfterViewInit, OnInit, OnDestroy {
     private renderer: Renderer2,
     private accountService: AccountService,
     private featureFlagService: FeatureFlagService,
+    private cdr: ChangeDetectorRef,
   ) {
     this.isFleetModuleEnabled$ = this.featureFlagService.isEnabled(
       FeatureToggleKeys.FleetModule,
@@ -87,6 +91,7 @@ export class SidebarComponent implements AfterViewInit, OnInit, OnDestroy {
     this.userSub = this.accountService.user$.subscribe((user) => {
       this.isAdmin = !!user?.roles?.includes('Admin');
       this.isMaster = !!user?.roles?.includes('Master');
+      this.cdr.markForCheck();
     });
   }
 

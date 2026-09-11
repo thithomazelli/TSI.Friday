@@ -1,4 +1,6 @@
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -47,6 +49,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-quote-product-form',
     templateUrl: './quote-product-form.component.html',
     styleUrl: './quote-product-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgClass,
         ReactiveFormsModule,
@@ -118,6 +121,7 @@ export class QuoteProductFormComponent
     private quoteProductService: QuoteProductService,
     private productService: ProductService,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -245,6 +249,7 @@ export class QuoteProductFormComponent
       const productSku = this.form.get('productSku')!.value?.trim();
       if (!productSku) {
         this.cleanProductSelection();
+        this.cdr.markForCheck();
         return;
       }
       const sub = this.productsArray$.subscribe((products) => {
@@ -278,9 +283,11 @@ export class QuoteProductFormComponent
                   } else {
                     this.cleanProductSelection();
                   }
+                  this.cdr.markForCheck();
                 });
             } else {
               this.cleanProductSelection();
+              this.cdr.markForCheck();
             }
           });
         }
@@ -294,6 +301,7 @@ export class QuoteProductFormComponent
       const productName = this.form.get('productName')!.value?.trim();
       if (!productName) {
         this.cleanProductSelection();
+        this.cdr.markForCheck();
         return;
       }
       const sub = this.productsArray$.subscribe((products) => {
@@ -327,9 +335,11 @@ export class QuoteProductFormComponent
                   } else {
                     this.cleanProductSelection();
                   }
+                  this.cdr.markForCheck();
                 });
             } else {
               this.cleanProductSelection();
+              this.cdr.markForCheck();
             }
           });
         }
@@ -480,7 +490,10 @@ export class QuoteProductFormComponent
   }
 
   private totalPriceChange(): void {
-    setTimeout(() => this.updateTotalPrice(), 0);
+    setTimeout(() => {
+      this.updateTotalPrice();
+      this.cdr.markForCheck();
+    }, 0);
 
     this.form.get('quantity')?.valueChanges &&
       this._subscriptions.push(

@@ -1,4 +1,6 @@
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -42,6 +44,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-user-form',
     templateUrl: './user-form.component.html',
     styleUrl: './user-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgClass,
         ReactiveFormsModule,
@@ -105,6 +108,7 @@ export class UserFormComponent
     private routerService: Router,
     private userService: UserService,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -116,6 +120,7 @@ export class UserFormComponent
       this.isPrivilegedViewer = !!user?.roles?.some(
         (role) => role === 'Admin' || role === 'Master',
       );
+      this.cdr.markForCheck();
     });
   }
 
@@ -263,12 +268,15 @@ export class UserFormComponent
             response.value.title,
             response.value.message,
           );
+          this.cdr.markForCheck();
         },
         error: () => {
           this.resetResendEmailCooldown();
+          this.cdr.markForCheck();
         },
         complete: () => {
           this.resetResendEmailCooldown();
+          this.cdr.markForCheck();
         },
       });
   }
@@ -317,6 +325,7 @@ export class UserFormComponent
         this.resendEmailCountdown = 0;
         localStorage.removeItem(this.getResendEmailCooldownKey());
       }
+      this.cdr.markForCheck();
     }, 1000);
   }
 
@@ -361,10 +370,12 @@ export class UserFormComponent
           this.resendEmailCountdown = 0;
           localStorage.removeItem(this.getResendEmailCooldownKey());
         }
+        this.cdr.markForCheck();
       }, 1000);
     } else {
       localStorage.removeItem(this.getResendEmailCooldownKey());
     }
+    this.cdr.markForCheck();
   }
 
   private getResendEmailCooldownKey(): string {
@@ -447,6 +458,7 @@ export class UserFormComponent
     if (this.isEdit && this.data) {
       this.notificationService.showMessage(response.status, response.message);
       this.data = response.data;
+      this.cdr.markForCheck();
     } else {
       this.routerService.navigateByUrl(
         `/${this._baseEndPoint}/${response.data.id}`,

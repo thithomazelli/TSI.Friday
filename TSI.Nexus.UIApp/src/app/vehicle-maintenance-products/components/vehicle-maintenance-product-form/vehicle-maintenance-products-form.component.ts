@@ -1,4 +1,6 @@
 import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   Input,
   OnChanges,
@@ -46,6 +48,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     selector: 'app-vehicle-maintenance-product-form',
     templateUrl: './vehicle-maintenance-products-form.component.html',
     styleUrl: './vehicle-maintenance-products-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         NgClass,
         ReactiveFormsModule,
@@ -112,6 +115,7 @@ export class VehicleMaintenanceProductFormComponent
     private vehicleMaintenanceProductService: VehicleMaintenanceProductService,
     private productService: ProductService,
     private translationService: TranslationService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -220,6 +224,7 @@ export class VehicleMaintenanceProductFormComponent
       const productSku = this.form.get('productSku')!.value?.trim();
       if (!productSku) {
         this.cleanProductSelection();
+        this.cdr.markForCheck();
         return;
       }
       const sub = this.productsArray$.subscribe((products) => {
@@ -253,9 +258,11 @@ export class VehicleMaintenanceProductFormComponent
                   } else {
                     this.cleanProductSelection();
                   }
+                  this.cdr.markForCheck();
                 });
             } else {
               this.cleanProductSelection();
+              this.cdr.markForCheck();
             }
           });
         }
@@ -269,6 +276,7 @@ export class VehicleMaintenanceProductFormComponent
       const productName = this.form.get('productName')!.value?.trim();
       if (!productName) {
         this.cleanProductSelection();
+        this.cdr.markForCheck();
         return;
       }
       const sub = this.productsArray$.subscribe((products) => {
@@ -302,9 +310,11 @@ export class VehicleMaintenanceProductFormComponent
                   } else {
                     this.cleanProductSelection();
                   }
+                  this.cdr.markForCheck();
                 });
             } else {
               this.cleanProductSelection();
+              this.cdr.markForCheck();
             }
           });
         }
@@ -503,7 +513,10 @@ export class VehicleMaintenanceProductFormComponent
   }
 
   private totalPriceChange(): void {
-    setTimeout(() => this.updateTotalPrice(), 0);
+    setTimeout(() => {
+      this.updateTotalPrice();
+      this.cdr.markForCheck();
+    }, 0);
 
     this.form.get('productSku')?.valueChanges &&
       this._subscriptions.push(

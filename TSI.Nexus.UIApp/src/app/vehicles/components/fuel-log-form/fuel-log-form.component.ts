@@ -1,4 +1,13 @@
-import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  SimpleChanges,
+} from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogRef } from '@angular/material/dialog';
 import { Router } from '@angular/router';
@@ -39,6 +48,7 @@ import { FuelLogDetailsModalComponent } from '../fuel-log-details-modal/fuel-log
     selector: 'app-fuel-log-form',
     templateUrl: './fuel-log-form.component.html',
     styleUrl: './fuel-log-form.component.scss',
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [
         ReactiveFormsModule,
         NgFor,
@@ -97,6 +107,7 @@ export class FuelLogFormComponent
     private selectableOptionService: SelectableOptionService,
     private translationService: TranslationService,
     private vehicleService: VehicleService,
+    private cdr: ChangeDetectorRef,
   ) {
     super();
   }
@@ -110,6 +121,7 @@ export class FuelLogFormComponent
       this.vehicleService.getAll().subscribe((response) => {
         this.vehicles = response.data ?? [];
         this.setupVehicleAutoComplete();
+        this.cdr.markForCheck();
       });
     }
   }
@@ -129,11 +141,13 @@ export class FuelLogFormComponent
       const productSku = this.form.get('productSku')!.value?.trim();
       if (!productSku) {
         this.cleanProductSelection();
+        this.cdr.markForCheck();
         return;
       }
       const found = this._products.find((p) => p.sku === productSku);
       if (found) {
         this.selectProduct(found);
+        this.cdr.markForCheck();
         return;
       }
       this.confirmAndCreateProduct({ sku: productSku });
@@ -145,11 +159,13 @@ export class FuelLogFormComponent
       const productName = this.form.get('productName')!.value?.trim();
       if (!productName) {
         this.cleanProductSelection();
+        this.cdr.markForCheck();
         return;
       }
       const found = this._products.find((p) => p.name === productName);
       if (found) {
         this.selectProduct(found);
+        this.cdr.markForCheck();
         return;
       }
       this.confirmAndCreateProduct({ name: productName });
@@ -173,6 +189,7 @@ export class FuelLogFormComponent
       const typed = this.form.get('vehiclePlate')!.value?.trim();
       if (!typed) {
         this.cleanVehicleSelection();
+        this.cdr.markForCheck();
         return;
       }
       const found = this.vehicles.find((v) => v.plate === typed);
@@ -181,6 +198,7 @@ export class FuelLogFormComponent
       } else {
         this.cleanVehicleSelection();
       }
+      this.cdr.markForCheck();
     }, 200);
   }
 
@@ -312,6 +330,7 @@ export class FuelLogFormComponent
     if (this.isEdit && this.data) {
       this.notificationService.showMessage(response.status, response.message);
       this.data = response.data;
+      this.cdr.markForCheck();
     } else if (response.status === ResponseStatus.Success) {
       this.routerService.navigateByUrl(`/${this._baseEndPoint}`);
     } else {
@@ -335,6 +354,7 @@ export class FuelLogFormComponent
     confirmRef.afterClosed().subscribe((confirmed: boolean) => {
       if (!confirmed) {
         this.cleanProductSelection();
+        this.cdr.markForCheck();
         return;
       }
       const productFormRef: MatDialogRef<any> = this.modalService.showTemplateModal(
@@ -345,11 +365,12 @@ export class FuelLogFormComponent
         .afterClosed()
         .subscribe((result: WebApiResponse<Product> | undefined) => {
           if (result) {
-            this._products.push(result.data);
+            this._products = [...this._products, result.data];
             this.selectProduct(result.data);
           } else {
             this.cleanProductSelection();
           }
+          this.cdr.markForCheck();
         });
     });
   }
@@ -382,6 +403,7 @@ export class FuelLogFormComponent
       .getByGroup(SelectableOptionGroup.FuelLogStatus)
       .subscribe((response) => {
         this.statusOptions = response.data ?? [];
+        this.cdr.markForCheck();
       });
   }
 
