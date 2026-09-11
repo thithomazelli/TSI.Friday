@@ -97,12 +97,10 @@ de qualquer código — seria uma spec própria só pra isso (spec-12), escopand
 
 Isso não está feito aqui porque depende da sua decisão sobre a recomendação da seção 3 primeiro.
 
-## 5. Decisão pendente
+## 5. Decisão
 
-Este documento não propõe nenhuma alteração de código por si só — é a spec-diagnóstico que a
-auditoria original pedia. Preciso do seu "ok" sobre um dos três caminhos antes de prosseguir:
-
-1. Aceitar a recomendação (não mexer em Material nem PrimeNG) e marcar este item da auditoria como
-   "avaliado, sem ação" em vez de "pendente".
-2. Seguir com a remoção do PrimeNG apesar do esforço mapeado — escrevo a spec-12 detalhada da seção 4.
-3. Outra direção que prefira (ex.: reduzir escopo do Material a só os fluxos mais simples primeiro).
+Caminho 1 aceito: manter Angular Material e PrimeNG como estão — nenhum dos dois é peso morto
+(Material é o motor de modal do app inteiro; PrimeNG sustenta o campo de data compartilhado e o
+painel de Anexos), e o risco/esforço de removê-los não compensa o ganho de bundle. Nenhuma alteração
+de código decorre desta spec. Item marcado como resolvido/avaliado na Auditoria de Segurança &
+Performance.
