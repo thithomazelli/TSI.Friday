@@ -377,6 +377,66 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
         }
 
         [Fact]
+        public async Task Upload_ShouldReturnBadRequest_WhenFileExceedsMaxUploadSize()
+        {
+            // Arrange
+            var fileMock = new Mock<IFormFile>();
+            fileMock.Setup(f => f.Length).Returns(10 * 1024 * 1024 + 1);
+            fileMock.Setup(f => f.FileName).Returns("grande.docx");
+
+            // Act
+            var result = await _controller.Upload(DocumentTemplateType.Quote, fileMock.Object);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal("Arquivo excede o tamanho máximo permitido (10 MB).", badRequest.Value);
+
+            _documentTemplateServiceMock.Verify(
+                s => s.UploadContent(It.IsAny<DocumentTemplateType>(), It.IsAny<string>(), It.IsAny<byte[]>()),
+                Times.Never
+            );
+        }
+
+        [Fact]
+        public async Task Upload_ShouldReturnBadRequest_WhenDocxDecompressesBeyondSizeGuard()
+        {
+            // Arrange - a legitimate word/document.xml entry plus one oversized entry whose
+            // declared uncompressed length exceeds the 50 MB zip-bomb guard; the entry content is
+            // all zeros so it compresses to almost nothing while still reporting its true size.
+            using var stream = new MemoryStream();
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                var docEntry = archive.CreateEntry("word/document.xml");
+                using (var writer = new StreamWriter(docEntry.Open()))
+                {
+                    writer.Write("<w:document xmlns:w=\"x\"><w:body/></w:document>");
+                }
+
+                var bigEntry = archive.CreateEntry("big.bin", CompressionLevel.Fastest);
+                using var entryStream = bigEntry.Open();
+                var buffer = new byte[1024 * 1024];
+                for (var i = 0; i < 51; i++)
+                {
+                    entryStream.Write(buffer, 0, buffer.Length);
+                }
+            }
+            var bytes = stream.ToArray();
+            var fileMock = BuildFileMock(bytes, "orcamento-bomba.docx");
+
+            // Act
+            var result = await _controller.Upload(DocumentTemplateType.Quote, fileMock.Object);
+
+            // Assert
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal("O arquivo enviado não é um documento .docx válido.", badRequest.Value);
+
+            _documentTemplateServiceMock.Verify(
+                s => s.UploadContent(It.IsAny<DocumentTemplateType>(), It.IsAny<string>(), It.IsAny<byte[]>()),
+                Times.Never
+            );
+        }
+
+        [Fact]
         public async Task Upload_ShouldReturnBadRequest_WhenFileIsNotDocx()
         {
             // Arrange

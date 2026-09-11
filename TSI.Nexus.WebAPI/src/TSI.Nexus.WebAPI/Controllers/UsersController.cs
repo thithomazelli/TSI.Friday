@@ -27,10 +27,24 @@ namespace TSI.Nexus.WebAPI.Controllers
         private bool CallerIsAdminOrMaster() =>
             _currentUserService.IsInRole("Admin") || _currentUserService.IsInRole("Master");
 
+        /// <summary>
+        /// Add a new user. Only Master may create another Master account - an Admin creating a
+        /// user with Role "Master" would otherwise be able to grant themselves (via a second
+        /// account) the one privilege level above their own.
+        /// </summary>
+        /// <param name="model">Registration data for the new user</param>
         [HttpPost("add")]
         [Authorize(Roles = "Admin,Master")]
         public async Task<ActionResult<WebApiResponse<User>>> Add(RegisterDto model)
         {
+            if (
+                !_currentUserService.IsInRole("Master")
+                && string.Equals(model.Role, "Master", System.StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                return Forbid();
+            }
+
             return await _userManagerService.Register(model);
         }
 
@@ -38,6 +52,8 @@ namespace TSI.Nexus.WebAPI.Controllers
         /// Update user available on database. A caller may always update their own profile; only
         /// Admin/Master may update someone else's, and only Admin/Master may change a Role -
         /// a non-privileged caller editing their own profile has any Role in the payload ignored.
+        /// Only Master may grant the Master role itself - an Admin attempting to set Role to
+        /// "Master" (on themselves or anyone else) is forbidden.
         /// </summary>
         /// <param name="user">Object to be updated</param>
         /// <returns></returns>
@@ -59,6 +75,13 @@ namespace TSI.Nexus.WebAPI.Controllers
                 }
 
                 user.Role = null;
+            }
+            else if (
+                !_currentUserService.IsInRole("Master")
+                && string.Equals(user.Role, "Master", System.StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                return Forbid();
             }
 
             var webApiResponse = await _userManagerService.Update(user);

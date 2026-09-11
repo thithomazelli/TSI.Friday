@@ -125,6 +125,25 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
+        public async Task Add_ShouldReturnError_WhenFileExceedsMaxSize()
+        {
+            // Arrange
+            var db = CreateDbContext();
+            var service = CreateService(db);
+            var fileMock = new Mock<IFormFile>();
+            fileMock.Setup(f => f.FileName).Returns("big.pdf");
+            fileMock.Setup(f => f.Length).Returns(25 * 1024 * 1024 + 1);
+            var dto = new AttachmentDto { File = fileMock.Object };
+
+            // Act
+            var result = await service.Add(dto, null);
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
+            Assert.Equal("Arquivo excede o tamanho máximo permitido (25 MB).", result.Message);
+        }
+
+        [Fact]
         public async Task Add_ShouldSaveUnderBusinessPartnerFolder_WhenOnlyBusinessPartnerIdIsProvided()
         {
             // Arrange
@@ -635,6 +654,28 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             Assert.Equal(ResponseStatus.Error, result.Status);
             Assert.Equal("Anexo não encontrado.", result.Message);
+        }
+
+        [Fact]
+        public async Task Update_ShouldReturnError_WhenFileExceedsMaxSize()
+        {
+            // Arrange
+            var db = CreateDbContext();
+            var existing = new Attachment { Id = Guid.NewGuid(), FileName = "old.pdf", Path = "attachments/old.pdf" };
+            db.Attachments.Add(existing);
+            await db.SaveChangesAsync();
+            var service = CreateService(db);
+            var fileMock = new Mock<IFormFile>();
+            fileMock.Setup(f => f.FileName).Returns("big.pdf");
+            fileMock.Setup(f => f.Length).Returns(25 * 1024 * 1024 + 1);
+            var dto = new AttachmentDto { Id = existing.Id, File = fileMock.Object };
+
+            // Act
+            var result = await service.Update(dto, null);
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
+            Assert.Equal("Arquivo excede o tamanho máximo permitido (25 MB).", result.Message);
         }
 
         [Fact]

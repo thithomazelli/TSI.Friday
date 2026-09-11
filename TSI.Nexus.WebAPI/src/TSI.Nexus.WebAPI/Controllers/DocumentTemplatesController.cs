@@ -129,6 +129,17 @@ namespace TSI.Nexus.WebAPI.Controllers
         private const string PngContentType = "image/png";
 
         /// <summary>
+        /// Max accepted size for an uploaded template file (raw, compressed bytes as received).
+        /// </summary>
+        private const long MaxUploadBytes = 10 * 1024 * 1024; // 10 MB
+
+        /// <summary>
+        /// Max total size a .docx is allowed to expand to once decompressed, guarding against a
+        /// zip bomb (a small archive whose entries decompress to a huge amount of data).
+        /// </summary>
+        private const long MaxDecompressedBytes = 50 * 1024 * 1024; // 50 MB
+
+        /// <summary>
         /// Download the current template file for the given type
         /// </summary>
         /// <param name="type">DocumentTemplateType to be downloaded</param>
@@ -171,6 +182,11 @@ namespace TSI.Nexus.WebAPI.Controllers
                 return BadRequest("Nenhum arquivo foi enviado.");
             }
 
+            if (file.Length > MaxUploadBytes)
+            {
+                return BadRequest("Arquivo excede o tamanho máximo permitido (10 MB).");
+            }
+
             using var memoryStream = new MemoryStream();
             await file.CopyToAsync(memoryStream);
             var content = memoryStream.ToArray();
@@ -210,7 +226,11 @@ namespace TSI.Nexus.WebAPI.Controllers
         /// <summary>
         /// Checks the ZIP signature and, inside the archive, the presence of word/document.xml -
         /// the entry every .docx (a ZIP of OOXML parts) must have - without needing a full OOXML
-        /// parsing library on the backend just to validate an upload.
+        /// parsing library on the backend just to validate an upload. Also sums each entry's
+        /// declared uncompressed length and rejects the file if the total would exceed
+        /// <see cref="MaxDecompressedBytes"/>, guarding against a zip bomb (a small archive that
+        /// decompresses to a huge amount of data) - the sum comes from the ZIP's own entry
+        /// headers, so this never actually inflates the entries to measure them.
         /// </summary>
         private static bool IsDocx(byte[] content)
         {
@@ -224,7 +244,23 @@ namespace TSI.Nexus.WebAPI.Controllers
             {
                 using var stream = new MemoryStream(content);
                 using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
-                return archive.GetEntry("word/document.xml") != null;
+
+                if (archive.GetEntry("word/document.xml") == null)
+                {
+                    return false;
+                }
+
+                long totalDecompressedSize = 0;
+                foreach (var entry in archive.Entries)
+                {
+                    totalDecompressedSize += entry.Length;
+                    if (totalDecompressedSize > MaxDecompressedBytes)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
             }
             catch (InvalidDataException)
             {

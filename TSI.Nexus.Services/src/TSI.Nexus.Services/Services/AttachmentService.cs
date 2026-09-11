@@ -24,6 +24,8 @@ namespace TSI.Nexus.Services
 
         private readonly string _downloadUrlTemplate;
 
+        private const long MaxBytes = 25 * 1024 * 1024; // 25 MB
+
         #endregion Properties
 
         #region Public methods
@@ -62,6 +64,13 @@ namespace TSI.Nexus.Services
                 {
                     response.Status = ResponseStatus.Error;
                     response.Message = "Arquivo obrigatório. Por favor envie um arquivo.";
+                    return response;
+                }
+
+                if (dto.File.Length > MaxBytes)
+                {
+                    response.Status = ResponseStatus.Error;
+                    response.Message = "Arquivo excede o tamanho máximo permitido (25 MB).";
                     return response;
                 }
 
@@ -157,6 +166,13 @@ namespace TSI.Nexus.Services
                 // update file if provided
                 if (dto.File != null)
                 {
+                    if (dto.File.Length > MaxBytes)
+                    {
+                        response.Status = ResponseStatus.Error;
+                        response.Message = "Arquivo excede o tamanho máximo permitido (25 MB).";
+                        return response;
+                    }
+
                     var path = await BuildEntityPathAsync(dto);
                     Directory.CreateDirectory(path);
                     var fileName = SanitizeFileName(dto.File.FileName);

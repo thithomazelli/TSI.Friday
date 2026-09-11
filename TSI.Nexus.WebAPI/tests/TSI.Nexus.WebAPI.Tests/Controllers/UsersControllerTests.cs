@@ -58,6 +58,55 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
         }
 
         [Fact]
+        public async Task UsersController_Add_ShouldReturnForbid_WhenNonMasterTriesToCreateMasterUser()
+        {
+            // Arrange - default setup: caller IsInRole("Admin") = true, IsInRole("Master") = false
+            var model = new RegisterDto
+            {
+                FirstName = "Joao",
+                LastName = "Silva",
+                Email = "joao@tsi.com.br",
+                Password = "123456",
+                Role = "Master",
+            };
+
+            // Act
+            var result = await _usersController.Add(model);
+
+            // Assert
+            Assert.IsType<ForbidResult>(result.Result);
+            _userManagerServiceMock.Verify(_ => _.Register(It.IsAny<RegisterDto>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UsersController_Add_ShouldAllow_WhenMasterCreatesMasterUser()
+        {
+            // Arrange
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Master")).Returns(true);
+            var model = new RegisterDto
+            {
+                FirstName = "Joao",
+                LastName = "Silva",
+                Email = "joao@tsi.com.br",
+                Password = "123456",
+                Role = "Master",
+            };
+            var expectedResult = new WebApiResponse<User>
+            {
+                Data = new User { Id = "1" },
+                Status = ResponseStatus.Success,
+            };
+            _userManagerServiceMock.Setup(_ => _.Register(model)).ReturnsAsync(expectedResult);
+
+            // Act
+            var result = await _usersController.Add(model);
+
+            // Assert
+            Assert.Equal(expectedResult, result.Value);
+            _userManagerServiceMock.Verify(_ => _.Register(model), Times.Once);
+        }
+
+        [Fact]
         public async Task UsersController_Update_ShouldUpdateUserSuccessfully_WhenMethodIsCalledWithAValidObject()
         {
             // Arrange
@@ -126,6 +175,41 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
                 _ => _.Update(It.Is<User>(u => u.Role == null)),
                 Times.Once
             );
+        }
+
+        [Fact]
+        public async Task UsersController_Update_ShouldReturnForbid_WhenNonMasterTriesToSetRoleMaster()
+        {
+            // Arrange - default setup: caller IsInRole("Admin") = true, IsInRole("Master") = false
+            var userMock = new User { Id = "someone-else-id", FirstName = "Joao", Role = "Master" };
+
+            // Act
+            var result = await _usersController.Update(userMock);
+
+            // Assert
+            Assert.IsType<ForbidResult>(result);
+            _userManagerServiceMock.Verify(_ => _.Update(It.IsAny<User>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UsersController_Update_ShouldAllow_WhenMasterSetsRoleMaster()
+        {
+            // Arrange
+            _currentUserServiceMock.Setup(_ => _.IsInRole("Master")).Returns(true);
+            var userMock = new User { Id = "someone-else-id", FirstName = "Joao", Role = "Master" };
+            var expectedResult = new WebApiResponse<UserDto>
+            {
+                Data = new UserDto { Id = "someone-else-id" },
+                Status = ResponseStatus.Success,
+            };
+            _userManagerServiceMock.Setup(_ => _.Update(userMock)).ReturnsAsync(expectedResult);
+
+            // Act
+            var result = await _usersController.Update(userMock);
+
+            // Assert
+            Assert.IsType<OkObjectResult>(result);
+            _userManagerServiceMock.Verify(_ => _.Update(userMock), Times.Once);
         }
 
         [Fact]
