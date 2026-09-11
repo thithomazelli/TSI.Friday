@@ -11,6 +11,18 @@
     #060f21 !important;
 }
 
+// Scrollable but the scrollbar itself stays invisible (AdminLTE's own default is a thin but
+// still visible thumb/track) - wheel/touch/keyboard scrolling keeps working, there's just
+// nothing drawn for it.
+.sidebar-wrapper {
+  scrollbar-width: none; // Firefox
+  -ms-overflow-style: none; // legacy Edge/IE
+
+  &::-webkit-scrollbar {
+    display: none; // Chrome/Safari/Chromium Edge
+  }
+}
+
 /* transição idêntica para entrada/saída (fallback) */
 .nav-treeview {
   opacity: 0;
