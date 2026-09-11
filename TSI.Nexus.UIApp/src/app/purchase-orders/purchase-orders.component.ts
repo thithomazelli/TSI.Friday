@@ -1,10 +1,12 @@
-import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import {
   ApiType,
   Company,
   Individual,
   ModalService,
   NotificationService,
+  PagedRequest,
+  PagedResult,
   PurchaseOrder,
   PurchaseOrderService,
   ResponseStatus,
@@ -17,7 +19,7 @@ import {
   ValueFormatterParams,
 } from 'ag-grid-community';
 import { PurchaseOrderDetailsModalComponent } from './components/purchase-order-details-modal/purchase-order-details-modal.component';
-import { Observable, Subject, Subscription, takeUntil } from 'rxjs';
+import { Observable, Subject, Subscription, skip, takeUntil } from 'rxjs';
 import { NgIf } from '@angular/common';
 import { HeaderComponent } from '../shared/header/header.component';
 import { GridComponent } from '../shared/grid/grid.component';
@@ -66,6 +68,25 @@ export class PurchaseOrdersComponent implements OnInit, OnDestroy {
   };
   showFiltersOnInit = false;
 
+  @ViewChild('gridRef') private gridRef?: GridComponent<PurchaseOrder>;
+
+  // True for the main Purchase Orders listing screen (server-side paginated); false for the tab
+  // embedded inside a Supplier's details page, which shows a small, already-scoped subset and
+  // stays client-side exactly as before - mirrors the same branching getPurchaseOrders() uses to
+  // pick which fetch method to call.
+  get isTopLevelList(): boolean {
+    return !(this.entity !== '' && this.parentData?.id != null);
+  }
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<PurchaseOrder>> => {
+    return this.purchaseOrderService.getAllPaged({
+      ...request,
+      startDate: this.filterStartDate ?? undefined,
+      endDate: this.filterEndDate ?? undefined,
+      statuses: this.getSelectedStatuses(),
+    });
+  };
+
   private _purchaseOrderChangedSub?: Subscription;
   private _destroy$ = new Subject<void>();
 
@@ -83,10 +104,21 @@ export class PurchaseOrdersComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe(() => this.initializeGrid());
 
-    this._purchaseOrderChangedSub = this.purchaseOrderService.purchaseOrderChanged$
+    // For the top-level list, the grid fetches its own first page once ag-Grid is ready - the
+    // BehaviorSubject's immediate replay on subscribe is skipped so it doesn't also trigger a
+    // pointless getPurchaseOrders()/getAll() call; only later, real change notifications matter.
+    const purchaseOrderChanged$ = this.isTopLevelList
+      ? this.purchaseOrderService.purchaseOrderChanged$.pipe(skip(1))
+      : this.purchaseOrderService.purchaseOrderChanged$;
+
+    this._purchaseOrderChangedSub = purchaseOrderChanged$
       .pipe(takeUntil(this._destroy$))
       .subscribe(() => {
-        this.getPurchaseOrders(() => this.applyFilters());
+        if (this.isTopLevelList) {
+          this.gridRef?.gridApi?.purgeInfiniteCache();
+        } else {
+          this.getPurchaseOrders(() => this.applyFilters());
+        }
       });
   }
 
@@ -125,9 +157,13 @@ export class PurchaseOrdersComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<PurchaseOrder>) => {
         if (response.status === ResponseStatus.Success) {
-          this.filteredRowData = this.filteredRowData.filter(
-            (p) => p.id !== purchaseOrder.id,
-          );
+          if (this.isTopLevelList) {
+            this.gridRef?.gridApi?.purgeInfiniteCache();
+          } else {
+            this.filteredRowData = this.filteredRowData.filter(
+              (p) => p.id !== purchaseOrder.id,
+            );
+          }
         }
         this.modalService.hideModal();
         this.modalService.showSweetNotification(
@@ -139,10 +175,25 @@ export class PurchaseOrdersComponent implements OnInit, OnDestroy {
   }
 
   refreshPurchaseOrders(): void {
+    // For the top-level list, <app-grid>'s own refresh button already purges the infinite cache
+    // (see GridComponent.onRefreshClicked) - calling getPurchaseOrders() here would additionally
+    // load the entire table, defeating the point of pagination. Only the notification is this
+    // call's job.
+    if (this.isTopLevelList) {
+      this.notificationService.showMessage(
+        ResponseStatus.Success,
+        this.translationService.instant('PURCHASE_ORDERS.PURCHASE_ORDERS_REFRESHED'),
+      );
+      return;
+    }
     this.getPurchaseOrders(() => this.applyFilters(), true);
   }
 
   applyFilters(): void {
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     let filtered = [...this.rowData];
     // Filter by date range (start and end) using createDate
     if (this.filterStartDate || this.filterEndDate) {
@@ -185,7 +236,17 @@ export class PurchaseOrdersComponent implements OnInit, OnDestroy {
       WaitingPayment: false,
       Closed: false,
     };
+    if (this.isTopLevelList) {
+      this.gridRef?.gridApi?.purgeInfiniteCache();
+      return;
+    }
     this.filteredRowData = [...this.rowData];
+  }
+
+  private getSelectedStatuses(): string[] {
+    return Object.entries(this.filterStatus)
+      .filter(([, checked]) => checked)
+      .map(([label]) => label);
   }
 
   private initializeGrid(): void {

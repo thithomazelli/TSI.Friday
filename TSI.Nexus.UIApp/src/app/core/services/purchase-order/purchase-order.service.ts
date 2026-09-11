@@ -1,7 +1,15 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import { ApiService, ApiType, WebApiResponse, PurchaseOrder } from '@nexus/core';
+import { map, tap } from 'rxjs/operators';
+import {
+  ApiService,
+  ApiType,
+  PagedRequest,
+  PagedResult,
+  WebApiResponse,
+  PurchaseOrder,
+} from '@nexus/core';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({
   providedIn: 'root',
@@ -22,6 +30,16 @@ export class PurchaseOrderService {
           this._purchaseOrders$.next(response.data);
         }),
       );
+  }
+
+  // Server-side paged/sorted/filtered listing for the top-level Purchase Orders grid - the tab
+  // embedded inside a Supplier's details page keeps using getByBusinessPartnerId() instead.
+  getAllPaged(request: PagedRequest): Observable<PagedResult<PurchaseOrder>> {
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<PurchaseOrder>>
+      >(`${this._baseEndPoint}/getAllPaged?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data!));
   }
 
   getById(purchaseOrderId: string): Observable<WebApiResponse<PurchaseOrder>> {

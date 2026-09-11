@@ -347,6 +347,231 @@ namespace TSI.Nexus.Services.Tests.Services
         }
 
         [Fact]
+        public async Task PurchaseOrderService_FindAllPaged_ShouldReturnPagedPurchaseOrders_WhenDataExists()
+        {
+            // Arrange
+            var purchaseOrders = new List<PurchaseOrder>
+            {
+                new() { Id = Guid.NewGuid(), BusinessPartner = new Individual { Name = "A" } },
+                new() { Id = Guid.NewGuid(), BusinessPartner = new Individual { Name = "B" } },
+            };
+            SetUpGetPagedAsyncReturns(purchaseOrders, purchaseOrders.Count);
+
+            // Act
+            var result = await _purchaseOrderService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50 }
+            );
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(2, result.Data!.TotalCount);
+            Assert.Equal(2, result.Data.Items.Count());
+        }
+
+        [Fact]
+        public async Task PurchaseOrderService_FindAllPaged_ShouldReturnEmpty_WhenModuleToggleIsDisabled()
+        {
+            // Arrange
+            _featureToggleServiceMock
+                .Setup(_ =>
+                    _.IsEnabledAsync(
+                        FeatureToggleKeys.PurchaseOrder,
+                        FeatureToggleKeys.PurchaseOrdersModule
+                    )
+                )
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _purchaseOrderService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Empty(result.Data!.Items);
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<PurchaseOrder, bool>>>(),
+                        It.IsAny<Func<IQueryable<PurchaseOrder>, IOrderedQueryable<PurchaseOrder>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<PurchaseOrder, object>>[]>()
+                    ),
+                Times.Never
+            );
+        }
+
+        [Fact]
+        public async Task PurchaseOrderService_FindAllPaged_ShouldReturnError_WhenRepositoryThrows()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<PurchaseOrder, bool>>>(),
+                        It.IsAny<Func<IQueryable<PurchaseOrder>, IOrderedQueryable<PurchaseOrder>>>(),
+                        true,
+                        It.IsAny<Expression<Func<PurchaseOrder, object>>[]>()
+                    )
+                )
+                .ThrowsAsync(new Exception("boom"));
+
+            // Act
+            var result = await _purchaseOrderService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
+            Assert.DoesNotContain("boom", result.Message);
+        }
+
+        [Fact]
+        public async Task PurchaseOrderService_FindAllPaged_FilterShouldMatchOnlyQuickFilterHits()
+        {
+            // Arrange
+            Expression<Func<PurchaseOrder, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var matching = NewPurchaseOrderForFilterTests(purchaseOrderNumber: "PC-00123");
+            var nonMatching = NewPurchaseOrderForFilterTests(purchaseOrderNumber: "PC-00999");
+
+            // Act
+            await _purchaseOrderService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50, QuickFilter = "00123" }
+            );
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(matching));
+            Assert.False(compiled(nonMatching));
+        }
+
+        [Fact]
+        public async Task PurchaseOrderService_FindAllPaged_FilterShouldRespectDateRange()
+        {
+            // Arrange
+            Expression<Func<PurchaseOrder, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var inRange = NewPurchaseOrderForFilterTests(createDate: new DateTime(2026, 3, 15));
+            var before = NewPurchaseOrderForFilterTests(createDate: new DateTime(2026, 2, 28));
+
+            // Act
+            await _purchaseOrderService.FindAllPaged(
+                new PagedRequest
+                {
+                    Page = 1,
+                    PageSize = 50,
+                    StartDate = new DateTime(2026, 3, 1),
+                    EndDate = new DateTime(2026, 3, 31),
+                }
+            );
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(inRange));
+            Assert.False(compiled(before));
+        }
+
+        [Fact]
+        public async Task PurchaseOrderService_FindAllPaged_FilterShouldRespectStatusList()
+        {
+            // Arrange
+            Expression<Func<PurchaseOrder, bool>> capturedFilter = null;
+            SetUpGetPagedAsyncCapture(filter => capturedFilter = filter);
+            var open = NewPurchaseOrderForFilterTests(status: OrderStatus.Open);
+            var closed = NewPurchaseOrderForFilterTests(status: OrderStatus.Closed);
+
+            // Act
+            await _purchaseOrderService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50, Statuses = new List<string> { "Open" } }
+            );
+
+            // Assert
+            var compiled = capturedFilter.Compile();
+            Assert.True(compiled(open));
+            Assert.False(compiled(closed));
+        }
+
+        [Fact]
+        public async Task PurchaseOrderService_FindAllPaged_ShouldComputeSkipAndTake_FromPageAndPageSize()
+        {
+            // Arrange
+            SetUpGetPagedAsyncReturns(new List<PurchaseOrder>(), 0);
+
+            // Act
+            await _purchaseOrderService.FindAllPaged(new PagedRequest { Page = 2, PageSize = 25 });
+
+            // Assert
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        25,
+                        25,
+                        It.IsAny<Expression<Func<PurchaseOrder, bool>>>(),
+                        It.IsAny<Func<IQueryable<PurchaseOrder>, IOrderedQueryable<PurchaseOrder>>>(),
+                        true,
+                        It.IsAny<Expression<Func<PurchaseOrder, object>>[]>()
+                    ),
+                Times.Once
+            );
+        }
+
+        private static PurchaseOrder NewPurchaseOrderForFilterTests(
+            string purchaseOrderNumber = "PC-00001",
+            string description = "Descricao",
+            DateTime? createDate = null,
+            OrderStatus status = OrderStatus.Open
+        ) =>
+            new()
+            {
+                PurchaseOrderNumber = purchaseOrderNumber,
+                Description = description,
+                CreateDate = createDate ?? DateTime.UtcNow,
+                Status = status,
+                BusinessPartner = new Individual { Name = "Fornecedor Teste" },
+            };
+
+        private void SetUpGetPagedAsyncReturns(IList<PurchaseOrder> purchaseOrders, int totalCount)
+        {
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<PurchaseOrder, bool>>>(),
+                        It.IsAny<Func<IQueryable<PurchaseOrder>, IOrderedQueryable<PurchaseOrder>>>(),
+                        true,
+                        It.IsAny<Expression<Func<PurchaseOrder, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((purchaseOrders, totalCount));
+        }
+
+        private void SetUpGetPagedAsyncCapture(Action<Expression<Func<PurchaseOrder, bool>>> onCaptured)
+        {
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<PurchaseOrder, bool>>>(),
+                        It.IsAny<Func<IQueryable<PurchaseOrder>, IOrderedQueryable<PurchaseOrder>>>(),
+                        true,
+                        It.IsAny<Expression<Func<PurchaseOrder, object>>[]>()
+                    )
+                )
+                .Callback<
+                    int,
+                    int,
+                    Expression<Func<PurchaseOrder, bool>>,
+                    Func<IQueryable<PurchaseOrder>, IOrderedQueryable<PurchaseOrder>>,
+                    bool,
+                    Expression<Func<PurchaseOrder, object>>[]
+                >((_, _, filter, _, _, _) => onCaptured(filter))
+                .ReturnsAsync((new List<PurchaseOrder>(), 0));
+        }
+
+        [Fact]
         public async Task PurchaseOrderService_Update_ShouldReturnWarningAndNotUpdate_WhenPurchaseOrderBelongsToAnotherUserAndCurrentUserIsNotAdmin()
         {
             // Arrange

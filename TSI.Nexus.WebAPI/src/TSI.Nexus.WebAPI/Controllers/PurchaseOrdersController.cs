@@ -84,6 +84,18 @@ namespace TSI.Nexus.WebAPI.Controllers
         }
 
         /// <summary>
+        /// Server-side paged/sorted/filtered listing for the Purchase Orders grid.
+        /// </summary>
+        /// <param name="request">The requested page, sort, date-range/status and quick-filter text.</param>
+        [HttpGet]
+        [Route("GetAllPaged")]
+        public async Task<IActionResult> GetAllPaged([FromQuery] PagedRequest request)
+        {
+            var webApiResponse = await _purchaseOrderService.FindAllPaged(request);
+            return Ok(webApiResponse);
+        }
+
+        /// <summary>
         /// Get purchase order by id
         /// </summary>
         /// <param name="purchaseOrderId">PurchaseOrder id to be used in the search</param>

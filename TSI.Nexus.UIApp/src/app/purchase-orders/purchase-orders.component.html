@@ -9,9 +9,12 @@
 
 <div class="app-content">
   <app-grid
+    #gridRef
     [compactView]="compact"
     [className]="'PURCHASE_ORDERS.TITLE' | translate"
     [rowData]="filteredRowData"
+    [serverSide]="isTopLevelList"
+    [dataSource]="pagedDataSource"
     [loading]="loading"
     [columnDefs]="columnDefs"
     [baseEndPoint]="baseEndPoint"

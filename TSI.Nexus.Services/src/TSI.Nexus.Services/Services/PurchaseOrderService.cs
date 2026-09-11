@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using System.Text.RegularExpressions;
 using AutoMapper;
 using TSI.Nexus.Contracts.Enums;
@@ -288,6 +289,61 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<PurchaseOrderDto>>> FindAllPaged(
+            PagedRequest request
+        )
+        {
+            WebApiResponse<PagedResult<PurchaseOrderDto>> result = new();
+
+            try
+            {
+                if (
+                    !await _featureToggleService.IsEnabledAsync(
+                        FeatureToggleKeys.PurchaseOrder,
+                        FeatureToggleKeys.PurchaseOrdersModule
+                    )
+                )
+                {
+                    result.Data = new PagedResult<PurchaseOrderDto> { Items = [], TotalCount = 0 };
+                    result.Status = ResponseStatus.Success;
+                    result.Message = "0 registro(s) encontrado(s).";
+                    return result;
+                }
+
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                // Unlike FindAll, PurchaseOrderProducts/Transaction/Payments aren't eager-loaded
+                // here - the grid never displays them, only the details/edit form does (loaded
+                // separately by FindById).
+                var (purchaseOrders, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true,
+                    includes: o => o.BusinessPartner
+                );
+
+                result.Data = new PagedResult<PurchaseOrderDto>
+                {
+                    Items = _mapper.Map<IEnumerable<PurchaseOrderDto>>(purchaseOrders).ToList(),
+                    TotalCount = totalCount,
+                };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "PurchaseOrderService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de Pedidos de Compra na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
         public async Task<WebApiResponse<PurchaseOrderDto>> FindById(Guid? id)
         {
             WebApiResponse<PurchaseOrderDto> result = new();
@@ -383,6 +439,66 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Purchase Orders grid, mapped to the PurchaseOrder
+        /// property they sort by - an unrecognized SortField (or none) falls back to the
+        /// repository's own default (CreateDate) ordering.
+        /// </summary>
+        private static readonly Dictionary<
+            string,
+            Expression<Func<PurchaseOrder, object>>
+        > SortMap = new()
+        {
+            ["purchaseOrderNumber"] = o => o.PurchaseOrderNumber,
+            ["businessPartnerName"] = o => o.BusinessPartner.Name,
+            ["description"] = o => o.Description,
+            ["totalPrice"] = o => o.TotalPrice,
+            ["date"] = o => o.Date,
+            ["status"] = o => o.Status,
+        };
+
+        private static Func<
+            IQueryable<PurchaseOrder>,
+            IOrderedQueryable<PurchaseOrder>
+        > BuildOrderBy(PagedRequest request)
+        {
+            if (
+                string.IsNullOrWhiteSpace(request.SortField)
+                || !SortMap.TryGetValue(request.SortField, out var keySelector)
+            )
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
+
+        /// <summary>
+        /// Combines the quick filter with the date-range and status filters - the same panel the
+        /// Purchase Orders list already had client-side, now applied server-side alongside
+        /// pagination.
+        /// </summary>
+        private static Expression<Func<PurchaseOrder, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+            var startDate = request.StartDate?.Date;
+            var endDate = request.EndDate?.Date;
+            var statuses = EnumListParser.Parse<OrderStatus>(request.Statuses);
+            var hasStatusFilter = statuses.Count > 0;
+
+            return o =>
+                (!hasQuickFilter
+                    || o.PurchaseOrderNumber.Contains(quickFilter)
+                    || o.Description.Contains(quickFilter)
+                    || o.BusinessPartner.Name.Contains(quickFilter))
+                && (startDate == null || o.CreateDate.Date >= startDate)
+                && (endDate == null || o.CreateDate.Date <= endDate)
+                && (!hasStatusFilter || statuses.Contains(o.Status));
+        }
 
         /// <summary>
         /// Returns an error message when the current user is neither the creator of the

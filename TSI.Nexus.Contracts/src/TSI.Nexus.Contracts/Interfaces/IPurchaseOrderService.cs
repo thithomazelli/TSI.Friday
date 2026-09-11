@@ -36,6 +36,12 @@ namespace TSI.Nexus.Contracts.Interfaces
         Task<WebApiResponse<IEnumerable<PurchaseOrderDto>>> FindAll();
 
         /// <summary>
+        /// Server-side paged/sorted/filtered listing for the Purchase Orders grid.
+        /// </summary>
+        /// <param name="request">The requested page, sort, date-range/status and quick-filter text.</param>
+        Task<WebApiResponse<PagedResult<PurchaseOrderDto>>> FindAllPaged(PagedRequest request);
+
+        /// <summary>
         /// Method responsible to get only one PurchaseOrder based on the ID received as parameter.
         /// </summary>
         /// <param name="id">The ID to be used on the search.</param>
