@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
@@ -18,6 +19,13 @@ namespace TSI.Nexus.Services
         private readonly ILogService _logService;
         private readonly IWebHostEnvironment _env;
         private readonly IConfiguration _config;
+        private readonly IMemoryCache _cache;
+
+        // Generating a document's PDF reads up to 3 fixed-name files (the type's own .docx,
+        // Letterhead.jpg, Signature.png) straight off disk with no caching - on a busy day that's
+        // the same handful of small, rarely-changed files read over and over. Cached indefinitely
+        // and invalidated only by UploadContent, the one path that ever changes them.
+        private const string CacheKeyPrefix = "DocumentTemplateFile:";
 
         #endregion Properties
 
@@ -31,13 +39,15 @@ namespace TSI.Nexus.Services
             IRepository<DocumentTemplate> repository,
             ILogService logService,
             IWebHostEnvironment env,
-            IConfiguration config
+            IConfiguration config,
+            IMemoryCache cache
         )
         {
             _repository = repository;
             _logService = logService;
             _env = env;
             _config = config;
+            _cache = cache;
         }
 
         /// <inheritdoc />
@@ -224,6 +234,7 @@ namespace TSI.Nexus.Services
 
                 documentTemplate.FileName = fileName;
                 await File.WriteAllBytesAsync(ResolveFilePath(type), content);
+                _cache.Remove(CacheKeyPrefix + type);
 
                 await _repository.UpdateAsync(documentTemplate);
 
@@ -245,8 +256,16 @@ namespace TSI.Nexus.Services
         /// <inheritdoc />
         public async Task<byte[]?> GetFileBytes(DocumentTemplateType type)
         {
+            var cacheKey = CacheKeyPrefix + type;
+            if (_cache.TryGetValue(cacheKey, out byte[]? cached))
+            {
+                return cached;
+            }
+
             var path = ResolveFilePath(type);
-            return File.Exists(path) ? await File.ReadAllBytesAsync(path) : null;
+            var bytes = File.Exists(path) ? await File.ReadAllBytesAsync(path) : null;
+            _cache.Set(cacheKey, bytes);
+            return bytes;
         }
 
         #endregion Public methods

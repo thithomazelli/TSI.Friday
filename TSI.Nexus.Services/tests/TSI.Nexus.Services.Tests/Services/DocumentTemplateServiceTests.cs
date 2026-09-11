@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Moq;
 using TSI.Nexus.Contracts.Enums;
@@ -17,12 +18,17 @@ namespace TSI.Nexus.Services.Tests.Services
         private readonly DocumentTemplateService _service;
         private readonly Mock<IRepository<DocumentTemplate>> _repository;
         private readonly Mock<ILogService> _logServiceMock;
+        private readonly IMemoryCache _cache;
         private readonly string _tempBasePath;
 
         public DocumentTemplateServiceTests()
         {
             _repository = new Mock<IRepository<DocumentTemplate>>();
             _logServiceMock = new Mock<ILogService>();
+
+            // A real MemoryCache instance rather than a mock - IMemoryCache's TryGetValue/Set are
+            // extension methods over the raw cache API, awkward to mock directly.
+            _cache = new MemoryCache(new MemoryCacheOptions());
 
             _tempBasePath = Path.Combine(Path.GetTempPath(), "DocumentTemplateServiceTests_" + Guid.NewGuid());
 
@@ -39,7 +45,8 @@ namespace TSI.Nexus.Services.Tests.Services
                 _repository.Object,
                 _logServiceMock.Object,
                 envMock.Object,
-                configMock.Object
+                configMock.Object,
+                _cache
             );
         }
 
@@ -429,6 +436,57 @@ namespace TSI.Nexus.Services.Tests.Services
 
             // Assert
             Assert.Null(result);
+        }
+
+        [Fact]
+        public async Task DocumentTemplateService_GetFileBytes_ShouldReturnCachedContent_WhenFileChangesOnDiskDirectly()
+        {
+            // Arrange - write straight to disk, bypassing UploadContent (the only path that
+            // invalidates the cache), to prove a second GetFileBytes call doesn't re-read the file.
+            Directory.CreateDirectory(_tempBasePath);
+            var filePath = Path.Combine(_tempBasePath, "Quote.docx");
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0x01 });
+
+            var firstRead = await _service.GetFileBytes(DocumentTemplateType.Quote);
+            await File.WriteAllBytesAsync(filePath, new byte[] { 0x02 });
+
+            // Act
+            var secondRead = await _service.GetFileBytes(DocumentTemplateType.Quote);
+
+            // Assert
+            Assert.Equal(new byte[] { 0x01 }, firstRead);
+            Assert.Equal(new byte[] { 0x01 }, secondRead);
+        }
+
+        [Fact]
+        public async Task DocumentTemplateService_GetFileBytes_ShouldReturnFreshContent_AfterUploadContentInvalidatesCache()
+        {
+            // Arrange
+            var documentTemplate = new DocumentTemplate
+            {
+                Id = Guid.NewGuid(),
+                Type = DocumentTemplateType.Quote,
+                Name = "Orçamento",
+                FileName = "old-file.docx",
+            };
+            _repository
+                .Setup(r => r.FirstOrDefaultAsync(It.IsAny<Expression<Func<DocumentTemplate, bool>>>()))
+                .ReturnsAsync(documentTemplate);
+            _repository
+                .Setup(r => r.UpdateAsync(It.IsAny<DocumentTemplate>()))
+                .Returns(Task.CompletedTask);
+
+            Directory.CreateDirectory(_tempBasePath);
+            await File.WriteAllBytesAsync(Path.Combine(_tempBasePath, "Quote.docx"), new byte[] { 0x01 });
+            var firstRead = await _service.GetFileBytes(DocumentTemplateType.Quote);
+
+            // Act
+            await _service.UploadContent(DocumentTemplateType.Quote, "new-file.docx", new byte[] { 0x02 });
+            var secondRead = await _service.GetFileBytes(DocumentTemplateType.Quote);
+
+            // Assert
+            Assert.Equal(new byte[] { 0x01 }, firstRead);
+            Assert.Equal(new byte[] { 0x02 }, secondRead);
         }
 
         [Fact]
