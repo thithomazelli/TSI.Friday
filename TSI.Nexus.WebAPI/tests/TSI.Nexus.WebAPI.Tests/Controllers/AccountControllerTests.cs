@@ -39,18 +39,6 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             };
         }
 
-        // Login/RefreshUserToken only reach into Response.Cookies when the DTO actually carries a
-        // JWT (see SetAuthCookieAndStripToken's early-out) - the tests above don't set a
-        // ControllerContext at all, which is fine as long as that early-out holds. These two do
-        // carry a JWT, so they need a real HttpContext for Response.Cookies.Append to write into.
-        private void SetHttpContextWithoutUser()
-        {
-            _controller.ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext(),
-            };
-        }
-
         [Fact]
         public async Task AccountController_RefreshUserToken_ShouldReturnUserDto_WhenUserHasNameClaim()
         {
@@ -104,96 +92,6 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             // Assert
             Assert.Equal(expectedResult, result.Value);
             _userManagerServiceMock.Verify(_ => _.Login(loginDto), Times.Once);
-        }
-
-        [Fact]
-        public async Task AccountController_Login_ShouldMoveJwtIntoHttpOnlyCookie_AndStripItFromBody()
-        {
-            // Arrange
-            SetHttpContextWithoutUser();
-            var loginDto = new LoginDto { UserName = "joao.silva", Password = "123456" };
-            var expiresAt = DateTime.UtcNow.AddMinutes(15);
-            var expectedResult = new UserDto
-            {
-                Id = "1",
-                UserName = "joao.silva",
-                JWT = "raw-jwt-value",
-                TokenExpiresAtUtc = expiresAt,
-            };
-            _userManagerServiceMock.Setup(_ => _.Login(loginDto)).ReturnsAsync(expectedResult);
-
-            // Act
-            var result = await _controller.Login(loginDto);
-
-            // Assert - the client never sees the raw token in the response body...
-            Assert.Null(result.Value!.JWT);
-            // ...it only travels in the httpOnly Set-Cookie header instead.
-            var setCookie = _controller.Response.Headers.SetCookie.ToString();
-            Assert.Contains("nexus_auth=raw-jwt-value", setCookie);
-            Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("samesite=strict", setCookie, StringComparison.OrdinalIgnoreCase);
-        }
-
-        [Fact]
-        public async Task AccountController_Login_ShouldNotTouchCookies_WhenServiceReturnsNoJwt()
-        {
-            // Arrange - e.g. an Unauthorized() result from the service still deserializes to a
-            // UserDto-shaped ActionResult with a null Value, or a DTO with no JWT set; either way
-            // there must be nothing to cookie-ify, and this must not touch Response at all (no
-            // ControllerContext is set up here, so touching Response would throw).
-            var loginDto = new LoginDto { UserName = "joao.silva", Password = "wrong" };
-            var expectedResult = new UserDto { Id = "1", UserName = "joao.silva" };
-            _userManagerServiceMock.Setup(_ => _.Login(loginDto)).ReturnsAsync(expectedResult);
-
-            // Act
-            var result = await _controller.Login(loginDto);
-
-            // Assert
-            Assert.Equal(expectedResult, result.Value);
-        }
-
-        [Fact]
-        public async Task AccountController_RefreshUserToken_ShouldMoveJwtIntoHttpOnlyCookie_AndStripItFromBody()
-        {
-            // Arrange
-            SetUser(name: "joao.silva");
-            var expiresAt = DateTime.UtcNow.AddMinutes(15);
-            var expectedResult = new UserDto
-            {
-                Id = "1",
-                UserName = "joao.silva",
-                JWT = "renewed-jwt-value",
-                TokenExpiresAtUtc = expiresAt,
-            };
-            _userManagerServiceMock
-                .Setup(_ => _.RefreshUserToken("joao.silva"))
-                .ReturnsAsync(expectedResult);
-
-            // Act
-            var result = await _controller.RefreshUserToken();
-
-            // Assert
-            Assert.Null(result.Value!.JWT);
-            var setCookie = _controller.Response.Headers.SetCookie.ToString();
-            Assert.Contains("nexus_auth=renewed-jwt-value", setCookie);
-        }
-
-        [Fact]
-        public void AccountController_Logout_ShouldExpireAuthCookie()
-        {
-            // Arrange
-            SetHttpContextWithoutUser();
-
-            // Act
-            var result = _controller.Logout();
-
-            // Assert
-            Assert.IsType<OkResult>(result);
-            var setCookie = _controller.Response.Headers.SetCookie.ToString();
-            Assert.Contains("nexus_auth=", setCookie);
-            // Cookies.Delete() re-appends the cookie with an already-past expiration, which is how
-            // ASP.NET Core actually clears an httpOnly cookie client-side can't touch directly.
-            Assert.Contains("expires=", setCookie, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]

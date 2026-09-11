@@ -9,12 +9,11 @@ namespace TSI.Nexus.Contracts.Interfaces
     public interface IJwtService
     {
         /// <summary>
-        /// Create a JWT for the provided user, along with its expiration. Optionally receive roles
-        /// to include on the token.
+        /// Create a JWT for the provided user. Optionally receive roles to include on the token.
         /// </summary>
         /// <param name="user"></param>
         /// <param name="roles"></param>
         /// <returns></returns>
-        JwtToken CreateJWT(User user, IEnumerable<string>? roles = null);
+        string CreateJWT(User user, IEnumerable<string>? roles = null);
     }
 }

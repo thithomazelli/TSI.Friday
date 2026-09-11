@@ -85,9 +85,9 @@ export class AppComponent implements OnInit, OnDestroy {
       this.activityEvents.forEach((event) => {
         const unlisten = this.renderer.listen('document', event, () => {
           // Só reseta se estiver logado
-          const storedUser = this.accountService.getStoredUser();
-          if (storedUser?.tokenExpiresAtUtc) {
-            this.accountService.startAutoLogout(storedUser.tokenExpiresAtUtc);
+          const jwt = this.accountService.getJWT();
+          if (jwt) {
+            this.accountService.startAutoLogout(jwt);
           }
         });
         this.activityUnlisteners.push(unlisten);
@@ -172,25 +172,24 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private refreshUser(): void {
-    const storedUser = this.accountService.getStoredUser();
+    const jwt = this.accountService.getJWT();
 
-    if (!storedUser) {
-      this.accountService.emitNoUser();
-      return;
-    }
-
-    // avoid calling refresh endpoint with expired token — logout instead
-    if (this.accountService.isTokenExpired(storedUser.tokenExpiresAtUtc)) {
-      this.accountService.logout();
-      return;
-    }
-
-    this.accountService.refreshUser().subscribe({
-      next: (_) => {},
-      error: (_) => {
+    if (jwt) {
+      // avoid calling refresh endpoint with expired token — logout instead
+      if (this.accountService.isTokenExpired(jwt)) {
         this.accountService.logout();
-      },
-    });
+        return;
+      }
+
+      this.accountService.refreshUser(jwt).subscribe({
+        next: (_) => {},
+        error: (_) => {
+          this.accountService.logout();
+        },
+      });
+    } else {
+      this.accountService.refreshUser(null).subscribe();
+    }
   }
 
   private checkRefreshOnNavigation(url: string): void {
@@ -205,18 +204,18 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const storedUser = this.accountService.getStoredUser();
-    if (!storedUser) {
+    const jwt = this.accountService.getJWT();
+    if (!jwt) {
       return;
     }
 
     // if token expired, force logout immediately
-    if (this.accountService.isTokenExpired(storedUser.tokenExpiresAtUtc)) {
+    if (this.accountService.isTokenExpired(jwt)) {
       this.accountService.logout();
       return;
     }
 
-    this.accountService.refreshUser().subscribe({
+    this.accountService.refreshUser(jwt).subscribe({
       next: () => {
         this.lastRefresh = Date.now();
       },
