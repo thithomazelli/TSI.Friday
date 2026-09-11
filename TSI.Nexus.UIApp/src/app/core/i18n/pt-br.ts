@@ -289,6 +289,7 @@ export const PT_BR = {
     CONSUMED_PART: 'Peça consumida (opcional)',
     PRODUCT_STOCK: 'estoque: {qty}',
     REFUELINGS: 'Abastecimentos',
+    FUEL_LOGS_REFRESHED: 'Abastecimentos atualizados com sucesso',
     NEW_REFUELING: 'Novo abastecimento',
     ODOMETER_SHORT: 'Odômetro',
     NO_REFUELING_REGISTERED: 'Nenhum abastecimento registrado',

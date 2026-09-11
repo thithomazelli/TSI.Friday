@@ -9,9 +9,12 @@
 
 <div [class.app-content]="!compact">
   <app-grid
+    #gridRef
     [compactView]="compact"
     [className]="'VEHICLES.REFUELINGS' | translate"
     [rowData]="rowData"
+    [serverSide]="isTopLevelList"
+    [dataSource]="pagedDataSource"
     [loading]="loading"
     [columnDefs]="columnDefs"
     [baseEndPoint]="baseEndPoint"

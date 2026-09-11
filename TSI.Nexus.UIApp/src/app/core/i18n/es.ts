@@ -289,6 +289,7 @@ export const ES = {
     CONSUMED_PART: 'Pieza consumida (opcional)',
     PRODUCT_STOCK: 'stock: {qty}',
     REFUELINGS: 'Repostajes',
+    FUEL_LOGS_REFRESHED: 'Repostajes actualizados con éxito',
     NEW_REFUELING: 'Nuevo repostaje',
     ODOMETER_SHORT: 'Odómetro',
     NO_REFUELING_REGISTERED: 'Ningún repostaje registrado',

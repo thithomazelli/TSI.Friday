@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Contracts.Interfaces
@@ -34,6 +35,12 @@ namespace TSI.Nexus.Contracts.Interfaces
         /// </summary>
         /// <returns>All registers found on the FuelLog database.</returns>
         Task<WebApiResponse<IEnumerable<FuelLog>>> FindAll();
+
+        /// <summary>
+        /// Server-side paged/sorted/filtered listing for the Fuel Logs grid.
+        /// </summary>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        Task<WebApiResponse<PagedResult<FuelLog>>> FindAllPaged(PagedRequest request);
 
         /// <summary>
         /// Method responsible to get only one FuelLog based on the ID received as parameter.

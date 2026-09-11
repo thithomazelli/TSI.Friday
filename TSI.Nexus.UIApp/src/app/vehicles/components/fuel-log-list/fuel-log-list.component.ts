@@ -6,18 +6,21 @@ import {
   OnDestroy,
   OnInit,
   SimpleChanges,
+  ViewChild,
 } from '@angular/core';
 import {
   FuelLog,
   FuelLogService,
   ModalService,
   NotificationService,
+  PagedRequest,
+  PagedResult,
   ResponseStatus,
   TranslationService,
   WebApiResponse,
 } from '@nexus/core';
 import { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community';
-import { Subject, takeUntil } from 'rxjs';
+import { Observable, Subject, takeUntil } from 'rxjs';
 import { NgIf } from '@angular/common';
 
 import { FuelLogDetailsModalComponent } from '../fuel-log-details-modal/fuel-log-details-modal.component';
@@ -56,6 +59,19 @@ export class FuelLogListComponent implements OnInit, OnChanges, OnDestroy {
     'Cancelado': 'secondary',
   };
 
+  @ViewChild('gridRef') private gridRef?: GridComponent<FuelLog>;
+
+  // True for the main Fuel Logs listing screen (server-side paginated); false for the tab
+  // embedded inside a Vehicle's details page, which shows that one vehicle's own (small) history
+  // and stays client-side exactly as before.
+  get isTopLevelList(): boolean {
+    return !this.vehicleId;
+  }
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<FuelLog>> => {
+    return this.fuelLogService.getAllPaged(request);
+  };
+
   private _destroy$ = new Subject<void>();
 
   constructor(
@@ -70,10 +86,18 @@ export class FuelLogListComponent implements OnInit, OnChanges, OnDestroy {
     this.translationService.language$
       .pipe(takeUntil(this._destroy$))
       .subscribe(() => this.initializeGrid());
-    this.load();
+    if (!this.isTopLevelList) {
+      this.load();
+    }
     this.fuelLogService.fuelLogChanged$
       .pipe(takeUntil(this._destroy$))
-      .subscribe(() => this.load());
+      .subscribe(() => {
+        if (this.isTopLevelList) {
+          this.gridRef?.gridApi?.purgeInfiniteCache();
+        } else {
+          this.load();
+        }
+      });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -104,7 +128,11 @@ export class FuelLogListComponent implements OnInit, OnChanges, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<FuelLog>) => {
         if (response.status === ResponseStatus.Success) {
-          this.rowData = this.rowData.filter((f) => f.id !== fuelLog.id);
+          if (this.isTopLevelList) {
+            this.gridRef?.gridApi?.purgeInfiniteCache();
+          } else {
+            this.rowData = this.rowData.filter((f) => f.id !== fuelLog.id);
+          }
         }
         this.modalService.hideModal();
         this.modalService.showSweetNotification('', response.message, response.status);
@@ -112,6 +140,15 @@ export class FuelLogListComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   refresh(): void {
+    // For the top-level list, <app-grid>'s own refresh button already purges the infinite cache
+    // (see GridComponent.onRefreshClicked) - this only needs the notification.
+    if (this.isTopLevelList) {
+      this.notificationService.showMessage(
+        ResponseStatus.Success,
+        this.translationService.instant('VEHICLES.FUEL_LOGS_REFRESHED'),
+      );
+      return;
+    }
     this.load(true);
   }
 

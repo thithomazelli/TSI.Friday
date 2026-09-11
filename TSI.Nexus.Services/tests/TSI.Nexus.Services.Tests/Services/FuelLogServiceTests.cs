@@ -3,6 +3,7 @@ using Moq;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Services.Tests.Services
@@ -172,6 +173,109 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             Assert.Equal(ResponseStatus.Success, result.Status);
             Assert.Empty(result.Data);
+        }
+
+        [Fact]
+        public async Task FuelLogService_FindAllPaged_ShouldReturnPagedLogs_WhenDataExists()
+        {
+            // Arrange
+            var logs = new List<FuelLog> { new() { Id = Guid.NewGuid(), VehicleId = _vehicleId } };
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<FuelLog, bool>>>(),
+                        It.IsAny<Func<IQueryable<FuelLog>, IOrderedQueryable<FuelLog>>>(),
+                        true,
+                        It.IsAny<Expression<Func<FuelLog, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((logs, logs.Count));
+
+            // Act
+            var result = await _service.FindAllPaged(new PagedRequest { Page = 1, PageSize = 50 });
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(logs.Count, result.Data!.TotalCount);
+            Assert.Equal(logs.Count, result.Data.Items.Count());
+        }
+
+        [Fact]
+        public async Task FuelLogService_FindAllPaged_ShouldReturnEmpty_WhenFleetModuleDisabled()
+        {
+            // Arrange
+            _featureToggleServiceMock
+                .Setup(_ => _.IsEnabledAsync(FeatureToggleKeys.FuelLog, FeatureToggleKeys.FleetModule))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _service.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Empty(result.Data!.Items);
+            Assert.Equal(0, result.Data.TotalCount);
+        }
+
+        [Fact]
+        public async Task FuelLogService_FindAllPaged_ShouldComputeSkipAndTake_FromPageAndPageSize()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<FuelLog, bool>>>(),
+                        It.IsAny<Func<IQueryable<FuelLog>, IOrderedQueryable<FuelLog>>>(),
+                        true,
+                        It.IsAny<Expression<Func<FuelLog, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((new List<FuelLog>(), 0));
+
+            // Act
+            await _service.FindAllPaged(new PagedRequest { Page = 2, PageSize = 25 });
+
+            // Assert
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        25,
+                        25,
+                        It.IsAny<Expression<Func<FuelLog, bool>>>(),
+                        It.IsAny<Func<IQueryable<FuelLog>, IOrderedQueryable<FuelLog>>>(),
+                        true,
+                        It.IsAny<Expression<Func<FuelLog, object>>[]>()
+                    ),
+                Times.Once
+            );
+        }
+
+        [Fact]
+        public async Task FuelLogService_FindAllPaged_ShouldReturnErrorResult_WhenRepositoryThrows()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<FuelLog, bool>>>(),
+                        It.IsAny<Func<IQueryable<FuelLog>, IOrderedQueryable<FuelLog>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<FuelLog, object>>[]>()
+                    )
+                )
+                .ThrowsAsync(new Exception());
+
+            // Act
+            var result = await _service.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
         }
 
         [Fact]

@@ -289,6 +289,7 @@ export const EN = {
     CONSUMED_PART: 'Part consumed (optional)',
     PRODUCT_STOCK: 'stock: {qty}',
     REFUELINGS: 'Refuelings',
+    FUEL_LOGS_REFRESHED: 'Fuel logs refreshed successfully',
     NEW_REFUELING: 'New refueling',
     ODOMETER_SHORT: 'Odometer',
     NO_REFUELING_REGISTERED: 'No refueling registered',

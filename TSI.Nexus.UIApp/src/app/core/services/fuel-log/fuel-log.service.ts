@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
-import { ApiService, ApiType, WebApiResponse } from '@nexus/core';
+import { ApiService, ApiType, PagedRequest, PagedResult, WebApiResponse } from '@nexus/core';
 import { FuelLog } from '@nexus/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { map, tap } from 'rxjs/operators';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({ providedIn: 'root' })
 export class FuelLogService {
@@ -22,6 +23,16 @@ export class FuelLogService {
     return this.apiService.get<WebApiResponse<FuelLog[]>>(
       `${this._baseEndPoint}/getByVehicle/${vehicleId}`,
     );
+  }
+
+  // Server-side paged/sorted/filtered listing for the top-level Fuel Logs grid - the tab
+  // embedded inside a Vehicle's details page keeps using getByVehicle() above instead.
+  getAllPaged(request: PagedRequest): Observable<PagedResult<FuelLog>> {
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<FuelLog>>
+      >(`${this._baseEndPoint}/getAllPaged?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data!));
   }
 
   add(fuelLog: FuelLog): Observable<WebApiResponse<FuelLog>> {

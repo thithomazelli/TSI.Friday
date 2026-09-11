@@ -1,6 +1,8 @@
+using System.Linq.Expressions;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Services
@@ -144,6 +146,47 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<FuelLog>>> FindAllPaged(PagedRequest request)
+        {
+            WebApiResponse<PagedResult<FuelLog>> result = new();
+
+            try
+            {
+                if (!await _featureToggleService.IsEnabledAsync(FeatureToggleKeys.FuelLog, FeatureToggleKeys.FleetModule))
+                {
+                    result.Data = new PagedResult<FuelLog> { Items = [], TotalCount = 0 };
+                    result.Status = ResponseStatus.Success;
+                    result.Message = "0 registro(s) encontrado(s).";
+                    return result;
+                }
+
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                var (fuelLogs, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true,
+                    includes: f => f.Vehicle
+                );
+
+                result.Data = new PagedResult<FuelLog> { Items = fuelLogs, TotalCount = totalCount };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "FuelLogService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de abastecimento na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
         public async Task<WebApiResponse<FuelLog>> FindById(Guid? id)
         {
             WebApiResponse<FuelLog> result = new();
@@ -211,6 +254,55 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Fuel Logs grid, mapped to the FuelLog property they
+        /// sort by - an unrecognized SortField (or none) falls back to the repository's own
+        /// default (CreateDate) ordering.
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<FuelLog, object>>> SortMap = new()
+        {
+            ["vehicle.plate"] = f => f.Vehicle.Plate,
+            ["date"] = f => f.Date,
+            ["odometer"] = f => f.Odometer,
+            ["liters"] = f => f.Liters,
+            ["pricePerLiter"] = f => f.PricePerLiter,
+            ["totalCost"] = f => f.TotalCost,
+            ["gasStation"] = f => f.GasStation,
+            ["status"] = f => f.Status,
+        };
+
+        /// <summary>
+        /// Quick filter OR's across the grid's own visible text columns.
+        /// </summary>
+        private static Expression<Func<FuelLog, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+
+            return f =>
+                !hasQuickFilter
+                || f.GasStation.Contains(quickFilter)
+                || f.Status.Contains(quickFilter)
+                || f.Vehicle.Plate.Contains(quickFilter);
+        }
+
+        private static Func<IQueryable<FuelLog>, IOrderedQueryable<FuelLog>> BuildOrderBy(
+            PagedRequest request
+        )
+        {
+            if (
+                string.IsNullOrWhiteSpace(request.SortField)
+                || !SortMap.TryGetValue(request.SortField, out var keySelector)
+            )
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
 
         /// <summary>
         /// Keeps Vehicle.Odometer in sync with the highest reading registered in a fuel log, so the
