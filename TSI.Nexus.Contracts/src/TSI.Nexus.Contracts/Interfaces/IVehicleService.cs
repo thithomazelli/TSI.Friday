@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Contracts.Interfaces
@@ -34,6 +35,13 @@ namespace TSI.Nexus.Contracts.Interfaces
         /// </summary>
         /// <returns>All registers found on the Vehicle database.</returns>
         Task<WebApiResponse<IEnumerable<Vehicle>>> FindAll();
+
+        /// <summary>
+        /// Server-side paged/sorted/filtered listing for the Vehicles grid (ag-Grid Infinite Row
+        /// Model) - unlike FindAll(), used only by the main listing screen.
+        /// </summary>
+        /// <param name="request">The requested page, sort and quick-filter text.</param>
+        Task<WebApiResponse<PagedResult<Vehicle>>> FindAllPaged(PagedRequest request);
 
         /// <summary>
         /// Method responsible to get only one Vehicle based on the ID received as parameter.

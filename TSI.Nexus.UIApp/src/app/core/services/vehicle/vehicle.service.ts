@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
-import { ApiService, ApiType, WebApiResponse } from '@nexus/core';
+import { ApiService, ApiType, PagedRequest, PagedResult, WebApiResponse } from '@nexus/core';
 import { Vehicle } from '@nexus/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import { shareReplay, startWith, switchMap, tap } from 'rxjs/operators';
+import { map, shareReplay, startWith, switchMap, tap } from 'rxjs/operators';
+import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({ providedIn: 'root' })
 export class VehicleService {
@@ -28,6 +29,16 @@ export class VehicleService {
 
   getAll(): Observable<WebApiResponse<Vehicle[]>> {
     return this.vehicles$;
+  }
+
+  // Server-side paged/sorted/filtered listing for the Vehicles grid - unlike getAll() above,
+  // used only by the main listing screen, never by pickers/forms that need the whole fleet.
+  getAllPaged(request: PagedRequest): Observable<PagedResult<Vehicle>> {
+    return this.apiService
+      .get<
+        WebApiResponse<PagedResult<Vehicle>>
+      >(`${this._baseEndPoint}/getAllPaged?${toPagedQueryString(request)}`)
+      .pipe(map((response) => response.data!));
   }
 
   getById(id: string): Observable<WebApiResponse<Vehicle>> {

@@ -1,14 +1,16 @@
-import { ChangeDetectionStrategy, Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import {
   ModalService,
   NotificationService,
+  PagedRequest,
+  PagedResult,
   ResponseStatus,
   TranslationService,
   Vehicle,
   VehicleService,
   WebApiResponse,
 } from '@nexus/core';
-import { Subscription, tap, Subject, takeUntil } from 'rxjs';
+import { Observable, Subscription, Subject, skip, takeUntil } from 'rxjs';
 import { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community';
 
 import { VehicleDetailsModalComponent } from './components/vehicle-details-modal/vehicle-details-modal.component';
@@ -53,9 +55,13 @@ export class VehiclesComponent implements OnInit, OnDestroy {
     };
   }
 
-  rowData: Vehicle[] = [];
   columnDefs: ColDef[] = [];
-  loading: boolean = false;
+
+  @ViewChild('gridRef') private gridRef?: GridComponent<Vehicle>;
+
+  pagedDataSource = (request: PagedRequest): Observable<PagedResult<Vehicle>> => {
+    return this.vehicleService.getAllPaged(request);
+  };
 
   private buildColumnDefs(): void {
     this.columnDefs = [
@@ -163,10 +169,13 @@ export class VehiclesComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.getVehicles();
+    // vehicleChanged$ replays immediately on subscribe (BehaviorSubject) - skip that first, inert
+    // emission so this doesn't purge the grid's cache before it has even loaded its first page.
     this._vehicleChangedSub = this.vehicleService.vehicleChanged$
-      .pipe(takeUntil(this._destroy$))
-      .subscribe(() => this.getVehicles());
+      .pipe(skip(1), takeUntil(this._destroy$))
+      .subscribe(() => {
+        this.gridRef?.gridApi?.purgeInfiniteCache();
+      });
   }
 
   ngOnDestroy(): void {
@@ -183,55 +192,27 @@ export class VehiclesComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this._destroy$))
       .subscribe((response: WebApiResponse<Vehicle>) => {
         if (response.status === ResponseStatus.Success) {
-          this.rowData = this.rowData.filter((v) => v.id !== vehicle.id);
+          this.gridRef?.gridApi?.purgeInfiniteCache();
         }
         this.notificationService.showMessage(response.status, response.message);
       });
   }
 
   refreshVehicles(): void {
-    this.loading = true;
-    this.vehicleService
-      .refresh()
-      .pipe(
-        tap({
-          next: () =>
-            this.notificationService.showMessage(
-              ResponseStatus.Success,
-              this.translationService.instant('VEHICLES.VEHICLES_REFRESHED'),
-            ),
-          error: () =>
-            this.notificationService.showMessage(
-              ResponseStatus.Error,
-              this.translationService.instant('VEHICLES.VEHICLES_REFRESH_ERROR'),
-            ),
-        }),
-        takeUntil(this._destroy$),
-      )
-      .subscribe({
-        next: (response: WebApiResponse<Vehicle[]>) => {
-          this.rowData = response.data ?? [];
-          this.loading = false;
-        },
-        error: () => {
-          this.loading = false;
-        },
-      });
-  }
-
-  private getVehicles(): void {
-    this.loading = true;
-    this.vehicleService
-      .getAll()
-      .pipe(takeUntil(this._destroy$))
-      .subscribe({
-        next: (response: WebApiResponse<Vehicle[]>) => {
-          this.rowData = response.data ?? [];
-          this.loading = false;
-        },
-        error: () => {
-          this.loading = false;
-        },
-      });
+    // <app-grid>'s own refresh button already purges the infinite cache (see
+    // GridComponent.onRefreshClicked) - this only needs to invalidate the separate shared getAll()
+    // cache (pickers/forms elsewhere) and show the notification.
+    this.vehicleService.refresh().pipe(takeUntil(this._destroy$)).subscribe({
+      next: () =>
+        this.notificationService.showMessage(
+          ResponseStatus.Success,
+          this.translationService.instant('VEHICLES.VEHICLES_REFRESHED'),
+        ),
+      error: () =>
+        this.notificationService.showMessage(
+          ResponseStatus.Error,
+          this.translationService.instant('VEHICLES.VEHICLES_REFRESH_ERROR'),
+        ),
+    });
   }
 }

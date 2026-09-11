@@ -4,6 +4,7 @@ using Moq;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Services.Tests.Services
@@ -190,6 +191,122 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             Assert.Equal(ResponseStatus.Success, result.Status);
             Assert.Equal(_vehicleListMock, result.Data);
+        }
+
+        [Fact]
+        public async Task VehicleService_FindAllPaged_ShouldReturnPagedVehicles_WhenDataExists()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Vehicle, bool>>>(),
+                        It.IsAny<Func<IQueryable<Vehicle>, IOrderedQueryable<Vehicle>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Vehicle, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((_vehicleListMock, _vehicleListMock.Count));
+
+            // Act
+            var result = await _vehicleService.FindAllPaged(
+                new PagedRequest { Page = 1, PageSize = 50 }
+            );
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Equal(_vehicleListMock.Count, result.Data!.TotalCount);
+            Assert.Equal(_vehicleListMock.Count, result.Data.Items.Count());
+        }
+
+        [Fact]
+        public async Task VehicleService_FindAllPaged_ShouldReturnEmpty_WhenFleetModuleDisabled()
+        {
+            // Arrange
+            _featureToggleServiceMock
+                .Setup(_ => _.IsEnabledAsync(FeatureToggleKeys.Vehicle, FeatureToggleKeys.FleetModule))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _vehicleService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Success, result.Status);
+            Assert.Empty(result.Data!.Items);
+            Assert.Equal(0, result.Data.TotalCount);
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Vehicle, bool>>>(),
+                        It.IsAny<Func<IQueryable<Vehicle>, IOrderedQueryable<Vehicle>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<Vehicle, object>>[]>()
+                    ),
+                Times.Never
+            );
+        }
+
+        [Fact]
+        public async Task VehicleService_FindAllPaged_ShouldComputeSkipAndTake_FromPageAndPageSize()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Vehicle, bool>>>(),
+                        It.IsAny<Func<IQueryable<Vehicle>, IOrderedQueryable<Vehicle>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Vehicle, object>>[]>()
+                    )
+                )
+                .ReturnsAsync((new List<Vehicle>(), 0));
+
+            // Act
+            await _vehicleService.FindAllPaged(new PagedRequest { Page = 2, PageSize = 25 });
+
+            // Assert
+            _repository.Verify(
+                r =>
+                    r.GetPagedAsync(
+                        25,
+                        25,
+                        It.IsAny<Expression<Func<Vehicle, bool>>>(),
+                        It.IsAny<Func<IQueryable<Vehicle>, IOrderedQueryable<Vehicle>>>(),
+                        true,
+                        It.IsAny<Expression<Func<Vehicle, object>>[]>()
+                    ),
+                Times.Once
+            );
+        }
+
+        [Fact]
+        public async Task VehicleService_FindAllPaged_ShouldReturnErrorResult_WhenRepositoryThrows()
+        {
+            // Arrange
+            _repository
+                .Setup(r =>
+                    r.GetPagedAsync(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<Expression<Func<Vehicle, bool>>>(),
+                        It.IsAny<Func<IQueryable<Vehicle>, IOrderedQueryable<Vehicle>>>(),
+                        It.IsAny<bool>(),
+                        It.IsAny<Expression<Func<Vehicle, object>>[]>()
+                    )
+                )
+                .ThrowsAsync(new Exception());
+
+            // Act
+            var result = await _vehicleService.FindAllPaged(new PagedRequest());
+
+            // Assert
+            Assert.Equal(ResponseStatus.Error, result.Status);
         }
 
         [Fact]

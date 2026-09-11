@@ -1,6 +1,8 @@
+using System.Linq.Expressions;
 using TSI.Nexus.Contracts.Enums;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
+using TSI.Nexus.Contracts.Models.DTOs;
 using TSI.Nexus.Contracts.Utilities;
 
 namespace TSI.Nexus.Services
@@ -178,6 +180,46 @@ namespace TSI.Nexus.Services
         }
 
         /// <inheritdoc />
+        public async Task<WebApiResponse<PagedResult<Vehicle>>> FindAllPaged(PagedRequest request)
+        {
+            WebApiResponse<PagedResult<Vehicle>> result = new();
+
+            try
+            {
+                if (!await _featureToggleService.IsEnabledAsync(FeatureToggleKeys.Vehicle, FeatureToggleKeys.FleetModule))
+                {
+                    result.Data = new PagedResult<Vehicle> { Items = [], TotalCount = 0 };
+                    result.Status = ResponseStatus.Success;
+                    result.Message = "0 registro(s) encontrado(s).";
+                    return result;
+                }
+
+                var filter = BuildFilter(request);
+                var orderBy = BuildOrderBy(request);
+
+                var (vehicles, totalCount) = await _repository.GetPagedAsync(
+                    skip: (Math.Max(request.Page, 1) - 1) * Math.Max(request.PageSize, 1),
+                    take: Math.Max(request.PageSize, 1),
+                    filter: filter,
+                    orderBy: orderBy,
+                    asNoTracking: true
+                );
+
+                result.Data = new PagedResult<Vehicle> { Items = vehicles, TotalCount = totalCount };
+                result.Status = ResponseStatus.Success;
+                result.Message = $"{totalCount} registro(s) encontrado(s).";
+            }
+            catch (Exception ex)
+            {
+                _logService.LogException(ex, "VehicleService.FindAllPaged", request);
+                result.Status = ResponseStatus.Error;
+                result.Message = "Não foi possível acessar os registros de Veículos na base de dados.";
+            }
+
+            return result;
+        }
+
+        /// <inheritdoc />
         public async Task<WebApiResponse<Vehicle>> FindById(Guid? id)
         {
             WebApiResponse<Vehicle> result = new();
@@ -281,6 +323,55 @@ namespace TSI.Nexus.Services
         #endregion Public methods
 
         #region Private methods
+
+        /// <summary>
+        /// Known sort fields exposed by the Vehicles grid, mapped to the Vehicle property they
+        /// sort by - an unrecognized SortField (or none) falls back to the repository's own
+        /// default (CreateDate) ordering.
+        /// </summary>
+        private static readonly Dictionary<string, Expression<Func<Vehicle, object>>> SortMap = new()
+        {
+            ["plate"] = v => v.Plate,
+            ["brand"] = v => v.Brand,
+            ["model"] = v => v.Model,
+            ["seatCapacity"] = v => v.SeatCapacity,
+            ["type"] = v => v.Type,
+            ["status"] = v => v.Status,
+            ["pricePerKm"] = v => v.PricePerKm,
+            ["dailyRate"] = v => v.DailyRate,
+        };
+
+        /// <summary>
+        /// Quick filter OR's across the grid's own visible text columns.
+        /// </summary>
+        private static Expression<Func<Vehicle, bool>> BuildFilter(PagedRequest request)
+        {
+            var quickFilter = request.QuickFilter;
+            var hasQuickFilter = !string.IsNullOrWhiteSpace(quickFilter);
+
+            return v =>
+                !hasQuickFilter
+                || v.Plate.Contains(quickFilter)
+                || v.Brand.Contains(quickFilter)
+                || v.Model.Contains(quickFilter);
+        }
+
+        private static Func<IQueryable<Vehicle>, IOrderedQueryable<Vehicle>> BuildOrderBy(
+            PagedRequest request
+        )
+        {
+            if (
+                string.IsNullOrWhiteSpace(request.SortField)
+                || !SortMap.TryGetValue(request.SortField, out var keySelector)
+            )
+            {
+                return null;
+            }
+
+            return request.SortDescending
+                ? q => q.OrderByDescending(keySelector)
+                : q => q.OrderBy(keySelector);
+        }
 
         /// <summary>
         /// Should verify if the Vehicle is already being registered on the database.
