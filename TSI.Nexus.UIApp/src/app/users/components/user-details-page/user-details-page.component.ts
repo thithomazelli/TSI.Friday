@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AccountService, PhotoService, User, UserService } from '@nexus/core';
 import { combineLatest, map, Subject, takeUntil, Observable } from 'rxjs';
@@ -16,6 +16,7 @@ import { FeatureToggleKeys } from '../../../core/models/feature-toggle.model';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-user-details-page',
     templateUrl: './user-details-page.component.html',
     styleUrl: './user-details-page.component.scss',

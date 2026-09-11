@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import {
@@ -10,6 +10,7 @@ import {
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-passenger-details-modal',
     templateUrl: './passenger-details-modal.component.html',
     styleUrl: './passenger-details-modal.component.scss',

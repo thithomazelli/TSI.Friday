@@ -1,10 +1,11 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { QuoteProduct } from '@nexus/core';
 import { QuoteProductFormComponent } from '../quote-product-form/quote-product-form.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-quote-product-details-modal',
     templateUrl: './quote-product-details-modal.component.html',
     styleUrl: './quote-product-details-modal.component.scss',

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ModalService, Vehicle, VehicleService, VehicleStatus, WebApiResponse } from '@nexus/core';
 import { NgIf, NgFor } from '@angular/common';
@@ -6,6 +6,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { VehicleDetailsModalComponent } from '../../../vehicles/components/vehicle-details-modal/vehicle-details-modal.component';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-vehicle-blocked-notification',
     templateUrl: './vehicle-blocked-notification.component.html',
     styleUrl: './vehicle-blocked-notification.component.scss',

@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   Input,
   OnChanges,
@@ -24,6 +25,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { formatCurrencyBRL, formatDateBR } from '../../../core/utilities/format-utils';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-service-order-list',
     templateUrl: './service-order-list.component.html',
     styleUrl: './service-order-list.component.scss',

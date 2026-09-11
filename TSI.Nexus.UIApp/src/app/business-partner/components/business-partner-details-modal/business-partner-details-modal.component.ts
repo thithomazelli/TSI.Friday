@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import {
   Individual,
@@ -10,6 +10,7 @@ import {
 import { BusinessPartnerFormComponent } from '../business-partner-form/business-partner-form.component';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-business-partner-details-modal',
     templateUrl: './business-partner-details-modal.component.html',
     styleUrl: './business-partner-details-modal.component.scss',

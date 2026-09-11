@@ -1,9 +1,10 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Driver } from '@nexus/core';
 import { DriverFormComponent } from '../driver-form/driver-form.component';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-driver-details-modal',
     templateUrl: './driver-details-modal.component.html',
     styleUrl: './driver-details-modal.component.scss',

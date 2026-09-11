@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   ModalService,
@@ -16,6 +16,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 // padrão dos demais alertas da navbar - busca os próprios dados via ProductService.getAll() e
 // filtra client-side, sem endpoint dedicado (ver VehicleBlockedNotificationComponent).
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-stock-alert-notification',
     templateUrl: './stock-alert-notification.component.html',
     styleUrl: './stock-alert-notification.component.scss',

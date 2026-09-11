@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import {
   AppLanguage,
   AppTheme,
@@ -12,6 +12,7 @@ import { NgIf, AsyncPipe } from '@angular/common';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-user-preferences',
     templateUrl: './user-preferences.component.html',
     styleUrl: './user-preferences.component.scss',

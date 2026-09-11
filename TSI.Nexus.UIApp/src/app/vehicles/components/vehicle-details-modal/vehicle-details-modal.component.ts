@@ -1,9 +1,10 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { TranslationService, Vehicle } from '@nexus/core';
 import { VehicleFormComponent } from '../vehicle-form/vehicle-form.component';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-vehicle-details-modal',
     templateUrl: './vehicle-details-modal.component.html',
     styleUrl: './vehicle-details-modal.component.scss',

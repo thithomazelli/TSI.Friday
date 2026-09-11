@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import {
   Commission,
   CommissionStatus,
@@ -45,6 +45,7 @@ interface DriverSummaryRow {
 }
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-fleet-report',
     templateUrl: './fleet-report.component.html',
     styleUrl: './fleet-report.component.scss',

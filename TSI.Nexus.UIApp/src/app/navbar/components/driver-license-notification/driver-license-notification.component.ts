@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Driver, DriverService, ModalService, WebApiResponse } from '@nexus/core';
 import { NgIf, NgFor, DatePipe } from '@angular/common';
@@ -6,6 +6,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { DriverDetailsModalComponent } from '../../../drivers/components/driver-details-modal/driver-details-modal.component';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-driver-license-notification',
     templateUrl: './driver-license-notification.component.html',
     styleUrl: './driver-license-notification.component.scss',

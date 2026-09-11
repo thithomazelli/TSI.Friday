@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   Input,
   OnChanges,
@@ -24,6 +25,7 @@ import { GridComponent } from '../../../shared/grid/grid.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-trip-driver-list',
     templateUrl: './trip-driver-list.component.html',
     styleUrl: './trip-driver-list.component.scss',

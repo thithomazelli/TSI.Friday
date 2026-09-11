@@ -1,5 +1,6 @@
 import { Observable } from 'rxjs';
 import {
+  ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   ElementRef,
@@ -23,6 +24,7 @@ import { CameraCaptureModalComponent } from './camera-capture-modal/camera-captu
 import { ImageCropModalComponent } from './image-crop-modal/image-crop-modal.component';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-photo',
     templateUrl: './photo.component.html',
     styleUrls: ['./photo.component.scss'],

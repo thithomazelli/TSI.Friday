@@ -1,10 +1,11 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { AgendaEvent } from '@nexus/core';
 import { EventFormComponent } from '../event-form/event-form.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-event-details-modal',
     templateUrl: './event-details-modal.component.html',
     styleUrl: './event-details-modal.component.scss',

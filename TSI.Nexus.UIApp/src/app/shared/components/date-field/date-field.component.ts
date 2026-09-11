@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, forwardRef } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, ViewChild, forwardRef } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { DatePicker } from 'primeng/datepicker';
 import { Bind } from 'primeng/bind';
@@ -20,6 +20,7 @@ const ALLOWED_CONTROL_KEYS = [
 ];
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-date-field',
     templateUrl: 'date-field.component.html',
     styleUrls: ['date-field.component.scss'],

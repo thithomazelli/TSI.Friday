@@ -1,9 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AccountService, ConfirmEmail, ModalService, User } from '@nexus/core';
 import { take } from 'rxjs';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-confirm-email',
     templateUrl: './confirm-email.component.html',
     styleUrl: './confirm-email.component.scss',

@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { User, UserService } from '@nexus/core';
 import { DateFieldComponent } from '../date-field/date-field.component';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -12,6 +12,7 @@ export interface Auditable {
 }
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-audit-tab',
     templateUrl: './audit-tab.component.html',
     styleUrl: './audit-tab.component.scss',

@@ -1,10 +1,11 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Order } from '@nexus/core';
 import { OrderFormComponent } from '../order-form/order-form.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-order-details-modal',
     templateUrl: './order-details-modal.component.html',
     styleUrl: './order-details-modal.component.scss',

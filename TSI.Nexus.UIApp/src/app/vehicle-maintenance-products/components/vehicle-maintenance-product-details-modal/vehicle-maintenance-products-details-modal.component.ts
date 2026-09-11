@@ -1,10 +1,11 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { VehicleMaintenanceProduct } from '@nexus/core';
 import { VehicleMaintenanceProductFormComponent } from '../vehicle-maintenance-product-form/vehicle-maintenance-products-form.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-vehicle-maintenance-product-details-modal',
     templateUrl: './vehicle-maintenance-products-details-modal.component.html',
     styleUrl: './vehicle-maintenance-products-details-modal.component.scss',

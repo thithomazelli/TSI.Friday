@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -27,6 +27,7 @@ import { EventDetailsModalComponent } from '../../../agenda/components/event-det
 // tab (entity/entityId set, new events default-link to that entity), mirroring how
 // AttachmentsComponent is embedded across the same 11 entities + User.
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-event-list',
     templateUrl: './event-list.component.html',
     styleUrl: './event-list.component.scss',

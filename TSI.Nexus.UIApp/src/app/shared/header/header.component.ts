@@ -1,7 +1,8 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { RouterLinkActive, RouterLink } from '@angular/router';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-header',
     templateUrl: './header.component.html',
     styleUrl: './header.component.scss',

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { Subscription, Subject, takeUntil, switchMap } from 'rxjs';
 import { Router } from '@angular/router';
 import { ModalService, PaymentService, TranslationService } from '@nexus/core';
@@ -9,6 +9,7 @@ import { NgIf, NgFor, NgClass } from '@angular/common';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-payment-notification',
     templateUrl: './payment-notification.component.html',
     styleUrl: './payment-notification.component.scss',

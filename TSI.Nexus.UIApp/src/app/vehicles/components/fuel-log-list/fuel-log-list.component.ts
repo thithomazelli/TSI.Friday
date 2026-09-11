@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   Input,
   OnChanges,
@@ -26,6 +27,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { formatCurrencyBRL, formatDateBR } from '../../../core/utilities/format-utils';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-fuel-log-list',
     templateUrl: './fuel-log-list.component.html',
     styleUrl: './fuel-log-list.component.scss',

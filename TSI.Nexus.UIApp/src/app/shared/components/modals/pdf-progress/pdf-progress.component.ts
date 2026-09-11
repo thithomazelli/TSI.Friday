@@ -1,4 +1,4 @@
-import { Component, Inject, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject, OnDestroy } from '@angular/core';
 import { NgIf, NgSwitch, NgSwitchCase } from '@angular/common';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { TranslationService } from '@nexus/core';
@@ -12,6 +12,7 @@ export interface PdfProgressFile {
 type PdfProgressState = 'progress' | 'indeterminate' | 'success' | 'error';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-pdf-progress',
   templateUrl: './pdf-progress.component.html',
   styleUrl: './pdf-progress.component.scss',

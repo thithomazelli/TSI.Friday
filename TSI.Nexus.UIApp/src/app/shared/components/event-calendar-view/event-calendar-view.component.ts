@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   EventEmitter,
   Input,
@@ -24,6 +25,7 @@ import { Subject, takeUntil } from 'rxjs';
 // renders whatever AgendaEvent[] it's given, colored by eventTypeColor, and reports back clicks
 // (edit) and drag-selected ranges (create prefilled).
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-event-calendar-view',
     templateUrl: './event-calendar-view.component.html',
     styleUrl: './event-calendar-view.component.scss',

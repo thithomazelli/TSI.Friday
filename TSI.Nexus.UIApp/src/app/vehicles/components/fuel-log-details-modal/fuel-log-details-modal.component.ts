@@ -1,10 +1,11 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { FuelLog } from '@nexus/core';
 import { FuelLogFormComponent } from '../fuel-log-form/fuel-log-form.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-fuel-log-details-modal',
     templateUrl: './fuel-log-details-modal.component.html',
     styleUrl: './fuel-log-details-modal.component.scss',

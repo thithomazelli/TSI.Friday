@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
 import { NgClass, NgIf, NgSwitch, NgSwitchCase } from '@angular/common';
@@ -16,6 +16,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
 type Step = 'request' | 'sent' | 'reset' | 'done';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-reset-password',
     templateUrl: './reset-password.component.html',
     styleUrl: './reset-password.component.scss',

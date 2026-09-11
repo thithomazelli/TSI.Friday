@@ -1,4 +1,4 @@
-import { Component, Input, forwardRef } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, forwardRef } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { CurrencyService } from '@nexus/core';
 import { NgClass } from '@angular/common';
@@ -6,6 +6,7 @@ import { NgClass } from '@angular/common';
 let currencyFieldIdCounter = 0;
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-currency-field',
     templateUrl: './currency-field.component.html',
     styleUrl: './currency-field.component.scss',

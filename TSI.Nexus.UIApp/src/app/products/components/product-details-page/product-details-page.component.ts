@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Product, ProductService, ProductType, TranslationService } from '@nexus/core';
 import { Subject, takeUntil } from 'rxjs';
@@ -13,6 +13,7 @@ import { LoadingSpinnerComponent } from '../../../shared/components/loading-spin
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-product-details-page',
     templateUrl: './product-details-page.component.html',
     styleUrl: './product-details-page.component.scss',

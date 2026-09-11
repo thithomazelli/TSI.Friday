@@ -1,5 +1,6 @@
 import {
   AfterViewInit,
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   Inject,
@@ -19,6 +20,7 @@ export interface ImageCropModalData {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-image-crop-modal',
   templateUrl: './image-crop-modal.component.html',
   styleUrl: './image-crop-modal.component.scss',

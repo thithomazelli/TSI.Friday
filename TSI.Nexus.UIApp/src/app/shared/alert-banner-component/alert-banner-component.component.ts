@@ -1,8 +1,9 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnInit } from '@angular/core';
 import { TranslationService } from '@nexus/core';
 import { NgClass } from '@angular/common';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-alert-banner-component',
     templateUrl: './alert-banner-component.component.html',
     styleUrl: './alert-banner-component.component.scss',

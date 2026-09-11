@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { FormsModule } from '@angular/forms';
 import { NgFor, NgIf } from '@angular/common';
@@ -13,6 +13,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 // no extra line-item fields to fill in, so this is just a searchable list that closes with the
 // chosen Vehicle instead of a full add/edit form.
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-vehicle-picker-modal',
   templateUrl: './vehicle-picker-modal.component.html',
   styleUrl: './vehicle-picker-modal.component.scss',

@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
 import {
   ModalService,
   NotificationService,
@@ -20,6 +20,7 @@ import { TranslatePipe } from '../core/pipes/translate.pipe';
 // OrderProductsComponent instead of the lighter app-product-picker-grid used for staging in the
 // create-mode form.
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-vehicle-maintenance-products',
     templateUrl: './vehicle-maintenance-products.component.html',
     styleUrl: './vehicle-maintenance-products.component.scss',

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   AccountService,
@@ -20,6 +20,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 // via EventService.getByUserId) and filters client-side, this time against the
 // UpcomingEventReminder AlertConfig's thresholdDays instead of a hardcoded stock level.
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-upcoming-event-notification',
     templateUrl: './upcoming-event-notification.component.html',
     styleUrl: './upcoming-event-notification.component.scss',

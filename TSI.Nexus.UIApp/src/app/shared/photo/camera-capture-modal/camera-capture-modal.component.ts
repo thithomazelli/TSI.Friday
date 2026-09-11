@@ -1,5 +1,6 @@
 import {
   AfterViewInit,
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   OnDestroy,
@@ -10,6 +11,7 @@ import { NgIf } from '@angular/common';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-camera-capture-modal',
   templateUrl: './camera-capture-modal.component.html',
   styleUrl: './camera-capture-modal.component.scss',

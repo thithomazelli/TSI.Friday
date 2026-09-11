@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import {
   FeatureFlagService,
   FeatureToggle,
@@ -17,6 +17,7 @@ export interface FeatureToggleGroupView {
 }
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-feature-toggles',
     templateUrl: './feature-toggles.component.html',
     styleUrl: './feature-toggles.component.scss',

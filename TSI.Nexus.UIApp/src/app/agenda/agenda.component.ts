@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 
 import { HeaderComponent } from '../shared/header/header.component';
@@ -6,6 +6,7 @@ import { EventListComponent } from '../shared/components/event-list/event-list.c
 import { TranslatePipe } from '../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-agenda',
     templateUrl: './agenda.component.html',
     styleUrl: './agenda.component.scss',

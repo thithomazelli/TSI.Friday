@@ -1,8 +1,9 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   Input,
-  OnInit,
   OnChanges,
+  OnInit,
   SimpleChanges,
 } from '@angular/core';
 import { FormBuilder, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -35,6 +36,7 @@ import { ClickDirective } from '../../../core/directives/click.directive';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-vehicle-form',
     templateUrl: './vehicle-form.component.html',
     styleUrl: './vehicle-form.component.scss',

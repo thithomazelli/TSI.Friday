@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 
 import { Address } from '@nexus/core';
@@ -6,6 +6,7 @@ import { AddressFormComponent } from '../address-form/address-form.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-address-details-modal',
     templateUrl: './address-details-modal.component.html',
     styleUrl: './address-details-modal.component.scss',

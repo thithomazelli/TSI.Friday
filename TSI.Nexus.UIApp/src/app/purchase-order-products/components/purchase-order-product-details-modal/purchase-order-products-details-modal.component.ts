@@ -1,10 +1,11 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { PurchaseOrderProduct } from '@nexus/core';
 import { PurchaseOrderProductsFormComponent } from '../purchase-order-product-form/purchase-order-products-form.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-purchase-order-product-details-modal',
     templateUrl: './purchase-order-products-details-modal.component.html',
     styleUrl: './purchase-order-products-details-modal.component.scss',

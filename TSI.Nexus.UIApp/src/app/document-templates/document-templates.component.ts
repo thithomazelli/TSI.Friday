@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import {
   DocumentTemplate,
   DocumentTemplateService,
@@ -14,6 +14,7 @@ import { NgIf, NgFor } from '@angular/common';
 import { TranslatePipe } from '../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-document-templates',
     templateUrl: './document-templates.component.html',
     styleUrl: './document-templates.component.scss',

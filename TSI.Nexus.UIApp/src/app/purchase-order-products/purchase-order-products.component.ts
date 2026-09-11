@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
 import {
   ModalService,
   NotificationService,
@@ -19,6 +19,7 @@ import { TranslatePipe } from '../core/pipes/translate.pipe';
 // "Produtos" tab (parentId = purchaseOrderId): full CRUD, the actual way items get
 // added/edited/removed from a Pedido de Compra. Mirrors OrderProductsComponent.
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-purchase-order-products',
     templateUrl: './purchase-order-products.component.html',
     styleUrl: './purchase-order-products.component.scss',

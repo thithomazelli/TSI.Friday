@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 
 import {
   ApiService,
@@ -21,6 +21,7 @@ import { TranslatePipe } from '../core/pipes/translate.pipe';
 import { formatDateBR } from '../core/utilities/format-utils';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-reports',
     templateUrl: './reports.component.html',
     styleUrl: './reports.component.scss',

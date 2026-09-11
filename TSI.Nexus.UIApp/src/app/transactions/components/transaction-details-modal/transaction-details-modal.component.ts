@@ -1,10 +1,11 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Transaction } from '@nexus/core';
 import { TransactionFormComponent } from '../transactions-form/transaction-form.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-transaction-details-modal',
     templateUrl: './transaction-details-modal.component.html',
     styleUrl: './transaction-details-modal.component.scss',

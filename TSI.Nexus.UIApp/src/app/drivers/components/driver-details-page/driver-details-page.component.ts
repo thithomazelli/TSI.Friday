@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Driver, DriverService, TranslationService } from '@nexus/core';
 import { combineLatest, map, Subject, takeUntil, Observable } from 'rxjs';
@@ -18,6 +18,7 @@ import { FeatureToggleKeys } from '../../../core/models/feature-toggle.model';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-driver-details-page',
     templateUrl: './driver-details-page.component.html',
     styleUrl: './driver-details-page.component.scss',

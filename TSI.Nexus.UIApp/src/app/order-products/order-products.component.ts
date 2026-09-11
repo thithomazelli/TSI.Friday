@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
 import {
   ModalService,
   NotificationService,
@@ -21,6 +21,7 @@ import { TranslatePipe } from '../core/pipes/translate.pipe';
 // - Product details page, "Histórico" tab (parentId = productId, isFromProductsView = true):
 //   read-only list of which orders this product has been sold on.
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-order-products',
     templateUrl: './order-products.component.html',
     styleUrl: './order-products.component.scss',

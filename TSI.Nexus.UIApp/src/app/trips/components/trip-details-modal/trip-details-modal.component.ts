@@ -1,10 +1,11 @@
-import { Component, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Trip } from '@nexus/core';
 import { TripFormComponent } from '../trip-form/trip-form.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
+    changeDetection: ChangeDetectionStrategy.OnPush,
     selector: 'app-trip-details-modal',
     templateUrl: './trip-details-modal.component.html',
     styleUrl: './trip-details-modal.component.scss',
