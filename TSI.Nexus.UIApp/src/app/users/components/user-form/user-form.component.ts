@@ -35,7 +35,7 @@ import { tap, take } from 'rxjs/operators';
 // The one place this component needs the class itself at runtime (reopening the modal after a
 // cancelled delete, in remove() below) loads it dynamically instead, for the same reason.
 import type { UserDetailsModalComponent } from '../user-details-modal/user-details-modal.component';
-import { NgClass, NgFor } from '@angular/common';
+import { NgClass, NgFor, NgIf } from '@angular/common';
 import { ValidationMessagesComponent } from '../../../shared/components/errors/validation-messages/validation-messages.component';
 import { ClickDirective } from '../../../core/directives/click.directive';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
@@ -49,6 +49,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
         NgClass,
         ReactiveFormsModule,
         NgFor,
+        NgIf,
         ValidationMessagesComponent,
         ClickDirective,
         TranslatePipe,
