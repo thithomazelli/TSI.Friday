@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace TSI.Nexus.Contracts.Interfaces
 {
@@ -266,11 +267,15 @@ namespace TSI.Nexus.Contracts.Interfaces
         Task<int> CountAsync(Expression<Func<T, bool>> filter);
 
         /// <summary>
-        /// Execute a bulk update on entities matching the filter. The updateAction will be applied to each entity.
-        /// Implementations may translate this to a single UPDATE statement when possible, otherwise they may load
-        /// the entities, apply the action and save changes. Returns the number of rows affected.
+        /// Executes a bulk update as a single SQL UPDATE statement on entities matching the filter,
+        /// bypassing the change tracker. <paramref name="setPropertyCalls"/> declares the properties
+        /// to set, e.g. <c>s =&gt; s.SetProperty(x =&gt; x.Status, PaymentStatus.Approved)</c>.
+        /// Returns the number of rows affected.
         /// </summary>
-        Task<int> ExecuteUpdateAsync(Expression<Func<T, bool>> filter, Action<T> updateAction);
+        Task<int> ExecuteUpdateAsync(
+            Expression<Func<T, bool>> filter,
+            Expression<Func<SetPropertyCalls<T>, SetPropertyCalls<T>>> setPropertyCalls
+        );
 
         /// <summary>
         /// Returns one page of results plus the total row count matching <paramref name="filter"/>

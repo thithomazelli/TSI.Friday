@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Linq.Expressions;
 using AutoMapper;
+using Microsoft.EntityFrameworkCore.Query;
 using FluentAssertions;
 using Moq;
 using TSI.Nexus.Contracts.Enums;
@@ -271,7 +272,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.ExecuteUpdateAsync(
                         It.IsAny<Expression<Func<Payment, bool>>>(),
-                        It.IsAny<Action<Payment>>()
+                        It.IsAny<Expression<Func<SetPropertyCalls<Payment>, SetPropertyCalls<Payment>>>>()
                     )
                 )
                 .ReturnsAsync(2);
@@ -296,7 +297,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 r =>
                     r.ExecuteUpdateAsync(
                         It.IsAny<Expression<Func<Payment, bool>>>(),
-                        It.IsAny<Action<Payment>>()
+                        It.IsAny<Expression<Func<SetPropertyCalls<Payment>, SetPropertyCalls<Payment>>>>()
                     ),
                 Times.Once
             );

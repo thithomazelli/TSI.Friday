@@ -445,27 +445,45 @@ namespace TSI.Nexus.Repository.Tests
             Assert.Equal(2, count);
         }
 
+        // ExecuteUpdateAsync issues a real SQL UPDATE via EF Core, which the InMemory provider
+        // (used by every other test in this class) does not support - SQLite (a relational
+        // provider) is the lightest option that does, matching OverdueRepositoryTests.
         [Fact]
         public async Task ExecuteUpdateAsync_ShouldUpdateMatchingEntitiesAndReturnCount()
         {
-            var driver = NewDriver("Before");
-            await _repository.AddAsync(driver);
+            using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Filename=:memory:");
+            connection.Open();
+            var options = new DbContextOptionsBuilder<MyDBContextEF>().UseSqlite(connection).Options;
+            using var context = new MyDBContextEF(options);
+            context.Database.EnsureCreated();
+            var repository = new Repository<Driver>(context);
 
-            var updatedCount = await _repository.ExecuteUpdateAsync(
+            var driver = NewDriver("Before");
+            await repository.AddAsync(driver);
+
+            var updatedCount = await repository.ExecuteUpdateAsync(
                 d => d.Name == "Before",
-                d => d.Name = "After"
+                s => s.SetProperty(d => d.Name, "After")
             );
 
             Assert.Equal(1, updatedCount);
-            Assert.Equal("After", (await _context.Driver.FindAsync(driver.Id))!.Name);
+            context.ChangeTracker.Clear();
+            Assert.Equal("After", (await context.Driver.FindAsync(driver.Id))!.Name);
         }
 
         [Fact]
         public async Task ExecuteUpdateAsync_ShouldReturnZero_WhenNoEntitiesMatch()
         {
-            var updatedCount = await _repository.ExecuteUpdateAsync(
+            using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Filename=:memory:");
+            connection.Open();
+            var options = new DbContextOptionsBuilder<MyDBContextEF>().UseSqlite(connection).Options;
+            using var context = new MyDBContextEF(options);
+            context.Database.EnsureCreated();
+            var repository = new Repository<Driver>(context);
+
+            var updatedCount = await repository.ExecuteUpdateAsync(
                 d => d.Name == "NoSuchDriver",
-                d => d.Name = "After"
+                s => s.SetProperty(d => d.Name, "After")
             );
 
             Assert.Equal(0, updatedCount);

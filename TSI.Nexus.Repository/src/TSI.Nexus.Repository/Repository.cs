@@ -1,5 +1,6 @@
 ﻿using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
 using TSI.Nexus.Data;
@@ -457,45 +458,12 @@ namespace TSI.Nexus.Repository
         }
 
         /// <inheritdoc />
-        public async Task<int> ExecuteUpdateAsync(Expression<Func<T, bool>> filter, Action<T> updateAction)
+        public async Task<int> ExecuteUpdateAsync(
+            Expression<Func<T, bool>> filter,
+            Expression<Func<SetPropertyCalls<T>, SetPropertyCalls<T>>> setPropertyCalls
+        )
         {
-            // Try to use EF Core's ExecuteUpdateAsync if available (EF Core7+). If not available,
-            // fallback to loading entities, applying action and saving.
-            try
-            {
-                // Use reflection to detect ExecuteUpdateAsync extension method on IQueryable<T>
-                var query = _myDbContext.Set<T>().Where(filter);
-
-                // Check if EF Core supports ExecuteUpdateAsync by attempting to get method info
-                var executeUpdateMethod = typeof(EntityFrameworkQueryableExtensions)
-                    .GetMethods()
-                    .FirstOrDefault(m => m.Name == "ExecuteUpdateAsync" && m.GetParameters().Length >=2);
-
-                if (executeUpdateMethod != null)
-                {
-                    // Cannot dynamically build update expression from Action<T>; fallback to loading
-                    // because building Expression<Func<T, T>> from Action<T> is non-trivial here.
-                }
-            }
-            catch
-            {
-                // ignore and fallback
-            }
-
-            // Fallback: load entities, apply action and save
-            var list = await _myDbContext.Set<T>().Where(filter).ToListAsync();
-            foreach (var item in list)
-            {
-                updateAction(item);
-            }
-
-            if (list.Any())
-            {
-                _myDbContext.UpdateRange(list);
-                await SaveChangesAsync();
-            }
-
-            return list.Count;
+            return await _myDbContext.Set<T>().Where(filter).ExecuteUpdateAsync(setPropertyCalls);
         }
 
         /// <inheritdoc />

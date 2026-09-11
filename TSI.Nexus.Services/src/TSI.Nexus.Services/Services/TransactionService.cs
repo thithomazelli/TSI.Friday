@@ -108,7 +108,7 @@ namespace TSI.Nexus.Services
                         p =>
                             p.TransactionId == transactionEntity.Id
                             && p.Status != PaymentStatus.Approved,
-                        p => p.Status = PaymentStatus.Approved
+                        s => s.SetProperty(p => p.Status, PaymentStatus.Approved)
                     );
                 }
 
