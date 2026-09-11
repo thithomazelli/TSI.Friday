@@ -211,6 +211,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -235,6 +236,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -257,6 +259,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -290,6 +293,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -318,6 +322,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -342,6 +347,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -694,6 +700,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         o => o.BusinessPartner,
                         op => op.OrderProducts,
                         t => t.Transaction,
@@ -720,6 +727,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.FirstOrDefaultAsync(
                         It.IsAny<Expression<Func<Order, bool>>>(),
+                        true,
                         o => o.BusinessPartner,
                         p => p.Transaction
                     )
@@ -744,6 +752,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.FirstOrDefaultAsync(
                         It.IsAny<Expression<Func<Order, bool>>>(),
+                        true,
                         o => o.BusinessPartner,
                         p => p.Transaction
                     )
@@ -768,6 +777,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.FirstOrDefaultAsync(
                         It.IsAny<Expression<Func<Order, bool>>>(),
+                        true,
                         o => o.BusinessPartner,
                         p => p.Transaction
                     )
@@ -790,7 +800,7 @@ namespace TSI.Nexus.Services.Tests.Services
             var orders = new List<Order> { new() { Id = Guid.NewGuid(), BusinessPartnerId = businessPartnerId } };
             _repository
                 .Setup(r =>
-                    r.QueryAsync(It.IsAny<Expression<Func<Order, bool>>>(), p => p.Transaction)
+                    r.QueryAsync(It.IsAny<Expression<Func<Order, bool>>>(), true, p => p.Transaction)
                 )
                 .ReturnsAsync(orders);
 
@@ -809,7 +819,7 @@ namespace TSI.Nexus.Services.Tests.Services
             var businessPartnerId = Guid.NewGuid();
             _repository
                 .Setup(r =>
-                    r.QueryAsync(It.IsAny<Expression<Func<Order, bool>>>(), p => p.Transaction)
+                    r.QueryAsync(It.IsAny<Expression<Func<Order, bool>>>(), true, p => p.Transaction)
                 )
                 .ThrowsAsync(new Exception("boom"));
 
@@ -828,7 +838,7 @@ namespace TSI.Nexus.Services.Tests.Services
             var productId = Guid.NewGuid();
             var orders = new List<Order> { new() { Id = Guid.NewGuid() } };
             _repository
-                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Order, bool>>>()))
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Order, bool>>>(), true))
                 .ReturnsAsync(orders);
 
             // Act
@@ -845,7 +855,7 @@ namespace TSI.Nexus.Services.Tests.Services
             // Arrange
             var productId = Guid.NewGuid();
             _repository
-                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Order, bool>>>()))
+                .Setup(r => r.QueryAsync(It.IsAny<Expression<Func<Order, bool>>>(), true))
                 .ThrowsAsync(new Exception("boom"));
 
             // Act

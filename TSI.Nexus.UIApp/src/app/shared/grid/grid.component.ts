@@ -4,7 +4,16 @@ import {
   AG_GRID_LOCALE_EN,
   AG_GRID_LOCALE_ES,
 } from '@ag-grid-community/locale';
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges,
+} from '@angular/core';
 import { cardCollapseAnimation } from '../../core/animations/card-collapse.animation';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ModalService, TranslationService } from '@nexus/core';
@@ -17,7 +26,7 @@ import {
   ModuleRegistry,
   RowDoubleClickedEvent,
 } from 'ag-grid-community';
-import { map } from 'rxjs';
+import { Subject, map, takeUntil } from 'rxjs';
 import { NgIf, NgClass, NgTemplateOutlet, LowerCasePipe } from '@angular/common';
 import { AgGridAngular } from 'ag-grid-angular';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
@@ -49,7 +58,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
         LowerCasePipe,
     ],
 })
-export class GridComponent<T> implements OnInit, OnChanges {
+export class GridComponent<T> implements OnInit, OnChanges, OnDestroy {
   @Input()
   filtersTemplate?: TemplateRef<any>;
 
@@ -115,6 +124,7 @@ export class GridComponent<T> implements OnInit, OnChanges {
   };
 
   private _parentId: string | null = null;
+  private _destroy$ = new Subject<void>();
   private readonly _actionsMap: {
     [key: string]: (data: any) => void;
   } = {
@@ -141,12 +151,15 @@ export class GridComponent<T> implements OnInit, OnChanges {
     this.gridStyle = this.compactView ? 'compact-view' : 'regular-view';
 
     this.activatedRoute.paramMap
-      .pipe(map((params) => params.get('id')))
+      .pipe(
+        map((params) => params.get('id')),
+        takeUntil(this._destroy$),
+      )
       .subscribe((id) => {
         this._parentId = id;
       });
 
-    this.translationService.language$.subscribe((language) => {
+    this.translationService.language$.pipe(takeUntil(this._destroy$)).subscribe((language) => {
       // ag-grid's own localeText isn't a live-updatable grid option - it's read once when the
       // grid initializes. The initial locale (set in the constructor from the current language)
       // covers the common case; a full reload picks up a language switch made mid-session.
@@ -169,6 +182,11 @@ export class GridComponent<T> implements OnInit, OnChanges {
     if (changes['loading'] && !changes['loading'].firstChange) {
       this.applyLoadingOverlay();
     }
+  }
+
+  ngOnDestroy(): void {
+    this._destroy$.next();
+    this._destroy$.complete();
   }
 
   onGridReady(params: GridReadyEvent): void {

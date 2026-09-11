@@ -221,6 +221,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         o => o.BusinessPartner,
                         op => op.PurchaseOrderProducts,
                         t => t.Transaction,
@@ -253,6 +254,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         o => o.BusinessPartner,
                         op => op.PurchaseOrderProducts,
                         t => t.Transaction,
@@ -718,6 +720,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 r =>
                     r.GetByIdAsync(
                         It.IsAny<Guid?>(),
+                        true,
                         It.IsAny<Expression<Func<PurchaseOrder, object>>>(),
                         It.IsAny<Expression<Func<PurchaseOrder, object>>>(),
                         It.IsAny<Expression<Func<PurchaseOrder, object>>>(),
@@ -738,6 +741,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         o => o.BusinessPartner,
                         op => op.PurchaseOrderProducts,
                         t => t.Transaction,
@@ -764,6 +768,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.GetByIdAsync(
                         id,
+                        true,
                         It.IsAny<Expression<Func<PurchaseOrder, object>>>(),
                         It.IsAny<Expression<Func<PurchaseOrder, object>>>(),
                         It.IsAny<Expression<Func<PurchaseOrder, object>>>(),
@@ -792,6 +797,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.QueryAsync(
                         It.IsAny<Expression<Func<PurchaseOrder, bool>>>(),
+                        true,
                         It.IsAny<Expression<Func<PurchaseOrder, object>>>()
                     )
                 )
@@ -813,6 +819,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(r =>
                     r.QueryAsync(
                         It.IsAny<Expression<Func<PurchaseOrder, bool>>>(),
+                        true,
                         It.IsAny<Expression<Func<PurchaseOrder, object>>>()
                     )
                 )

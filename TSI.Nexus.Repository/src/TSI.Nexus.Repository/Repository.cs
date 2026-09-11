@@ -128,6 +128,35 @@ namespace TSI.Nexus.Repository
         }
 
         /// <inheritdoc />
+        public async Task<T> GetByIdAsync(
+            object id,
+            bool asNoTracking,
+            params Expression<Func<T, object>>[] includes
+        )
+        {
+            if (!asNoTracking)
+            {
+                return await GetByIdAsync(id, includes);
+            }
+
+            IQueryable<T> query = _myDbContext.Set<T>().AsNoTracking();
+
+            if (includes != null)
+            {
+                foreach (var include in includes)
+                {
+                    query = query.Include(include);
+                }
+            }
+
+            var entity = await query.SingleOrDefaultAsync(e =>
+                EF.Property<object>(e, "Id").Equals(id)
+            );
+
+            return entity ?? throw new KeyNotFoundException($"Entity '{id}' not found.");
+        }
+
+        /// <inheritdoc />
         public async Task<T> GetByNameAsync(string name)
         {
             var entity = await _myDbContext.Set<T>().FindAsync(name);
@@ -168,6 +197,34 @@ namespace TSI.Nexus.Repository
         )
         {
             IQueryable<T> query = _myDbContext.Set<T>().Where(filter);
+
+            if (includes != null && includes.Length > 0)
+            {
+                foreach (var include in includes)
+                {
+                    query = query.Include(include);
+                }
+            }
+
+            var entity = await query.FirstOrDefaultAsync();
+
+            return entity
+                ?? throw new InvalidOperationException("No entity found matching the filter.");
+        }
+
+        /// <inheritdoc />
+        public async Task<T> FirstOrDefaultAsync(
+            Expression<Func<T, bool>> filter,
+            bool asNoTracking,
+            params Expression<Func<T, object>>[] includes
+        )
+        {
+            if (!asNoTracking)
+            {
+                return await FirstOrDefaultAsync(filter, includes);
+            }
+
+            IQueryable<T> query = _myDbContext.Set<T>().AsNoTracking().Where(filter);
 
             if (includes != null && includes.Length > 0)
             {

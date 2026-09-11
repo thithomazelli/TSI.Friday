@@ -167,7 +167,7 @@ namespace TSI.Nexus.Services.Tests.Services
 
             _repository
                 .Setup(r =>
-                    r.GetByIdAsync(id, c => c.BusinessPartner, o => o.Order, p => p.Payments)
+                    r.GetByIdAsync(id, true, c => c.BusinessPartner, o => o.Order, p => p.Payments)
                 )
                 .ReturnsAsync(transactionEntity);
 
@@ -184,7 +184,7 @@ namespace TSI.Nexus.Services.Tests.Services
             // Assert
             expected.Should().BeEquivalentTo(result);
             _repository.Verify(
-                r => r.GetByIdAsync(id, c => c.BusinessPartner, o => o.Order, p => p.Payments),
+                r => r.GetByIdAsync(id, true, c => c.BusinessPartner, o => o.Order, p => p.Payments),
                 Times.Once
             );
         }
@@ -202,6 +202,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(_ =>
                     _.QueryAsync(
                         It.IsAny<Expression<Func<Transaction, bool>>>(),
+                        true,
                         c => c.BusinessPartner,
                         o => o.Order,
                         p => p.Payments
@@ -225,6 +226,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 r =>
                     r.QueryAsync(
                         It.IsAny<Expression<Func<Transaction, bool>>>(),
+                        true,
                         c => c.BusinessPartner,
                         o => o.Order,
                         p => p.Payments
@@ -652,7 +654,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 },
             };
             _repository
-                .Setup(r => r.GetAllAsync(c => c.BusinessPartner, o => o.Order, p => p.Payments))
+                .Setup(r => r.GetAllAsync(true, c => c.BusinessPartner, o => o.Order, p => p.Payments))
                 .ReturnsAsync(transactions);
 
             // Act
@@ -670,7 +672,7 @@ namespace TSI.Nexus.Services.Tests.Services
         {
             // Arrange
             _repository
-                .Setup(r => r.GetAllAsync(c => c.BusinessPartner, o => o.Order, p => p.Payments))
+                .Setup(r => r.GetAllAsync(true, c => c.BusinessPartner, o => o.Order, p => p.Payments))
                 .ThrowsAsync(new Exception("boom"));
 
             // Act
@@ -705,7 +707,7 @@ namespace TSI.Nexus.Services.Tests.Services
             // Arrange
             var id = Guid.NewGuid();
             _repository
-                .Setup(r => r.GetByIdAsync(id, c => c.BusinessPartner, o => o.Order, p => p.Payments))
+                .Setup(r => r.GetByIdAsync(id, true, c => c.BusinessPartner, o => o.Order, p => p.Payments))
                 .ReturnsAsync((Transaction)null);
 
             // Act
@@ -743,7 +745,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 },
             };
             _repository
-                .Setup(r => r.GetByIdAsync(id, c => c.BusinessPartner, o => o.Order, p => p.Payments))
+                .Setup(r => r.GetByIdAsync(id, true, c => c.BusinessPartner, o => o.Order, p => p.Payments))
                 .ReturnsAsync(transactionEntity);
 
             // Act
@@ -777,7 +779,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 },
             };
             _repository
-                .Setup(r => r.GetByIdAsync(id, c => c.BusinessPartner, o => o.Order, p => p.Payments))
+                .Setup(r => r.GetByIdAsync(id, true, c => c.BusinessPartner, o => o.Order, p => p.Payments))
                 .ReturnsAsync(transactionEntity);
 
             // Act
@@ -800,7 +802,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 Payments = new List<Payment>(),
             };
             _repository
-                .Setup(r => r.GetByIdAsync(id, c => c.BusinessPartner, o => o.Order, p => p.Payments))
+                .Setup(r => r.GetByIdAsync(id, true, c => c.BusinessPartner, o => o.Order, p => p.Payments))
                 .ReturnsAsync(transactionEntity);
 
             // Act
@@ -817,7 +819,7 @@ namespace TSI.Nexus.Services.Tests.Services
             // Arrange
             var id = Guid.NewGuid();
             _repository
-                .Setup(r => r.GetByIdAsync(id, c => c.BusinessPartner, o => o.Order, p => p.Payments))
+                .Setup(r => r.GetByIdAsync(id, true, c => c.BusinessPartner, o => o.Order, p => p.Payments))
                 .ThrowsAsync(new Exception("boom"));
 
             // Act
@@ -835,6 +837,7 @@ namespace TSI.Nexus.Services.Tests.Services
                 .Setup(_ =>
                     _.QueryAsync(
                         It.IsAny<Expression<Func<Transaction, bool>>>(),
+                        true,
                         c => c.BusinessPartner,
                         o => o.Order,
                         p => p.Payments

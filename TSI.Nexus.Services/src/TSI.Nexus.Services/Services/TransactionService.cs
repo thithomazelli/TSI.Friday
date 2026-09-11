@@ -360,6 +360,7 @@ namespace TSI.Nexus.Services
                 }
 
                 var transactions = await _repository.GetAllAsync(
+                    true,
                     c => c.BusinessPartner,
                     o => o.Order,
                     p => p.Payments
@@ -413,6 +414,7 @@ namespace TSI.Nexus.Services
 
                 var transaction = await _repository.GetByIdAsync(
                     id,
+                    true,
                     c => c.BusinessPartner,
                     o => o.Order,
                     p => p.Payments
@@ -468,6 +470,7 @@ namespace TSI.Nexus.Services
             {
                 var transactions = await _repository.QueryAsync(
                     p => p.BusinessPartnerId == businessPartnerId,
+                    true,
                     c => c.BusinessPartner,
                     o => o.Order,
                     p => p.Payments

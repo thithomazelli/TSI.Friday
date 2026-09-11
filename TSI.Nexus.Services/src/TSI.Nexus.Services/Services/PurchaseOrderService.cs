@@ -303,6 +303,7 @@ namespace TSI.Nexus.Services
 
                 var purchaseOrder = await _repository.GetByIdAsync(
                     id,
+                    true,
                     o => o.BusinessPartner,
                     op => op.PurchaseOrderProducts,
                     t => t.Transaction,
@@ -349,6 +350,7 @@ namespace TSI.Nexus.Services
             {
                 var purchaseOrders = await _repository.QueryAsync(
                     o => o.BusinessPartnerId == businessPartnerId,
+                    true,
                     p => p.Transaction
                 );
                 result.Data = _mapper.Map<IEnumerable<PurchaseOrderDto>>(purchaseOrders);

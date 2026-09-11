@@ -12,7 +12,7 @@ import {
 } from '@nexus/core';
 
 import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { shareReplay, tap } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class BusinessPartnerService {
@@ -20,6 +20,15 @@ export class BusinessPartnerService {
   private _businessPartners$ = new BehaviorSubject<BusinessPartner[]>([]);
   private _businessPartnerChangedSubject = new BehaviorSubject<void>(undefined);
   businessPartnerChanged$ = this._businessPartnerChangedSubject.asObservable();
+
+  // Several forms across the app (viagem, transação, orçamento, pedido, evento, ...) each ask for
+  // the client/supplier list independently, previously firing one HTTP GET apiece. Cached per
+  // type with shareReplay(1) - same pattern used by FeatureFlagService/ProductService - and
+  // cleared on any write via addOrUpdateBusinessPartner()/add()/update()/delete().
+  private _byTypeCache = new Map<
+    BusinessPartnerType,
+    Observable<WebApiResponse<BusinessPartner[]>>
+  >();
 
   constructor(private apiService: ApiService) {}
 
@@ -40,6 +49,7 @@ export class BusinessPartnerService {
   refresh(
     type: BusinessPartnerType,
   ): Observable<WebApiResponse<BusinessPartner[]>> {
+    this._byTypeCache.delete(type);
     return this.getAllBusinessPartnersByType(type);
   }
 
@@ -55,7 +65,12 @@ export class BusinessPartnerService {
       .post<
         WebApiResponse<Company | Individual>
       >(`${endPointUrl}/add`, businessPartner)
-      .pipe(tap(() => this._businessPartnerChangedSubject.next()));
+      .pipe(
+        tap(() => {
+          this._byTypeCache.clear();
+          this._businessPartnerChangedSubject.next();
+        }),
+      );
   }
 
   addOrUpdateBusinessPartner(businessPartner: BusinessPartner): void {
@@ -81,7 +96,12 @@ export class BusinessPartnerService {
       .put<
         WebApiResponse<Company | Individual>
       >(`${endPointUrl}/update`, businessPartner)
-      .pipe(tap(() => this._businessPartnerChangedSubject.next()));
+      .pipe(
+        tap(() => {
+          this._byTypeCache.clear();
+          this._businessPartnerChangedSubject.next();
+        }),
+      );
   }
 
   delete(
@@ -91,7 +111,12 @@ export class BusinessPartnerService {
       .delete<
         WebApiResponse<BusinessPartner>
       >(`${this._baseEndPoint}/remove`, businessPartner)
-      .pipe(tap(() => this._businessPartnerChangedSubject.next()));
+      .pipe(
+        tap(() => {
+          this._byTypeCache.clear();
+          this._businessPartnerChangedSubject.next();
+        }),
+      );
   }
 
   cpfValidator(): ValidatorFn {
@@ -152,14 +177,20 @@ export class BusinessPartnerService {
   private getAllBusinessPartnersByType(
     type: BusinessPartnerType,
   ): Observable<WebApiResponse<BusinessPartner[]>> {
-    return this.apiService
-      .get<
-        WebApiResponse<BusinessPartner[]>
-      >(`${this._baseEndPoint}/getAll${type === BusinessPartnerType.Client ? 'Clients' : 'Suppliers'}`)
-      .pipe(
-        tap((response) => {
-          this._businessPartners$.next(response.data);
-        }),
-      );
+    let cached = this._byTypeCache.get(type);
+    if (!cached) {
+      cached = this.apiService
+        .get<
+          WebApiResponse<BusinessPartner[]>
+        >(`${this._baseEndPoint}/getAll${type === BusinessPartnerType.Client ? 'Clients' : 'Suppliers'}`)
+        .pipe(
+          tap((response) => {
+            this._businessPartners$.next(response.data);
+          }),
+          shareReplay(1),
+        );
+      this._byTypeCache.set(type, cached);
+    }
+    return cached;
   }
 }

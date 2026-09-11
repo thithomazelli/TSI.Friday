@@ -171,6 +171,7 @@ namespace TSI.Nexus.Services
                 }
 
                 var payments = await _repository.GetAllAsync(
+                    true,
                     t => t.Transaction,
                     c => c.BusinessPartner,
                     o => o.Order
@@ -210,7 +211,7 @@ namespace TSI.Nexus.Services
                     return result;
                 }
 
-                var payment = await _repository.GetByIdAsync(id);
+                var payment = await _repository.GetByIdAsync(id, true);
                 result.Data = _mapper.Map<PaymentDto>(payment);
                 result.Status = ResponseStatus.Success;
                 result.Message =
@@ -240,6 +241,7 @@ namespace TSI.Nexus.Services
             {
                 var payments = await _repository.QueryAsync(
                     p => p.TransactionId == transactionId,
+                    true,
                     c => c.BusinessPartner,
                     o => o.Order,
                     t => t.Transaction
@@ -270,6 +272,7 @@ namespace TSI.Nexus.Services
             {
                 var payments = await _repository.QueryAsync(
                     p => p.BusinessPartnerId == businessPartnerId,
+                    true,
                     c => c.BusinessPartner,
                     o => o.Order,
                     t => t.Transaction
@@ -302,6 +305,7 @@ namespace TSI.Nexus.Services
             {
                 var payments = await _repository.QueryAsync(
                     p => p.OrderId == orderId,
+                    true,
                     c => c.BusinessPartner,
                     o => o.Order,
                     t => t.Transaction
@@ -332,6 +336,7 @@ namespace TSI.Nexus.Services
             {
                 var payments = await _repository.QueryAsync(
                     p => p.PurchaseOrderId == purchaseOrderId,
+                    true,
                     c => c.BusinessPartner,
                     o => o.PurchaseOrder,
                     t => t.Transaction
@@ -360,6 +365,7 @@ namespace TSI.Nexus.Services
             {
                 var payments = await _repository.QueryAsync(
                     p => p.TripId == tripId,
+                    true,
                     c => c.BusinessPartner,
                     o => o.Trip,
                     t => t.Transaction
@@ -388,6 +394,7 @@ namespace TSI.Nexus.Services
             {
                 var payments = await _repository.QueryAsync(
                     p => p.DriverId == driverId,
+                    true,
                     c => c.Driver,
                     o => o.Trip,
                     t => t.Transaction
@@ -425,6 +432,7 @@ namespace TSI.Nexus.Services
                             && t.Date != default(DateTime)
                             && t.Date < tomorrowUtc
                         ),
+                    true,
                     t => t.Transaction,
                     t => t.BusinessPartner,
                     t => t.Order

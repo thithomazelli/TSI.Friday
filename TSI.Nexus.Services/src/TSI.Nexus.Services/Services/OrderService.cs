@@ -301,6 +301,7 @@ namespace TSI.Nexus.Services
 
                 var order = await _repository.GetByIdAsync(
                     id,
+                    true,
                     o => o.BusinessPartner,
                     op => op.OrderProducts,
                     t => t.Transaction,
@@ -345,6 +346,7 @@ namespace TSI.Nexus.Services
             {
                 var order = await _repository.FirstOrDefaultAsync(
                     o => o.OrderNumber == orderNumber,
+                    true,
                     o => o.BusinessPartner,
                     p => p.Transaction
                 );
@@ -378,6 +380,7 @@ namespace TSI.Nexus.Services
             {
                 var orders = await _repository.QueryAsync(
                     o => o.BusinessPartnerId == businessPartnerId,
+                    true,
                     p => p.Transaction
                 );
                 result.Data = _mapper.Map<IEnumerable<OrderDto>>(orders);
@@ -406,8 +409,9 @@ namespace TSI.Nexus.Services
 
             try
             {
-                var orders = await _repository.QueryAsync(o =>
-                    o.OrderProducts.Any(op => op.ProductId == productId)
+                var orders = await _repository.QueryAsync(
+                    o => o.OrderProducts.Any(op => op.ProductId == productId),
+                    true
                 );
                 result.Data = _mapper.Map<IEnumerable<OrderDto>>(orders);
                 result.Status = ResponseStatus.Success;
