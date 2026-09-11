@@ -207,14 +207,7 @@ namespace TSI.Nexus.Services.Services
             return Path.GetFullPath(Path.Combine(_env.ContentRootPath, "attachments"));
         }
 
-        private static string SanitizeFileName(string input)
-        {
-            foreach (var c in Path.GetInvalidFileNameChars())
-            {
-                input = input.Replace(c, '_');
-            }
-            return input;
-        }
+        private static string SanitizeFileName(string input) => FileNameSanitizer.Sanitize(input);
 
         /// <summary>
         /// Deletes a specific photo file from the directory.

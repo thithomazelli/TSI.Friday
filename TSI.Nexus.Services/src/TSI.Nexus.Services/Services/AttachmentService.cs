@@ -781,14 +781,7 @@ namespace TSI.Nexus.Services
             }
         }
 
-        private static string SanitizeFileName(string input)
-        {
-            foreach (var c in Path.GetInvalidFileNameChars())
-            {
-                input = input.Replace(c, '_');
-            }
-            return input;
-        }
+        private static string SanitizeFileName(string input) => FileNameSanitizer.Sanitize(input);
 
         private async Task<WebApiResponse<IEnumerable<AttachmentResponseDto>>> QueryAsync(
             Func<IQueryable<Attachment>, IQueryable<Attachment>> query
