@@ -1,15 +1,22 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ApiService, ApiType, PagedRequest, PagedResult, WebApiResponse } from '@nexus/core';
 import { FuelLog } from '@nexus/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { Observable } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({ providedIn: 'root' })
 export class FuelLogService {
   private _baseEndPoint = ApiType.FuelLogs;
-  private _fuelLogChangedSubject = new BehaviorSubject<void>(undefined);
-  fuelLogChanged$ = this._fuelLogChangedSubject.asObservable();
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
+
+  readonly fuelLogChanged$: Observable<void> = toObservable(this._changedTick).pipe(map(() => undefined));
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(private apiService: ApiService) {}
 
@@ -38,18 +45,18 @@ export class FuelLogService {
   add(fuelLog: FuelLog): Observable<WebApiResponse<FuelLog>> {
     return this.apiService
       .post<WebApiResponse<FuelLog>>(`${this._baseEndPoint}/add`, fuelLog)
-      .pipe(tap(() => this._fuelLogChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   update(fuelLog: FuelLog): Observable<WebApiResponse<FuelLog>> {
     return this.apiService
       .put<WebApiResponse<FuelLog>>(`${this._baseEndPoint}/update`, fuelLog)
-      .pipe(tap(() => this._fuelLogChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(fuelLog: FuelLog): Observable<WebApiResponse<FuelLog>> {
     return this.apiService
       .delete<WebApiResponse<FuelLog>>(`${this._baseEndPoint}/remove`, fuelLog)
-      .pipe(tap(() => this._fuelLogChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 }

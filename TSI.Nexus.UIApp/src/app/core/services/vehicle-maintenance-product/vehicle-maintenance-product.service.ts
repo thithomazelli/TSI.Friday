@@ -1,17 +1,25 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ApiType } from '../../enums';
 import { VehicleMaintenanceProduct } from '../../models';
 import { ApiService, WebApiResponse } from '@nexus/core';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class VehicleMaintenanceProductService {
   private _baseEndPoint = ApiType.VehicleMaintenanceProducts;
-  private _vehicleMaintenanceProductChangedSubject = new BehaviorSubject<void>(undefined);
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
 
-  vehicleMaintenanceProductChanged$ = this._vehicleMaintenanceProductChangedSubject.asObservable();
+  readonly vehicleMaintenanceProductChanged$: Observable<void> = toObservable(this._changedTick).pipe(
+    map(() => undefined),
+  );
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(private apiService: ApiService) {}
 
@@ -31,7 +39,7 @@ export class VehicleMaintenanceProductService {
       .post<
         WebApiResponse<VehicleMaintenanceProduct>
       >(`${this._baseEndPoint}/add`, vehicleMaintenanceProduct)
-      .pipe(tap(() => this._vehicleMaintenanceProductChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   update(
@@ -41,7 +49,7 @@ export class VehicleMaintenanceProductService {
       .put<
         WebApiResponse<VehicleMaintenanceProduct>
       >(`${this._baseEndPoint}/update`, vehicleMaintenanceProduct)
-      .pipe(tap(() => this._vehicleMaintenanceProductChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(
@@ -51,6 +59,6 @@ export class VehicleMaintenanceProductService {
       .delete<
         WebApiResponse<VehicleMaintenanceProduct>
       >(`${this._baseEndPoint}/remove`, vehicleMaintenanceProduct)
-      .pipe(tap(() => this._vehicleMaintenanceProductChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 }

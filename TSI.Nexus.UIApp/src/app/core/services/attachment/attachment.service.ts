@@ -1,14 +1,21 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { Observable } from 'rxjs';
+import { map, tap } from 'rxjs/operators';
 
 import { ApiService, ApiType, Attachment, WebApiResponse } from '@nexus/core';
 
 @Injectable({ providedIn: 'root' })
 export class AttachmentService {
   private _baseEndPoint = ApiType.Attachments;
-  private _attachmentChangedSubject = new BehaviorSubject<void>(undefined);
-  attachmentChanged$ = this._attachmentChangedSubject.asObservable();
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
+
+  readonly attachmentChanged$: Observable<void> = toObservable(this._changedTick).pipe(map(() => undefined));
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(private apiService: ApiService) {}
 
@@ -102,7 +109,7 @@ export class AttachmentService {
     }
     return this.apiService
       .post<WebApiResponse<Attachment>>(`${this._baseEndPoint}/add`, formData)
-      .pipe(tap(() => this._attachmentChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   update(
@@ -115,7 +122,7 @@ export class AttachmentService {
     }
     return this.apiService
       .put<WebApiResponse<Attachment>>(`${this._baseEndPoint}/update`, formData)
-      .pipe(tap(() => this._attachmentChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(id: string): Observable<WebApiResponse<Attachment>> {
@@ -123,7 +130,7 @@ export class AttachmentService {
       .delete<
         WebApiResponse<Attachment>
       >(`${this._baseEndPoint}/delete/${id}`, null)
-      .pipe(tap(() => this._attachmentChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   downloadFile(id: string): Observable<Blob> {

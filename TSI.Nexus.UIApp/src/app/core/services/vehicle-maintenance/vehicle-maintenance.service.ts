@@ -1,15 +1,22 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ApiService, ApiType, PagedRequest, PagedResult, WebApiResponse } from '@nexus/core';
 import { VehicleMaintenance } from '@nexus/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { Observable } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({ providedIn: 'root' })
 export class VehicleMaintenanceService {
   private _baseEndPoint = ApiType.VehicleMaintenances;
-  private _maintenanceChangedSubject = new BehaviorSubject<void>(undefined);
-  maintenanceChanged$ = this._maintenanceChangedSubject.asObservable();
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
+
+  readonly maintenanceChanged$: Observable<void> = toObservable(this._changedTick).pipe(map(() => undefined));
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(private apiService: ApiService) {}
 
@@ -51,7 +58,7 @@ export class VehicleMaintenanceService {
         `${this._baseEndPoint}/add`,
         maintenance,
       )
-      .pipe(tap(() => this._maintenanceChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   update(
@@ -62,7 +69,7 @@ export class VehicleMaintenanceService {
         `${this._baseEndPoint}/update`,
         maintenance,
       )
-      .pipe(tap(() => this._maintenanceChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(
@@ -73,6 +80,6 @@ export class VehicleMaintenanceService {
         `${this._baseEndPoint}/remove`,
         maintenance,
       )
-      .pipe(tap(() => this._maintenanceChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 }
