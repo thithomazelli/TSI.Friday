@@ -194,6 +194,34 @@ ordem que este documento já definiu.
   esperam) — aqui a mudança é mais limitada, focada em não vazar `Subject`/estado mutável RxJS pro
   resto do app além do necessário.
 
+#### 4.2.1 Fase 2 — progresso e achados
+
+**`FeatureFlagService` (primeiro arquivo migrado)**: descoberta importante ao investigar antes de
+mexer — `isEnabled(key)` é consumido via `combineLatest([group$, entity$])` em **mais de 20
+arquivos** (sidebar, navbar, praticamente toda `*-details-page` com aba de agenda), não só os 2-3
+esperados. Trocar a API pública do serviço pra `Signal` agora quebraria todos de uma vez — exatamente
+o tipo de "migração em lote sem revisão" que a seção 6 já alertava. Solução: migrar o **estado
+interno** do serviço pra `signal<FeatureToggle[] | null>(null)` (tira o `Subject`/`shareReplay` do
+refresh), mas manter a API pública (`isEnabled()`, `toggles$`) retornando `Observable<boolean>` via
+`toObservable(this._toggles).pipe(filter(t => t !== null))` — os 20+ consumidores continuam
+funcionando sem nenhuma mudança. Cada um troca o próprio `combineLatest` por `computed()` quando
+chegar a vez dele (Fase 3/4, por feature/arquivo), não em bloco agora. `null` (estado "ainda não
+carregou") é filtrado antes de chegar em qualquer consumidor — preserva exatamente o comportamento
+documentado no `sidebar.component.ts` original ("no emission yet" trata como falso, evitando o
+módulo "piscar" com o valor errado antes do fetch real resolver); usar `null` sem filtrar teria
+mudado esse comportamento (`toObservable` emite o valor atual imediatamente na subscription, então
+um consumidor veria `null`/falso-aberto antes da hora em vez de simplesmente não receber nada).
+
+**Gotcha nº 5 (Vitest/Angular signals)**: `toObservable(signal)` não propaga uma mudança de
+`signal.set(...)` sincronamente no teste — o `effect()` interno do `toObservable` roda agendado
+(microtask/change-detection), não no mesmo tick do `.set()`. Um teste que faz
+`mockHttpSubject.next(...)` e checa o valor emitido *logo em seguida* vê o valor antigo (ou
+`undefined`, se ainda não emitiu nada). Correção: chamar `TestBed.flushEffects()` logo após todo
+`.next()`/`.set()` que deveria propagar através de uma cadeia `signal → toObservable` antes de
+fazer a asserção (ver `feature-flag.service.spec.ts`). Isso só se aplica a specs que testam um
+`toObservable()`; specs que leem um `signal()`/`computed()` diretamente (sem passar por Observable)
+não precisam disso — a leitura de um signal é sempre síncrona.
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não

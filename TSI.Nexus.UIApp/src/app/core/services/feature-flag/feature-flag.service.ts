@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
-import { Observable, Subject } from 'rxjs';
-import { map, shareReplay, startWith, switchMap, tap } from 'rxjs/operators';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { Observable } from 'rxjs';
+import { filter, map, tap } from 'rxjs/operators';
 import {
   ApiService,
   ApiType,
@@ -14,39 +15,42 @@ import {
 })
 export class FeatureFlagService {
   private _baseEndPoint = ApiType.FeatureToggles;
-  private _refresh$ = new Subject<void>();
+
+  // null means "not loaded yet" - kept out of every consumer-facing stream (see toggles$ below)
+  // so a module stays out of the DOM until the real toggle set arrives, instead of a guessed
+  // default (enabled or disabled) flashing on screen first. Single source of truth for every
+  // consumer (sidebar, navbar, every module tab across the app) - the state itself only exists
+  // once, in this signal, no matter how many places read it.
+  private readonly _toggles = signal<FeatureToggle[] | null>(null);
 
   /**
-   * Single source of truth for every consumer (sidebar, navbar, every module tab across the
-   * app). shareReplay(1) is the whole mechanism: the first subscriber triggers the fetch, every
-   * other subscriber - however many isEnabled() calls happen to land in the same tick - shares
-   * that one in-flight request instead of firing its own (sidebar + navbar alone used to fire
-   * ~16 near-simultaneous GET requests on every page load), and once it resolves every later
-   * subscriber (a route change, a newly-mounted component) just replays the cached array with
-   * no new request and no re-render, since nothing about the toggle set actually changed.
-   * _refresh$ is the only way this ever re-fetches - pushed after an admin edit via setEnabled().
+   * Observable view of the loaded toggle set, skipping the not-loaded-yet state entirely - built
+   * once, in the injection context of this service's own construction (a requirement of
+   * toObservable()), and reused by every isEnabled() call rather than each building its own.
    */
-  readonly toggles$: Observable<FeatureToggle[]> = this._refresh$.pipe(
-    startWith(undefined),
-    switchMap(() =>
-      this.apiService
-        .get<WebApiResponse<FeatureToggle[]>>(`${this._baseEndPoint}/getAll`)
-        .pipe(map((response) => response.data ?? [])),
-    ),
-    shareReplay(1),
+  private readonly toggles$: Observable<FeatureToggle[]> = toObservable(this._toggles).pipe(
+    filter((toggles): toggles is FeatureToggle[] => toggles !== null),
   );
 
-  constructor(private apiService: ApiService) {}
+  constructor(private apiService: ApiService) {
+    this.load();
+  }
+
+  private load(): void {
+    this.apiService
+      .get<WebApiResponse<FeatureToggle[]>>(`${this._baseEndPoint}/getAll`)
+      .subscribe((response) => this._toggles.set(response.data ?? []));
+  }
 
   refresh(): void {
-    this._refresh$.next();
+    this.load();
   }
 
   /**
    * Returns whether the module identified by key is enabled. Fails open (true) when the toggle
    * isn't registered, so a slow/failed request never hides an unrelated module by accident - the
-   * same fail-open policy used server-side. While toggles$ hasn't emitted yet this simply hasn't
-   * emitted either - callers gate visibility on that (e.g. *ngIf="... | async", which treats "no
+   * same fail-open policy used server-side. Emits nothing until the toggle set has loaded once
+   * (see toggles$) - callers gate visibility on that (e.g. *ngIf="... | async", which treats "no
    * emission yet" as falsy) rather than on a guessed default, which is what used to let disabled
    * modules flash visible before the real state arrived.
    */
