@@ -14,7 +14,7 @@ import {
   VehicleService,
   VehicleStatus,
 } from '@nexus/core';
-import { forkJoin, map, switchMap } from 'rxjs';
+import { combineLatest, forkJoin, map, of, switchMap, take } from 'rxjs';
 import { HeaderComponent } from '../../../shared/header/header.component';
 import { CurrencyPipe, NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -158,13 +158,19 @@ export class FleetReportComponent implements OnInit {
   private load(): void {
     this.loading = true;
 
-    forkJoin({
+    // combineLatest + take(1), not forkJoin: vehicleService.getAll()/driverService.getAll() are
+    // signal-backed shared caches that never complete (by design - see product.service.ts), so
+    // forkJoin here would never emit. combineLatest resolves as soon as every source has emitted
+    // once, and take(1) then takes exactly that first combination and unsubscribes - the same
+    // "one snapshot at load time" this screen actually wants.
+    combineLatest({
       vehicles: this.vehicleService.getAll(),
       trips: this.tripService.getAll(),
       maintenances: this.vehicleMaintenanceService.getAll(),
       drivers: this.driverService.getAll(),
     })
       .pipe(
+        take(1),
         map(({ vehicles, trips, maintenances, drivers }) => ({
           vehicles: vehicles.data ?? [],
           trips: trips.data ?? [],
@@ -172,9 +178,12 @@ export class FleetReportComponent implements OnInit {
           drivers: drivers.data ?? [],
         })),
         switchMap(({ vehicles, trips, maintenances, drivers }) =>
-          forkJoin(
-            drivers.length
-              ? drivers.map((driver) =>
+          // forkJoin([]) never emits (it completes with no value) - a driver-less fleet would
+          // otherwise leave this whole pipeline hanging with loading stuck true forever, so the
+          // empty case is short-circuited to of([]) instead of going through forkJoin at all.
+          (drivers.length
+            ? forkJoin(
+                drivers.map((driver) =>
                   this.serviceOrderService.getByDriver(driver.id).pipe(
                     map((response) => ({
                       driver,
@@ -186,8 +195,9 @@ export class FleetReportComponent implements OnInit {
                         })),
                     })),
                   ),
-                )
-              : [],
+                ),
+              )
+            : of([] as DriverCommissionEntry[])
           ).pipe(
             map((driverCommissions) => ({
               vehicles,

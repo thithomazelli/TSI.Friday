@@ -324,6 +324,23 @@ a fonte original de fato *nunca* completava (por estar atrás de um Subject que 
 de assumir que o "nunca completa" do `toObservable` é equivalente — nem todo `shareReplay(1)` tem
 esse formato.
 
+**Correção do bug pré-existente do `fleet-report.component.ts` documentado acima**: consertado.
+`forkJoin({ vehicles: vehicleService.getAll(), trips: ..., maintenances: ..., drivers:
+driverService.getAll() })` virou `combineLatest({...}).pipe(take(1), ...)` — `combineLatest`
+resolve assim que toda fonte emitiu ao menos uma vez (não exige `complete()`), e `take(1)` pega
+essa primeira combinação e cancela a inscrição, dando exatamente o "snapshot único no load" que
+essa tela sempre quis, funcionando tanto com os streams que nunca completam (`vehicles`/`drivers`,
+cache compartilhado via signal) quanto com os que completam normalmente (`trips`/`maintenances`,
+GET puro). Achado um segundo bug relacionado ao escrever o spec (nenhum existia antes desta
+correção): o `forkJoin` **interno**, usado pra buscar a comissão de cada motorista
+(`serviceOrderService.getByDriver`), recebia `[]` quando não havia nenhum motorista —
+`forkJoin([])` no RxJS **nunca emite** (completa sem valor nenhum), então a tela inteira ficaria
+travada em "carregando" pra sempre se a frota não tivesse nenhum motorista cadastrado. Corrigido
+trocando esse caso por `of([])` direto, sem passar pelo `forkJoin`. `fleet-report.component.spec.ts`
+não existia; escrito do zero, cobrindo o carregamento a partir de streams que nunca completam, que
+uma segunda emissão em `vehicles$`/`drivers$` não reabre o pipeline (trava do `take(1)`), a
+agregação de comissões por status, o caso sem nenhum motorista, e o filtro de intervalo de datas.
+
 **`SelectableOptionService` (mesmo formato do `BusinessPartnerService`, `take(1)` aplicado desde o
 início)**: cache por grupo (`SelectableOptionGroup`) com o mesmo desenho — `Map<Group,
 WritableSignal<...>>` + `Map<Group, Observable<...>>` criado sob demanda via `Injector` injetado.
