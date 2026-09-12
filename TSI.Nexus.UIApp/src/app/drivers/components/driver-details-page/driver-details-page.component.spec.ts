@@ -110,6 +110,19 @@ describe('DriverDetailsPageComponent', () => {
 
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
     });
+
+    it('navigates to not-found and stops loading when the request errors', () => {
+      const component = createComponent();
+      const response$ = new Subject<WebApiResponse<Driver>>();
+      driverServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      paramMap$.next(paramMap('d1'));
+      response$.error(new Error('fail'));
+
+      expect(component.loading).toBe(false);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
+    });
   });
 
   describe('getStatusLabel', () => {
@@ -123,6 +136,13 @@ describe('DriverDetailsPageComponent', () => {
       component.data = { status: 'Active' } as Driver;
 
       expect(component.getStatusLabel()).toBe('DRIVERS.STATUS_ACTIVE');
+    });
+
+    it('falls back to an empty string for a status with no mapped label', () => {
+      const component = createComponent();
+      component.data = { status: 'Unknown' } as unknown as Driver;
+
+      expect(component.getStatusLabel()).toBe('');
     });
   });
 
