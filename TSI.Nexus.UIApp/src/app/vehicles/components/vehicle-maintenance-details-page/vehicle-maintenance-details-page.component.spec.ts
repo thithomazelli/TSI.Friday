@@ -86,6 +86,19 @@ describe('VehicleMaintenanceDetailsPageComponent', () => {
 
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
     });
+
+    it('navigates to not-found and stops loading when the request errors', () => {
+      const component = createComponent();
+      const response$ = new Subject<WebApiResponse<VehicleMaintenance>>();
+      vehicleMaintenanceServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      paramMap$.next(paramMap('vm1'));
+      response$.error(new Error('fail'));
+
+      expect(component.loading).toBe(false);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
+    });
   });
 
   describe('getStatusInfo', () => {

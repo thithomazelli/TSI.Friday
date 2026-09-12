@@ -88,6 +88,18 @@ describe('TransactionDetailsPageComponent', () => {
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
     });
 
+    it('navigates to not-found and stops loading when the request errors', () => {
+      const component = createComponent('t1');
+      const response$ = new Subject<WebApiResponse<Transaction>>();
+      transactionServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      response$.error(new Error('fail'));
+
+      expect(component.loading).toBe(false);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
+    });
+
     it('re-fetches on a real paymentChanged$ event, but not on the skip(1)-dropped first one', () => {
       const component = createComponent('t1');
       const firstResponse$ = new Subject<WebApiResponse<Transaction>>();
@@ -131,5 +143,18 @@ describe('TransactionDetailsPageComponent', () => {
     const component = createComponent(null);
     component.ngOnInit();
     expect(() => component.ngOnDestroy()).not.toThrow();
+  });
+
+  it('ngOnDestroy also unsubscribes from transactionChanged$/paymentChanged$ when editing an existing transaction', () => {
+    const component = createComponent('t1');
+    transactionServiceMock.getById.mockReturnValue(new Subject());
+    component.ngOnInit();
+
+    component.ngOnDestroy();
+    transactionServiceMock.getById.mockClear();
+    transactionServiceMock.transactionChanged$.next();
+    transactionServiceMock.transactionChanged$.next();
+
+    expect(transactionServiceMock.getById).not.toHaveBeenCalled();
   });
 });
