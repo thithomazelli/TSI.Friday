@@ -93,7 +93,10 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "options": {
-            "port": 80
+            "port": 443,
+            "ssl": true,
+            "sslCert": "certs/localhost.pem",
+            "sslKey": "certs/localhost.key"
           },
           "configurations": {
             "production": {

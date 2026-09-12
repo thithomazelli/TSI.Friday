@@ -49,7 +49,16 @@ dotnet run
 ```bash
 cd TSI.Nexus.UIApp
 npm install
-npm start
+
+# Passo único por máquina: exporta o certificado de dev do ASP.NET Core (já confiável no seu
+# SO/navegador se você já rodou algum projeto ASP.NET Core com HTTPS antes) pro formato PEM que o
+# ng serve espera. O JWT viaja num cookie httpOnly Secure+SameSite=Strict - o front em HTTPS
+# batendo o mesmo esquema da API (https://localhost:7181) é obrigatório, senão o navegador
+# descarta o cookie silenciosamente (schemeful-same-site) e a sessão nunca gruda.
+mkdir -p certs
+dotnet dev-certs https --export-path certs/localhost.pem --format Pem --no-password --trust
+
+npm start   # sobe em https://localhost (porta 443, configurado em angular.json)
 ```
 
 > `appsettings.json` / `appsettings.Development.json` não contêm mais credenciais reais — os valores devem ser fornecidos via variáveis de ambiente (o ASP.NET Core sobrescreve a configuração automaticamente), via `dotnet user-secrets` ou via um arquivo `appsettings.Local.json` local (já no `.gitignore`, nunca é commitado — copie `appsettings.Local.json.example` para `appsettings.Local.json` e preencha os valores reais):

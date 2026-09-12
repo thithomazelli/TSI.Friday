@@ -80,6 +80,9 @@ web.config.Production.xml
 web.config.Homolog.xml
 appsettings.Local.json
 
+# ---- Local dev HTTPS cert (exported from dotnet dev-certs, see README) ----
+TSI.Nexus.UIApp/certs/
+
 # ---- Testing / Coverage ----
 coverage/
 *.lcov
