@@ -1,20 +1,26 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ApiType, ResponseStatus } from '../../enums';
 import { QuoteProduct } from '../../models';
 import { ApiService, TranslationService, WebApiResponse } from '@nexus/core';
-import { BehaviorSubject, Observable, of, Subject, tap } from 'rxjs';
+import { Observable, Subject, map, of, tap } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class QuoteProductService {
   private _baseEndPoint = ApiType.QuoteProducts;
-  private _quoteProducts$ = new BehaviorSubject<QuoteProduct[]>([]);
-  private _quoteProductChangedSubject = new BehaviorSubject<void>(undefined);
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
+  // See order-product.service.ts for why this stays a Subject (one-shot event, not state).
   private _quoteProductAdded$ = new Subject<QuoteProduct>();
 
-  quoteProductChanged$ = this._quoteProductChangedSubject.asObservable();
+  readonly quoteProductChanged$: Observable<void> = toObservable(this._changedTick).pipe(map(() => undefined));
   quoteProductAdded$ = this._quoteProductAdded$.asObservable();
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(
     private apiService: ApiService,
@@ -22,28 +28,16 @@ export class QuoteProductService {
   ) {}
 
   getAll(): Observable<WebApiResponse<QuoteProduct[]>> {
-    return this.apiService
-      .get<WebApiResponse<QuoteProduct[]>>(`${this._baseEndPoint}/getAll`)
-      .pipe(
-        tap((response) => {
-          this._quoteProducts$.next(response.data);
-        }),
-      );
+    return this.apiService.get<WebApiResponse<QuoteProduct[]>>(`${this._baseEndPoint}/getAll`);
   }
 
   getByEntityId(
     id: string,
     entity: string,
   ): Observable<WebApiResponse<QuoteProduct[]>> {
-    return this.apiService
-      .get<
-        WebApiResponse<QuoteProduct[]>
-      >(`${this._baseEndPoint}/getBy${entity}Id/${id}`)
-      .pipe(
-        tap((response) => {
-          this._quoteProducts$.next(response.data);
-        }),
-      );
+    return this.apiService.get<
+      WebApiResponse<QuoteProduct[]>
+    >(`${this._baseEndPoint}/getBy${entity}Id/${id}`);
   }
 
   getById(quoteProductId: string): Observable<WebApiResponse<QuoteProduct>> {
@@ -63,7 +57,7 @@ export class QuoteProductService {
       .post<
         WebApiResponse<QuoteProduct>
       >(`${this._baseEndPoint}/add`, quoteProduct)
-      .pipe(tap(() => this._quoteProductChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   addTemporary(
@@ -82,7 +76,7 @@ export class QuoteProductService {
       .put<
         WebApiResponse<QuoteProduct>
       >(`${this._baseEndPoint}/update`, quoteProduct)
-      .pipe(tap(() => this._quoteProductChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(quoteProduct: QuoteProduct): Observable<WebApiResponse<QuoteProduct>> {
@@ -90,6 +84,6 @@ export class QuoteProductService {
       .delete<
         WebApiResponse<QuoteProduct>
       >(`${this._baseEndPoint}/remove`, quoteProduct)
-      .pipe(tap(() => this._quoteProductChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 }

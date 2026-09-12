@@ -1,48 +1,42 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ApiType, ResponseStatus } from '../../enums';
 import { PurchaseOrderProduct } from '../../models';
 import { ApiService, WebApiResponse } from '@nexus/core';
-import { BehaviorSubject, Observable, of, Subject, tap } from 'rxjs';
+import { Observable, Subject, map, of, tap } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class PurchaseOrderProductService {
   private _baseEndPoint = ApiType.PurchaseOrderProducts;
-  private _purchaseOrderProducts$ = new BehaviorSubject<PurchaseOrderProduct[]>([]);
-  private _purchaseOrderProductChangedSubject = new BehaviorSubject<void>(undefined);
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
+  // See order-product.service.ts for why this stays a Subject (one-shot event, not state).
   private _purchaseOrderProductAdded$ = new Subject<PurchaseOrderProduct>();
 
-  purchaseOrderProductChanged$ = this._purchaseOrderProductChangedSubject.asObservable();
+  readonly purchaseOrderProductChanged$: Observable<void> = toObservable(this._changedTick).pipe(
+    map(() => undefined),
+  );
   purchaseOrderProductAdded$ = this._purchaseOrderProductAdded$.asObservable();
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(private apiService: ApiService) {}
 
   getAll(): Observable<WebApiResponse<PurchaseOrderProduct[]>> {
-    return this.apiService
-      .get<
-        WebApiResponse<PurchaseOrderProduct[]>
-      >(`${this._baseEndPoint}/getAll`)
-      .pipe(
-        tap((response) => {
-          this._purchaseOrderProducts$.next(response.data);
-        }),
-      );
+    return this.apiService.get<WebApiResponse<PurchaseOrderProduct[]>>(`${this._baseEndPoint}/getAll`);
   }
 
   getByEntityId(
     id: string,
     entity: string,
   ): Observable<WebApiResponse<PurchaseOrderProduct[]>> {
-    return this.apiService
-      .get<
-        WebApiResponse<PurchaseOrderProduct[]>
-      >(`${this._baseEndPoint}/getBy${entity}Id/${id}`)
-      .pipe(
-        tap((response) => {
-          this._purchaseOrderProducts$.next(response.data);
-        }),
-      );
+    return this.apiService.get<
+      WebApiResponse<PurchaseOrderProduct[]>
+    >(`${this._baseEndPoint}/getBy${entity}Id/${id}`);
   }
 
   add(
@@ -52,7 +46,7 @@ export class PurchaseOrderProductService {
       .post<
         WebApiResponse<PurchaseOrderProduct>
       >(`${this._baseEndPoint}/add`, purchaseOrderProduct)
-      .pipe(tap(() => this._purchaseOrderProductChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   addTemporary(
@@ -73,7 +67,7 @@ export class PurchaseOrderProductService {
       .put<
         WebApiResponse<PurchaseOrderProduct>
       >(`${this._baseEndPoint}/update`, purchaseOrderProduct)
-      .pipe(tap(() => this._purchaseOrderProductChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(
@@ -83,6 +77,6 @@ export class PurchaseOrderProductService {
       .delete<
         WebApiResponse<PurchaseOrderProduct>
       >(`${this._baseEndPoint}/remove`, purchaseOrderProduct)
-      .pipe(tap(() => this._purchaseOrderProductChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 }

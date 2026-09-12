@@ -247,6 +247,18 @@ do CLI (`TestBed.configureTestingModule({})` sem prover `ApiService`, falhando p
 provider) — os quatro já contavam entre os ~46 arquivos quebrados desde a Fase 0. Substituídos
 pelos specs reais escritos junto da migração desta fase, reduzindo esse número.
 
+**Padrão `xAdded$` (`OrderProductService`, `PurchaseOrderProductService`, `QuoteProductService`,
+`TripDriverService`)**: cada um tem, além do `xChanged$` (já migrado), um `_xAdded$ = new
+Subject<Entity>()` usado por `addTemporary()` — chamado quando um form adiciona um item ainda não
+persistido (ex. produto de pedido antes de salvar), notificando o form pai (`order-form`,
+`purchase-order-form`, `quote-form`, `trip-form`) que já está montado e escutando. **Mantido como
+RxJS intencional**, não migrado: é literalmente o caso "evento único, sem replay" que a seção 3 já
+previa como limite estrutural — um `Signal` sempre tem "valor atual" que todo consumidor vê, o que
+ou replayaria a última adição pra um subscriber tardio ou exigiria bookkeeping manual pra evitar
+isso, exatamente o problema que `Subject` (sem `BehaviorSubject`) resolve de graça. Confirmado com
+os 4 consumidores reais antes de decidir (`grep` teria sido enganoso aqui — o nome do stream difere
+o suficiente do padrão `_xChangedSubject` que passar batido era fácil).
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não

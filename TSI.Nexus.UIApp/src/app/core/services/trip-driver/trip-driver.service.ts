@@ -1,19 +1,26 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ApiType, ResponseStatus } from '../../enums';
 import { TripDriver } from '../../models';
 import { ApiService, WebApiResponse } from '@nexus/core';
-import { BehaviorSubject, Observable, of, Subject, tap } from 'rxjs';
+import { Observable, Subject, map, of, tap } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class TripDriverService {
   private _baseEndPoint = ApiType.TripDrivers;
-  private _tripDriverChangedSubject = new BehaviorSubject<void>(undefined);
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
+  // See order-product.service.ts for why this stays a Subject (one-shot event, not state).
   private _tripDriverAdded$ = new Subject<TripDriver>();
 
-  tripDriverChanged$ = this._tripDriverChangedSubject.asObservable();
+  readonly tripDriverChanged$: Observable<void> = toObservable(this._changedTick).pipe(map(() => undefined));
   tripDriverAdded$ = this._tripDriverAdded$.asObservable();
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(private apiService: ApiService) {}
 
@@ -34,7 +41,7 @@ export class TripDriverService {
       .post<
         WebApiResponse<TripDriver>
       >(`${this._baseEndPoint}/add`, tripDriver)
-      .pipe(tap(() => this._tripDriverChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   addTemporary(tripDriver: TripDriver): Observable<WebApiResponse<TripDriver>> {
@@ -51,7 +58,7 @@ export class TripDriverService {
       .put<
         WebApiResponse<TripDriver>
       >(`${this._baseEndPoint}/update`, tripDriver)
-      .pipe(tap(() => this._tripDriverChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(tripDriver: TripDriver): Observable<WebApiResponse<TripDriver>> {
@@ -59,6 +66,6 @@ export class TripDriverService {
       .delete<
         WebApiResponse<TripDriver>
       >(`${this._baseEndPoint}/remove`, tripDriver)
-      .pipe(tap(() => this._tripDriverChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 }
