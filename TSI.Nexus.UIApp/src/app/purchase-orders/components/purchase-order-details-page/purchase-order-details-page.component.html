@@ -76,7 +76,7 @@
                   >{{ 'COMMON.ATTACHMENTS' | translate }}</a
                 >
               </li>
-              <li class="nav-item" *ngIf="isEdit && (isAgendaEnabled$ | async)">
+              <li class="nav-item" *ngIf="isEdit && isAgendaEnabled()">
                 <a
                   class="nav-link"
                   [class.active]="activeTab === 'agenda'"

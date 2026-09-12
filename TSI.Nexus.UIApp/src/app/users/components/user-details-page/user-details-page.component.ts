@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, Signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AccountService, PhotoService, User, UserService } from '@nexus/core';
-import { combineLatest, map, Subject, takeUntil, Observable } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 import { HeaderComponent } from '../../../shared/header/header.component';
 import { PhotoComponent } from '../../../shared/photo/photo.component';
-import { AsyncPipe, NgIf } from '@angular/common';
+import { NgIf } from '@angular/common';
 import { UserFormComponent } from '../user-form/user-form.component';
 import { AttachmentsComponent } from '../../../shared/attachments/attachments.component';
 import { UserPreferencesComponent } from '../../../shared/components/user-preferences/user-preferences.component';
@@ -24,7 +25,6 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
         HeaderComponent,
         PhotoComponent,
         NgIf,
-        AsyncPipe,
         UserFormComponent,
         AttachmentsComponent,
         UserPreferencesComponent,
@@ -41,11 +41,10 @@ export class UserDetailsPageComponent {
   loading = false;
   activeTab: 'details' | 'attachments' | 'agenda' | 'preferences' | 'audit' = 'details';
   isOwnProfile = false;
-  // Read via the async pipe in the template rather than subscribed into a plain field: no
-  // manual Subscription/ngOnDestroy bookkeeping, and the async pipe treats "no emission yet" as
-  // falsy, so the tab stays out of the DOM until the real state is known instead of a guessed
-  // default flashing on screen first.
-  isAgendaEnabled$!: Observable<boolean>;
+  // toSignal's initialValue: false matches the async pipe's own "no emission yet reads as falsy"
+  // this used to rely on - the tab stays out of the DOM until the real state is known instead of
+  // a guessed default flashing on screen first.
+  isAgendaEnabled!: Signal<boolean>;
 
   private _destroy$ = new Subject<void>();
 
@@ -57,10 +56,15 @@ export class UserDetailsPageComponent {
     private accountService: AccountService,
     private featureFlagService: FeatureFlagService,
   ) {
-    this.isAgendaEnabled$ = combineLatest([
+    const isAgendaModuleEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
+      { initialValue: false },
+    );
+    const isEventEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.Event),
-    ]).pipe(map(([groupEnabled, entityEnabled]) => groupEnabled && entityEnabled));
+      { initialValue: false },
+    );
+    this.isAgendaEnabled = computed(() => isAgendaModuleEnabled() && isEventEnabled());
   }
 
   ngOnInit(): void {

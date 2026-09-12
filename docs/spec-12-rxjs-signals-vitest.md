@@ -465,6 +465,54 @@ shareReplay)**: os três eram só um `BehaviorSubject` com valor inicial (tema, 
 Nenhum dos três tinha spec real antes: `theme.service.spec.ts`/`translation.service.spec.ts` não
 existiam; `photo.service.spec.ts` era um stub quebrado do CLI. Todos escritos do zero.
 
+#### 4.2.2 Fase 4 — progresso e achados
+
+Levantamento por feature (`vehicles`/`trips`, 9 arquivos cada na contagem original) encontrou só o
+padrão `_destroy$` (mesmo achado do levantamento de `shared/` na Fase 3) — nada a migrar ali. O
+achado real: **10 arquivos `*-details-page` em features diferentes** (`business-partner`,
+`drivers`, `orders`, `purchase-orders`, `quotes`, `transactions`, `trips`, `users`, `vehicles` ×2 —
+`vehicle-details-page` e `vehicle-maintenance-details-page`) tinham o **mesmo bloco copiado**:
+
+```ts
+isAgendaEnabled$!: Observable<boolean>;
+...
+this.isAgendaEnabled$ = combineLatest([
+  this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
+  this.featureFlagService.isEnabled(FeatureToggleKeys.Event),
+]).pipe(map(([groupEnabled, entityEnabled]) => groupEnabled && entityEnabled));
+```
+
+— exatamente o padrão já migrado no `sidebar.component.ts` da Fase 3. Migrados todos os 10 pro
+mesmo `toSignal(isEnabled(...), {initialValue: false})` + `computed()`, com o template trocando
+`(isAgendaEnabled$ | async)` por `isAgendaEnabled()` (dois formatos de template encontrados:
+`*ngIf="isEdit && (isAgendaEnabled$ | async)"` na maioria, `@if (isAgendaEnabled$ | async) {` em
+`driver-details-page`/`vehicle-details-page`/`vehicle-maintenance-details-page`) e `AsyncPipe`
+removido do array de `imports` de cada componente (nenhum desses arquivos tinha outro `| async` no
+template). O resto de cada arquivo (o `merge(...changed$.pipe(skip(1)))` + `switchMap(() =>
+getById(id))` que recarrega a página quando uma entidade relacionada muda, e a emissão de
+PDF via `ModalService.showPdfProgress`) foi mantido intacto — não é candidato a Signals pelos
+mesmos motivos já documentados (debounce/merge de eventos, não estado).
+
+**Specs**: `business-partner-details-page`/`order-details-page`/`quote-details-page`/
+`transaction-details-page`/`user-details-page` já estavam no baseline de specs quebrados (stub do
+CLI sem provider nenhum) — substituídos por specs reais. `driver-details-page`/
+`purchase-order-details-page`/`trip-details-page`/`vehicle-details-page`/
+`vehicle-maintenance-details-page` não tinham spec nenhum — escritos do zero. Todos seguem o
+padrão de instanciação direta (`new Component(...)` dentro de `TestBed.runInInjectionContext(...)`,
+necessário porque o construtor agora chama `toSignal()`) já estabelecido na Fase 1 pra essa família
+de componentes — evita a árvore de DI completa que `TestBed.createComponent()` arrastaria pelos
+componentes de formulário embutidos no template. Cobertura por arquivo: `isAgendaEnabled` combinando
+os dois flags, `ngOnInit` (edição/novo/not-found), o `skip(1)`+`merge`+`switchMap` de recarregar em
+mudança relacionada (confirmando que a primeira emissão de cada fonte é descartada e só a segunda
+dispara nova busca), os getters de label/status, e (onde existe) a emissão de PDF com sucesso/erro.
+Reduz o baseline de specs quebrados por gap de DI de 40 pra 35 arquivos.
+
+**Achado à parte, não corrigido (fora do escopo desta migração)**: `user-details-page.component.ts`
+tem duas subscriptions (`photoService.photo$.subscribe(...)` e `accountService.user$.subscribe(...)`
+em `ngOnInit()`) sem `takeUntil(this._destroy$)` — vazamento de subscription pré-existente, não
+relacionado ao `isAgendaEnabled$`/`combineLatest` migrado aqui. Reportado ao usuário; não corrigido
+nesta sessão pra manter o escopo do commit restrito ao que a spec pede.
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não

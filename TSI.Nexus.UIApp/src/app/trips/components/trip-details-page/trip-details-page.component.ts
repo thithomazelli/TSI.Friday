@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, OnDestroy, OnInit, Signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   Trip,
@@ -10,10 +11,10 @@ import {
   ModalService,
   triggerBlobDownload,
 } from '@nexus/core';
-import { combineLatest, map, Subject, Subscription, switchMap, takeUntil, merge, skip, Observable } from 'rxjs';
+import { Subject, Subscription, switchMap, takeUntil, merge, skip } from 'rxjs';
 
 import { HeaderComponent } from '../../../shared/header/header.component';
-import { AsyncPipe, NgIf } from '@angular/common';
+import { NgIf } from '@angular/common';
 import { TripFormComponent } from '../trip-form/trip-form.component';
 import { TripDriverListComponent } from '../trip-driver-list/trip-driver-list.component';
 import { TripLegListComponent } from '../trip-leg-list/trip-leg-list.component';
@@ -35,7 +36,6 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     imports: [
         HeaderComponent,
         NgIf,
-        AsyncPipe,
         TripFormComponent,
         TripDriverListComponent,
         TripLegListComponent,
@@ -53,11 +53,10 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
   data?: Trip | null = null;
   id: string | null = null;
   loading = false;
-  // Read via the async pipe in the template rather than subscribed into a plain field: no
-  // manual Subscription/ngOnDestroy bookkeeping, and the async pipe treats "no emission yet" as
-  // falsy, so the tab stays out of the DOM until the real state is known instead of a guessed
-  // default flashing on screen first.
-  isAgendaEnabled$!: Observable<boolean>;
+  // toSignal's initialValue: false matches the async pipe's own "no emission yet reads as falsy"
+  // this used to rely on - the tab stays out of the DOM until the real state is known instead of
+  // a guessed default flashing on screen first.
+  isAgendaEnabled!: Signal<boolean>;
 
   activeTab:
     | 'details'
@@ -90,10 +89,15 @@ export class TripDetailsPageComponent implements OnInit, OnDestroy {
     private modalService: ModalService,
     private translationService: TranslationService,
   ) {
-    this.isAgendaEnabled$ = combineLatest([
+    const isAgendaModuleEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
+      { initialValue: false },
+    );
+    const isEventEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.Event),
-    ]).pipe(map(([groupEnabled, entityEnabled]) => groupEnabled && entityEnabled));
+      { initialValue: false },
+    );
+    this.isAgendaEnabled = computed(() => isAgendaModuleEnabled() && isEventEnabled());
   }
 
   ngOnInit(): void {

@@ -3,24 +3,23 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, of } from 'rxjs';
 import {
   ModalService,
-  Order,
-  OrderProductService,
-  OrderService,
   PaymentService,
   TranslationService,
+  Trip,
+  TripService,
   WebApiResponse,
 } from '@nexus/core';
 import { FeatureFlagService } from '../../../core/services/feature-flag/feature-flag.service';
-import { OrderDetailsPageComponent } from './order-details-page.component';
+import { TripDetailsPageComponent } from './trip-details-page.component';
 
-describe('OrderDetailsPageComponent', () => {
+describe('TripDetailsPageComponent', () => {
   let activatedRouteMock: { snapshot: { paramMap: { get: ReturnType<typeof vi.fn> } } };
-  let orderServiceMock: {
+  let tripServiceMock: {
     getById: ReturnType<typeof vi.fn>;
-    getPdf: ReturnType<typeof vi.fn>;
-    orderChanged$: Subject<void>;
+    getContractPdf: ReturnType<typeof vi.fn>;
+    getServiceOrderPdf: ReturnType<typeof vi.fn>;
+    tripChanged$: Subject<void>;
   };
-  let orderProductServiceMock: { orderProductChanged$: Subject<void> };
   let paymentServiceMock: { paymentChanged$: Subject<void> };
   let routerMock: { navigateByUrl: ReturnType<typeof vi.fn> };
   let featureFlagServiceMock: { isEnabled: ReturnType<typeof vi.fn> };
@@ -28,14 +27,14 @@ describe('OrderDetailsPageComponent', () => {
   let translationServiceMock: { instant: ReturnType<typeof vi.fn> };
   let progressHandle: { setIndeterminate: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
 
-  function createComponent(id: string | null): OrderDetailsPageComponent {
+  function createComponent(id: string | null): TripDetailsPageComponent {
     activatedRouteMock = { snapshot: { paramMap: { get: vi.fn().mockReturnValue(id) } } };
-    orderServiceMock = {
+    tripServiceMock = {
       getById: vi.fn().mockReturnValue(new Subject()),
-      getPdf: vi.fn(),
-      orderChanged$: new Subject(),
+      getContractPdf: vi.fn(),
+      getServiceOrderPdf: vi.fn(),
+      tripChanged$: new Subject(),
     };
-    orderProductServiceMock = { orderProductChanged$: new Subject() };
     paymentServiceMock = { paymentChanged$: new Subject() };
     routerMock = { navigateByUrl: vi.fn() };
     featureFlagServiceMock = { isEnabled: vi.fn().mockReturnValue(of(true)) };
@@ -46,10 +45,9 @@ describe('OrderDetailsPageComponent', () => {
     TestBed.configureTestingModule({});
     return TestBed.runInInjectionContext(
       () =>
-        new OrderDetailsPageComponent(
+        new TripDetailsPageComponent(
           activatedRouteMock as unknown as ActivatedRoute,
-          orderServiceMock as unknown as OrderService,
-          orderProductServiceMock as unknown as OrderProductService,
+          tripServiceMock as unknown as TripService,
           paymentServiceMock as unknown as PaymentService,
           routerMock as unknown as Router,
           featureFlagServiceMock as unknown as FeatureFlagService,
@@ -69,65 +67,61 @@ describe('OrderDetailsPageComponent', () => {
   });
 
   describe('ngOnInit', () => {
-    it('sets isEdit=false for a new order', () => {
+    it('sets isEdit=false and defaults data to {} for a new trip', () => {
       const component = createComponent(null);
       component.ngOnInit();
 
       expect(component.isEdit).toBe(false);
-      expect(component.data).toBeNull();
+      expect(component.data).toEqual({});
     });
 
-    it('loads an existing order by id', () => {
-      const component = createComponent('o1');
-      const response$ = new Subject<WebApiResponse<Order>>();
-      orderServiceMock.getById.mockReturnValue(response$);
+    it('loads an existing trip by id', () => {
+      const component = createComponent('t1');
+      const response$ = new Subject<WebApiResponse<Trip>>();
+      tripServiceMock.getById.mockReturnValue(response$);
 
       component.ngOnInit();
       expect(component.loading).toBe(true);
-      expect(orderServiceMock.getById).toHaveBeenCalledWith('o1');
+      expect(tripServiceMock.getById).toHaveBeenCalledWith('t1');
 
-      const data = { id: 'o1' } as Order;
-      response$.next({ data } as WebApiResponse<Order>);
+      const data = { id: 't1' } as Trip;
+      response$.next({ data } as WebApiResponse<Trip>);
 
       expect(component.loading).toBe(false);
       expect(component.data).toBe(data);
     });
 
-    it('navigates to not-found when the order does not exist', () => {
+    it('navigates to not-found when the trip does not exist', () => {
       const component = createComponent('missing');
-      const response$ = new Subject<WebApiResponse<Order>>();
-      orderServiceMock.getById.mockReturnValue(response$);
+      const response$ = new Subject<WebApiResponse<Trip>>();
+      tripServiceMock.getById.mockReturnValue(response$);
 
       component.ngOnInit();
-      response$.next({ data: null } as unknown as WebApiResponse<Order>);
+      response$.next({ data: null } as unknown as WebApiResponse<Trip>);
 
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
     });
 
-    it('re-fetches on a real orderProductChanged$ event, but not on the skip(1)-dropped first one', () => {
-      const component = createComponent('o1');
-      const firstResponse$ = new Subject<WebApiResponse<Order>>();
-      const secondResponse$ = new Subject<WebApiResponse<Order>>();
-      orderServiceMock.getById
+    it('re-fetches on a real paymentChanged$ event, but not on the skip(1)-dropped first one', () => {
+      const component = createComponent('t1');
+      const firstResponse$ = new Subject<WebApiResponse<Trip>>();
+      const secondResponse$ = new Subject<WebApiResponse<Trip>>();
+      tripServiceMock.getById
         .mockReturnValueOnce(firstResponse$)
         .mockReturnValueOnce(secondResponse$);
 
       component.ngOnInit();
-      firstResponse$.next({ data: { id: 'o1' } } as WebApiResponse<Order>);
-      expect(orderServiceMock.getById).toHaveBeenCalledTimes(1);
+      firstResponse$.next({ data: { id: 't1' } } as WebApiResponse<Trip>);
+      expect(tripServiceMock.getById).toHaveBeenCalledTimes(1);
 
-      // skip(1) is per-source (mirrors a BehaviorSubject's replay-on-subscribe), so the first
-      // .next() on any one of the three merged sources is dropped - this one alone must not
-      // trigger a re-fetch.
-      orderProductServiceMock.orderProductChanged$.next();
-      expect(orderServiceMock.getById).toHaveBeenCalledTimes(1);
+      paymentServiceMock.paymentChanged$.next();
+      expect(tripServiceMock.getById).toHaveBeenCalledTimes(1);
 
-      // A second, real change on that same source does trigger a re-fetch.
-      orderProductServiceMock.orderProductChanged$.next();
-      expect(orderServiceMock.getById).toHaveBeenCalledTimes(2);
+      paymentServiceMock.paymentChanged$.next();
+      expect(tripServiceMock.getById).toHaveBeenCalledTimes(2);
 
-      secondResponse$.next({ data: { id: 'o1' } } as WebApiResponse<Order>);
-      expect(component.data).toEqual({ id: 'o1' });
+      secondResponse$.next({ data: { id: 't1' } } as WebApiResponse<Trip>);
+      expect(component.data).toEqual({ id: 't1' });
     });
   });
 
@@ -138,37 +132,54 @@ describe('OrderDetailsPageComponent', () => {
     });
   });
 
-  describe('emitSalesOrder', () => {
+  describe('emitContract', () => {
     it('does nothing without data', () => {
       const component = createComponent(null);
-      component.emitSalesOrder();
+      component.emitContract();
       expect(modalServiceMock.showPdfProgress).not.toHaveBeenCalled();
     });
 
     it('shows progress and reports success on a resolved PDF', () => {
       const component = createComponent(null);
-      component.data = { id: 'o1', orderNumber: '123' } as Order;
-      const blob = new Blob(['x']);
-      orderServiceMock.getPdf.mockReturnValue(of(blob));
+      component.data = { id: 't1', tripNumber: 'V-1000' } as Trip;
+      tripServiceMock.getContractPdf.mockReturnValue(of(new Blob(['x'])));
 
-      component.emitSalesOrder();
+      component.emitContract();
 
-      expect(progressHandle.setIndeterminate).toHaveBeenCalled();
       expect(progressHandle.success).toHaveBeenCalled();
-      expect(component.emittingSalesOrder).toBe(false);
+      expect(component.emittingContract).toBe(false);
     });
 
     it('reports an error when PDF generation fails', () => {
       const component = createComponent(null);
-      component.data = { id: 'o1', orderNumber: '123' } as Order;
+      component.data = { id: 't1', tripNumber: 'V-1000' } as Trip;
       const error$ = new Subject<Blob>();
-      orderServiceMock.getPdf.mockReturnValue(error$);
+      tripServiceMock.getContractPdf.mockReturnValue(error$);
 
-      component.emitSalesOrder();
+      component.emitContract();
       error$.error(new Error('boom'));
 
       expect(progressHandle.error).toHaveBeenCalled();
-      expect(component.emittingSalesOrder).toBe(false);
+      expect(component.emittingContract).toBe(false);
+    });
+  });
+
+  describe('emitServiceOrder', () => {
+    it('does nothing without data', () => {
+      const component = createComponent(null);
+      component.emitServiceOrder();
+      expect(modalServiceMock.showPdfProgress).not.toHaveBeenCalled();
+    });
+
+    it('shows progress and reports success on a resolved PDF', () => {
+      const component = createComponent(null);
+      component.data = { id: 't1', tripNumber: 'V-1000' } as Trip;
+      tripServiceMock.getServiceOrderPdf.mockReturnValue(of(new Blob(['x'])));
+
+      component.emitServiceOrder();
+
+      expect(progressHandle.success).toHaveBeenCalled();
+      expect(component.emittingServiceOrder).toBe(false);
     });
   });
 

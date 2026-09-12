@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, OnDestroy, OnInit, Signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   PurchaseOrder,
@@ -8,10 +9,10 @@ import {
   PurchaseOrderProductService,
   PaymentService,
 } from '@nexus/core';
-import { combineLatest, Subject, Subscription, switchMap, takeUntil, merge, map, skip, Observable } from 'rxjs';
+import { Subject, Subscription, switchMap, takeUntil, merge, skip } from 'rxjs';
 
 import { HeaderComponent } from '../../../shared/header/header.component';
-import { AsyncPipe, NgIf } from '@angular/common';
+import { NgIf } from '@angular/common';
 import { PurchaseOrderFormComponent } from '../purchase-order-form/purchase-order-form.component';
 import { PurchaseOrderProductsComponent } from '../../../purchase-order-products/purchase-order-products.component';
 import { PaymentsComponent } from '../../../payments/payments.component';
@@ -31,7 +32,6 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     imports: [
         HeaderComponent,
         NgIf,
-        AsyncPipe,
         PurchaseOrderFormComponent,
         PurchaseOrderProductsComponent,
         PaymentsComponent,
@@ -47,11 +47,10 @@ export class PurchaseOrderDetailsPageComponent implements OnInit, OnDestroy {
   data?: PurchaseOrder | null = null;
   id: string | null = null;
   loading = false;
-  // Read via the async pipe in the template rather than subscribed into a plain field: no
-  // manual Subscription/ngOnDestroy bookkeeping, and the async pipe treats "no emission yet" as
-  // falsy, so the tab stays out of the DOM until the real state is known instead of a guessed
-  // default flashing on screen first.
-  isAgendaEnabled$!: Observable<boolean>;
+  // toSignal's initialValue: false matches the async pipe's own "no emission yet reads as falsy"
+  // this used to rely on - the tab stays out of the DOM until the real state is known instead of
+  // a guessed default flashing on screen first.
+  isAgendaEnabled!: Signal<boolean>;
 
   activeTab: 'details' | 'products' | 'payments' | 'attachments' | 'agenda' | 'audit' =
     'details';
@@ -73,10 +72,15 @@ export class PurchaseOrderDetailsPageComponent implements OnInit, OnDestroy {
     private routerService: Router,
     private featureFlagService: FeatureFlagService,
   ) {
-    this.isAgendaEnabled$ = combineLatest([
+    const isAgendaModuleEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
+      { initialValue: false },
+    );
+    const isEventEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.Event),
-    ]).pipe(map(([groupEnabled, entityEnabled]) => groupEnabled && entityEnabled));
+      { initialValue: false },
+    );
+    this.isAgendaEnabled = computed(() => isAgendaModuleEnabled() && isEventEnabled());
   }
 
   ngOnInit(): void {

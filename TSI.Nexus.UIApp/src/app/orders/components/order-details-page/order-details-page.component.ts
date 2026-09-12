@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, OnDestroy, OnInit, Signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   Order,
@@ -11,10 +12,10 @@ import {
   ModalService,
   triggerBlobDownload,
 } from '@nexus/core';
-import { combineLatest, Subject, Subscription, switchMap, takeUntil, merge, map, skip, Observable } from 'rxjs';
+import { Subject, Subscription, switchMap, takeUntil, merge, skip } from 'rxjs';
 
 import { HeaderComponent } from '../../../shared/header/header.component';
-import { AsyncPipe, NgIf } from '@angular/common';
+import { NgIf } from '@angular/common';
 import { OrderFormComponent } from '../order-form/order-form.component';
 import { OrderProductsComponent } from '../../../order-products/order-products.component';
 import { PaymentsComponent } from '../../../payments/payments.component';
@@ -34,7 +35,6 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     imports: [
         HeaderComponent,
         NgIf,
-        AsyncPipe,
         OrderFormComponent,
         OrderProductsComponent,
         PaymentsComponent,
@@ -50,11 +50,10 @@ export class OrderDetailsPageComponent implements OnInit, OnDestroy {
   data?: Order | null = null;
   id: string | null = null;
   loading = false;
-  // Read via the async pipe in the template rather than subscribed into a plain field: no
-  // manual Subscription/ngOnDestroy bookkeeping, and the async pipe treats "no emission yet" as
-  // falsy, so the tab stays out of the DOM until the real state is known instead of a guessed
-  // default flashing on screen first.
-  isAgendaEnabled$!: Observable<boolean>;
+  // toSignal's initialValue: false matches the async pipe's own "no emission yet reads as falsy"
+  // this used to rely on - the tab stays out of the DOM until the real state is known instead of
+  // a guessed default flashing on screen first.
+  isAgendaEnabled!: Signal<boolean>;
 
   activeTab: 'details' | 'products' | 'payments' | 'attachments' | 'agenda' | 'audit' =
     'details';
@@ -80,10 +79,15 @@ export class OrderDetailsPageComponent implements OnInit, OnDestroy {
     private modalService: ModalService,
     private translationService: TranslationService,
   ) {
-    this.isAgendaEnabled$ = combineLatest([
+    const isAgendaModuleEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
+      { initialValue: false },
+    );
+    const isEventEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.Event),
-    ]).pipe(map(([groupEnabled, entityEnabled]) => groupEnabled && entityEnabled));
+      { initialValue: false },
+    );
+    this.isAgendaEnabled = computed(() => isAgendaModuleEnabled() && isEventEnabled());
   }
 
   ngOnInit(): void {

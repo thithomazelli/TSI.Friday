@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, OnDestroy, OnInit, Signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   AgendaEvent,
@@ -12,9 +13,7 @@ import {
   WebApiResponse,
 } from '@nexus/core';
 import {
-  combineLatest,
   forkJoin,
-  map,
   merge,
   of,
   skip,
@@ -22,9 +21,7 @@ import {
   Subscription,
   switchMap,
   takeUntil,
-  Observable,
 } from 'rxjs';
-import { AsyncPipe } from '@angular/common';
 import { HeaderComponent } from '../../../shared/header/header.component';
 import { PhotoComponent } from '../../../shared/photo/photo.component';
 import { VehicleFormComponent } from '../vehicle-form/vehicle-form.component';
@@ -47,7 +44,6 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
     imports: [
         HeaderComponent,
         PhotoComponent,
-        AsyncPipe,
         VehicleFormComponent,
         VehicleMaintenanceListComponent,
         FuelLogListComponent,
@@ -63,11 +59,10 @@ export class VehicleDetailsPageComponent implements OnInit, OnDestroy {
   isEdit = false;
   data?: Vehicle | null = null;
   loading = false;
-  // Read via the async pipe in the template rather than subscribed into a plain field: no
-  // manual Subscription/ngOnDestroy bookkeeping, and the async pipe treats "no emission yet" as
-  // falsy, so the tab stays out of the DOM until the real state is known instead of a guessed
-  // default flashing on screen first.
-  isAgendaEnabled$!: Observable<boolean>;
+  // toSignal's initialValue: false matches the async pipe's own "no emission yet reads as falsy"
+  // this used to rely on - the tab stays out of the DOM until the real state is known instead of
+  // a guessed default flashing on screen first.
+  isAgendaEnabled!: Signal<boolean>;
   tripAgendaEvents: AgendaEvent[] = [];
   activeTab:
     | 'details'
@@ -100,10 +95,15 @@ export class VehicleDetailsPageComponent implements OnInit, OnDestroy {
     private routerService: Router,
     private featureFlagService: FeatureFlagService,
   ) {
-    this.isAgendaEnabled$ = combineLatest([
+    const isAgendaModuleEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
+      { initialValue: false },
+    );
+    const isEventEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.Event),
-    ]).pipe(map(([groupEnabled, entityEnabled]) => groupEnabled && entityEnabled));
+      { initialValue: false },
+    );
+    this.isAgendaEnabled = computed(() => isAgendaModuleEnabled() && isEventEnabled());
   }
 
   getStatusLabel(): string {

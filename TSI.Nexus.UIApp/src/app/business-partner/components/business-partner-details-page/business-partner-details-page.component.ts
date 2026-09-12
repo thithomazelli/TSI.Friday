@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, OnDestroy, OnInit, Signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   BusinessPartnerService,
@@ -7,10 +8,10 @@ import {
   Individual,
   TranslationService,
 } from '@nexus/core';
-import { combineLatest, map, Subject, takeUntil, Observable } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 import { HeaderComponent } from '../../../shared/header/header.component';
 import { PhotoComponent } from '../../../shared/photo/photo.component';
-import { AsyncPipe, NgIf } from '@angular/common';
+import { NgIf } from '@angular/common';
 import { BusinessPartnerFormComponent } from '../business-partner-form/business-partner-form.component';
 import { AddressComponent } from '../../../address/address.component';
 import { OrdersComponent } from '../../../orders/orders.component';
@@ -33,7 +34,6 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
         HeaderComponent,
         PhotoComponent,
         NgIf,
-        AsyncPipe,
         BusinessPartnerFormComponent,
         AddressComponent,
         OrdersComponent,
@@ -63,11 +63,10 @@ export class BusinessPartnerDetailsPageComponent implements OnInit, OnDestroy {
   title: string = '';
   baseEndPoint: string = '';
   canDisplayOrdersTab = true;
-  // Read via the async pipe in the template rather than subscribed into a plain field: no
-  // manual Subscription/ngOnDestroy bookkeeping, and the async pipe treats "no emission yet" as
-  // falsy, so the tab stays out of the DOM until the real state is known instead of a guessed
-  // default flashing on screen first.
-  isAgendaEnabled$!: Observable<boolean>;
+  // toSignal's initialValue: false matches the async pipe's own "no emission yet reads as falsy"
+  // this used to rely on - the tab stays out of the DOM until the real state is known instead of
+  // a guessed default flashing on screen first.
+  isAgendaEnabled!: Signal<boolean>;
 
   private _destroy$ = new Subject<void>();
 
@@ -78,10 +77,15 @@ export class BusinessPartnerDetailsPageComponent implements OnInit, OnDestroy {
     private translationService: TranslationService,
     private featureFlagService: FeatureFlagService,
   ) {
-    this.isAgendaEnabled$ = combineLatest([
+    const isAgendaModuleEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
+      { initialValue: false },
+    );
+    const isEventEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.Event),
-    ]).pipe(map(([groupEnabled, entityEnabled]) => groupEnabled && entityEnabled));
+      { initialValue: false },
+    );
+    this.isAgendaEnabled = computed(() => isAgendaModuleEnabled() && isEventEnabled());
   }
 
   ngOnInit(): void {
