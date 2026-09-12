@@ -331,6 +331,33 @@ por um spec real. Único consumidor de `getAll()`/`users$` é o próprio arquivo
 nenhum outro lugar do app hoje), então não há o mesmo risco de `forkJoin` encontrado no
 `fleet-report`.
 
+**`AccountService` (o mais sensível — sessão/autenticação, tratado com cuidado extra)**: aqui o
+formato é diferente dos outros: `_userSource = new ReplaySubject<User | null>(1)` não tem valor
+inicial — não emite nada até o primeiro `.next()` (em `emitNoUser()`/`setUser()`, chamados no
+bootstrap por `app.component.ts`). Isso importa porque `authorization.guard.ts` (guard de rota)
+assina `user$` e o Angular Router só resolve a navegação na **primeira** emissão do
+`Observable<boolean>` retornado — ou seja, a navegação fica esperando até a sessão ser conhecida,
+em vez de decidir prematuramente com um "usuário nulo" que na verdade só significa "ainda não
+verificamos". Migrado pra `signal<User | null | undefined>(undefined)`, com `undefined` = "estado
+ainda não conhecido" filtrado de `user$` — o mesmo sentinel de "not loaded yet" do
+`FeatureFlagService`, aplicado aqui para preservar exatamente esse comportamento de "guard espera
+a sessão ficar conhecida" em vez de decidir cedo demais.
+
+**Não migrado, intencionalmente**: `_refresh$?: Observable<void>` — o dedup de `refreshUser()`
+(`shareReplay(1)` + `finalize()` pra garantir que N chamadas concorrentes compartilhem uma única
+requisição HTTP em voo, e que a próxima chamada depois de completar dispare uma nova). Isso não é
+"estado atual" no sentido que `Signal` modela — não há um "valor" entre requisições, só "há uma em
+voo agora ou não" — é o mesmo tipo de mecanismo de uso único que já motivou o carve-out do
+`xAdded$` na seção 3 da spec. Mantido como RxJS.
+
+Spec pré-existente (`account.service.spec.ts`) já tinha testes reais (`login`/`logout`/
+`isTokenExpired`, do spike da Fase 0) — atualizado (não reescrito do zero) pra usar
+`TestBed.flushEffects()` onde necessário (Gotcha 5) e ganhar cobertura nova: `user$` não emite
+antes do estado ser conhecido, `emitNoUser()`, e o dedup de `refreshUser()` (chamadas concorrentes
+compartilham uma requisição; uma nova chamada depois de completar dispara outra). Verificado
+também que os specs de `authorization.guard.ts`, `app.component.ts` e `navbar.component.ts` —
+principais consumidores de `user$` — continuam passando sem alteração.
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não

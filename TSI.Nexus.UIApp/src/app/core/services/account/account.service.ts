@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import {
   ApiService,
   ConfirmEmail,
@@ -10,8 +11,8 @@ import {
   User,
   WebApiResponse,
 } from '@nexus/core';
-import { map, Observable, ReplaySubject } from 'rxjs';
-import { finalize, shareReplay } from 'rxjs/operators';
+import { map, Observable } from 'rxjs';
+import { filter, finalize, shareReplay } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { Router } from '@angular/router';
 
@@ -19,9 +20,20 @@ import { Router } from '@angular/router';
   providedIn: 'root',
 })
 export class AccountService {
-  private _userSource = new ReplaySubject<User | null>(1);
+  // undefined = "session state not known yet" (before app.component.ts's bootstrap calls
+  // emitNoUser()/refreshUser()); null = "known logged out". Consumers (authorization.guard.ts in
+  // particular) rely on getting NO emission until the session state is actually known - the
+  // router guard's Observable<boolean> only resolves on the first emission, so a route decision
+  // correctly waits rather than firing prematurely against a still-unknown session. undefined is
+  // filtered out of user$ below to preserve that, the same "not loaded yet" sentinel pattern used
+  // by FeatureFlagService/ProductService/etc.
+  private readonly _user = signal<User | null | undefined>(undefined);
 
-  // in-flight refresh observable to prevent duplicate requests
+  // In-flight refresh Observable, deduplicating concurrent refreshUser() callers onto a single
+  // HTTP request. Deliberately kept as RxJS rather than migrated: this isn't "current state" a
+  // Signal would model (there's no meaningful "value" between requests, only "is one in flight
+  // right now"), it's a single-use share+finalize dedup exactly matching the addTemporary()-style
+  // carve-out documented in spec-12 section 3 for one-shot RxJS mechanisms Signals don't replace.
   private _refresh$?: Observable<void>;
 
   // Safety margin against client clock drift relative to the server, roughly matching the
@@ -29,7 +41,9 @@ export class AccountService {
   // ballpark so the client doesn't give up on a token the server would still accept.
   private readonly clockSkewToleranceMs = 60_000;
 
-  user$ = this._userSource.asObservable();
+  readonly user$: Observable<User | null> = toObservable(this._user).pipe(
+    filter((u): u is User | null => u !== undefined),
+  );
 
   constructor(
     private apiService: ApiService,
@@ -70,7 +84,7 @@ export class AccountService {
 
   /** Marks the session as logged-out locally, without navigating - see getStoredUser() callers. */
   emitNoUser(): void {
-    this._userSource.next(null);
+    this._user.set(null);
   }
 
   refreshUser(): Observable<void> {
@@ -136,7 +150,7 @@ export class AccountService {
     // Clear client state immediately so application stops using invalid token
     try {
       localStorage.removeItem(environment.userKey);
-      this._userSource.next(null);
+      this._user.set(null);
     } catch {
       // ignore
     }
@@ -224,7 +238,7 @@ export class AccountService {
     this.startAutoLogout(user.tokenExpiresAtUtc);
 
     localStorage.setItem(environment.userKey, JSON.stringify(user));
-    this._userSource.next(user);
+    this._user.set(user);
 
     // Apply the user's saved theme/language preference (falls back to whatever was already
     // applied from localStorage before login when the user has no saved preference yet).
