@@ -10,6 +10,7 @@ import { provideNgxMask } from 'ngx-mask';
 import { ToastrModule } from 'ngx-toastr';
 
 import { routes } from './app.routes';
+import { JwtInterceptor } from './core';
 import { ErrorInterceptor } from './core/interceptors/error.interceptor';
 
 export const appConfig: ApplicationConfig = {
@@ -45,6 +46,7 @@ export const appConfig: ApplicationConfig = {
       },
     }),
     provideNgxMask(),
+    { provide: HTTP_INTERCEPTORS, useClass: JwtInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),

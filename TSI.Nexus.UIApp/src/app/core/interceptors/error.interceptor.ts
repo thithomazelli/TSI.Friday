@@ -36,15 +36,21 @@ export class ErrorInterceptor implements HttpInterceptor {
           return throwError(() => err);
         }
 
-        if (!this.accountService.getStoredUser()) {
+        const jwt = this.accountService.getJWT();
+        if (!jwt) {
           return throwError(() => err);
         }
 
         // A 401 mid-session isn't necessarily a dead session - attempt one real renewal before
-        // giving up, then retry the original request. No token to re-attach here: the renewed
-        // httpOnly cookie rides along automatically on the retry, same as every other request.
-        return this.accountService.refreshUser().pipe(
-          switchMap(() => next.handle(request)),
+        // giving up, then retry the original request with the fresh token.
+        return this.accountService.refreshUser(jwt).pipe(
+          switchMap(() => {
+            const newJwt = this.accountService.getJWT();
+            const retried = newJwt
+              ? request.clone({ setHeaders: { Authorization: `Bearer ${newJwt}` } })
+              : request;
+            return next.handle(retried);
+          }),
           catchError(() => {
             this.accountService.logout();
             return throwError(() => err);

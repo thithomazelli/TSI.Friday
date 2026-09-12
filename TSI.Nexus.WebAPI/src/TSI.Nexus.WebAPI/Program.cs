@@ -4,10 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -134,25 +132,6 @@ builder
             // ensure role claims are read from ClaimTypes.Role
             RoleClaimType = System.Security.Claims.ClaimTypes.Role,
         };
-        // The Angular app no longer holds the token in JS-readable storage - it travels in an
-        // httpOnly cookie instead (see AccountController). This still checks the Authorization
-        // header first, so a direct header-based call (Swagger, curl, a future non-browser client)
-        // keeps working exactly as before; the cookie is only a fallback for when no header is
-        // present.
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                if (
-                    string.IsNullOrEmpty(context.Token)
-                    && context.Request.Cookies.TryGetValue("nexus_auth", out var cookieToken)
-                )
-                {
-                    context.Token = cookieToken;
-                }
-                return Task.CompletedTask;
-            },
-        };
     });
 
 // Add authorization policies
@@ -273,20 +252,6 @@ else
 Directory.CreateDirectory(attachmentsPath);
 
 // Configure the HTTP request pipeline.
-// Must run first, before anything that reads Request.Scheme/IsHttps (UseHttpsRedirection) or
-// writes a Secure cookie (AccountController). Production hosts this API in IIS with
-// hostingModel="OutOfProcess" (web.config) - IIS terminates the real HTTPS connection and
-// forwards a plain HTTP request to this process over loopback, so without this middleware the
-// app sees every request as HTTP regardless of what the browser actually used. The known-proxy
-// defaults (loopback) already match this same-machine IIS<->Kestrel hop, so no extra
-// KnownProxies/KnownNetworks configuration is needed.
-app.UseForwardedHeaders(
-    new ForwardedHeadersOptions
-    {
-        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
-    }
-);
-
 // UseCors must run before UseExceptionHandler: middleware registered earlier wraps
 // middleware registered later, so an unhandled exception caught by UseExceptionHandler still
 // unwinds back out through UseCors's response header logic. With the order reversed, error

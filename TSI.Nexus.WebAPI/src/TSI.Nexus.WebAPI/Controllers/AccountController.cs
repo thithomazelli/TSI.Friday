@@ -1,8 +1,6 @@
-﻿using System;
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using TSI.Nexus.Contracts.Interfaces;
@@ -16,8 +14,6 @@ namespace TSI.Nexus.WebAPI.Controllers
     [ApiController]
     public class AccountController : ControllerBase
     {
-        private const string AuthCookieName = "nexus_auth";
-
         private readonly IUserManagerService _userManagerService;
 
         public AccountController(IUserManagerService userManagerService)
@@ -30,9 +26,7 @@ namespace TSI.Nexus.WebAPI.Controllers
         public async Task<ActionResult<UserDto>> RefreshUserToken()
         {
             var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
-            var result = await _userManagerService.RefreshUserToken(userName);
-            SetAuthCookieAndStripToken(result.Value);
-            return result;
+            return await _userManagerService.RefreshUserToken(userName);
         }
 
         [AllowAnonymous]
@@ -40,23 +34,7 @@ namespace TSI.Nexus.WebAPI.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<UserDto>> Login(LoginDto model)
         {
-            var result = await _userManagerService.Login(model);
-            SetAuthCookieAndStripToken(result.Value);
-            return result;
-        }
-
-        /// <summary>
-        /// Clears the httpOnly auth cookie. The client-side session state is cleared
-        /// unconditionally regardless of whether this succeeds, so this accepts anonymous calls
-        /// and never fails - there's nothing sensitive in deleting a cookie the browser already
-        /// owns, even with an expired or missing token.
-        /// </summary>
-        [AllowAnonymous]
-        [HttpPost("logout")]
-        public IActionResult Logout()
-        {
-            Response.Cookies.Delete(AuthCookieName);
-            return Ok();
+            return await _userManagerService.Login(model);
         }
 
         /// <summary>
@@ -116,36 +94,6 @@ namespace TSI.Nexus.WebAPI.Controllers
         public async Task<IActionResult> ResetPassword(ResetPasswordDto model)
         {
             return await _userManagerService.ResetPassword(model);
-        }
-
-        /// <summary>
-        /// Moves a freshly issued JWT out of the response body and into an httpOnly cookie, so a
-        /// future XSS in the SPA has no JS-readable token to steal. The DTO keeps
-        /// <see cref="UserDto.TokenExpiresAtUtc"/> so the client can still schedule its own
-        /// renewal/auto-logout timer without ever holding the raw token.
-        /// </summary>
-        private void SetAuthCookieAndStripToken(UserDto? user)
-        {
-            if (string.IsNullOrEmpty(user?.JWT))
-            {
-                return;
-            }
-
-            Response.Cookies.Append(
-                AuthCookieName,
-                user.JWT,
-                new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Strict,
-                    Expires = user.TokenExpiresAtUtc.HasValue
-                        ? new DateTimeOffset(user.TokenExpiresAtUtc.Value, TimeSpan.Zero)
-                        : null,
-                }
-            );
-
-            user.JWT = null;
         }
     }
 }

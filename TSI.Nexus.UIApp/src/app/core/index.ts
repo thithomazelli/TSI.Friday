@@ -7,3 +7,4 @@ export * from './pipes/index';
 export * from './base/index';
 
 export * from './guards/authorization.guard';
+export * from './interceptors/jwt.interceptor';
