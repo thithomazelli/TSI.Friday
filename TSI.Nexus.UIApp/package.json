@@ -8,7 +8,8 @@
     "build:homolog": "ng build --configuration=homolog && node scripts/replace-index-href.js --configuration=homolog",
     "build:serodio": "ng build --configuration=production && node scripts/replace-index-href.js --configuration=serodio",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "test:coverage": "ng test --coverage"
   },
   "private": true,
   "dependencies": {

@@ -113,7 +113,9 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "runner": "vitest",
-            "buildTarget": "::development"
+            "buildTarget": "::development",
+            "coverageExclude": ["**/*.html"],
+            "coverageReporters": ["text-summary", "html", "json"]
           }
         }
       }
