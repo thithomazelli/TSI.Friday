@@ -5,6 +5,7 @@ import {
   AccountService,
   FormBaseComponent,
   ModalService,
+  TranslationService,
   User,
 } from '@nexus/core';
 import { take } from 'rxjs';
@@ -32,6 +33,7 @@ export class SendEmailComponent extends FormBaseComponent implements OnInit {
     private router: Router,
     private activatedRoute: ActivatedRoute,
     private cdr: ChangeDetectorRef,
+    private translationService: TranslationService,
   ) {
     super();
   }
@@ -83,10 +85,15 @@ export class SendEmailComponent extends FormBaseComponent implements OnInit {
             this.router.navigateByUrl('/account/login');
           },
           error: (response: any) => {
-            if (response.error.errors) {
+            // response.error is null (not just missing .errors) for a failure that never reached
+            // the API with a JSON body - see login.component.ts's error handler for the full story.
+            if (response.error?.errors) {
               this.errorMessages = response.error.errors;
             } else {
-              this.errorMessages = [...this.errorMessages, response.error];
+              this.errorMessages = [
+                ...this.errorMessages,
+                response.error ?? this.translationService.instant('ACCOUNT.SERVER_ERROR'),
+              ];
             }
             this.cdr.markForCheck();
           },
@@ -104,10 +111,15 @@ export class SendEmailComponent extends FormBaseComponent implements OnInit {
             this.router.navigateByUrl('/account/login');
           },
           error: (response: any) => {
-            if (response.error.errors) {
+            // response.error is null (not just missing .errors) for a failure that never reached
+            // the API with a JSON body - see login.component.ts's error handler for the full story.
+            if (response.error?.errors) {
               this.errorMessages = response.error.errors;
             } else {
-              this.errorMessages = [...this.errorMessages, response.error];
+              this.errorMessages = [
+                ...this.errorMessages,
+                response.error ?? this.translationService.instant('ACCOUNT.SERVER_ERROR'),
+              ];
             }
             this.cdr.markForCheck();
           },

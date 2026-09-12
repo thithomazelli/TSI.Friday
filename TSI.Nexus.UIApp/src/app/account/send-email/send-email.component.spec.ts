@@ -1,7 +1,7 @@
 import { ChangeDetectorRef } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AccountService, ModalService } from '@nexus/core';
+import { AccountService, ModalService, TranslationService } from '@nexus/core';
 import { Subject, of, throwError } from 'rxjs';
 import { SendEmailComponent } from './send-email.component';
 
@@ -15,6 +15,7 @@ describe('SendEmailComponent', () => {
   let routerMock: { navigateByUrl: ReturnType<typeof vi.fn> };
   let activatedRouteMock: { snapshot: { paramMap: { get: ReturnType<typeof vi.fn> } } };
   let cdrMock: { markForCheck: ReturnType<typeof vi.fn> };
+  let translationServiceMock: { instant: ReturnType<typeof vi.fn> };
 
   function createComponent(mode: string | null): SendEmailComponent {
     accountServiceMock = {
@@ -26,6 +27,7 @@ describe('SendEmailComponent', () => {
     routerMock = { navigateByUrl: vi.fn() };
     activatedRouteMock = { snapshot: { paramMap: { get: vi.fn().mockReturnValue(mode) } } };
     cdrMock = { markForCheck: vi.fn() };
+    translationServiceMock = { instant: vi.fn((key: string) => key) };
 
     return new SendEmailComponent(
       accountServiceMock as unknown as AccountService,
@@ -34,6 +36,7 @@ describe('SendEmailComponent', () => {
       routerMock as unknown as Router,
       activatedRouteMock as unknown as ActivatedRoute,
       cdrMock as unknown as ChangeDetectorRef,
+      translationServiceMock as unknown as TranslationService,
     );
   }
 
@@ -58,6 +61,15 @@ describe('SendEmailComponent', () => {
 
     expect(component.mode).toBe('resend-email-confirmation');
     expect(component.form.get('email')).toBeTruthy();
+  });
+
+  it('falls back to an empty mode when the route has none', () => {
+    const component = createComponent(null);
+    component.ngOnInit();
+
+    accountServiceMock.user$.next(null);
+
+    expect(component.mode).toBe('');
   });
 
   describe('sendEmail', () => {
@@ -100,6 +112,18 @@ describe('SendEmailComponent', () => {
       expect(accountServiceMock.forgotUsernameOrPassword).toHaveBeenCalledWith('a@b.com');
     });
 
+    it('does nothing when the mode matches neither known flow', () => {
+      const component = createComponent('some-other-mode');
+      component.ngOnInit();
+      accountServiceMock.user$.next(null);
+
+      component.form.setValue({ email: 'a@b.com' });
+      component.sendEmail();
+
+      expect(accountServiceMock.resendEmailConfirmation).not.toHaveBeenCalled();
+      expect(accountServiceMock.forgotUsernameOrPassword).not.toHaveBeenCalled();
+    });
+
     it('surfaces server validation errors', () => {
       const component = createComponent('resend-email-confirmation');
       component.ngOnInit();
@@ -112,6 +136,48 @@ describe('SendEmailComponent', () => {
       component.sendEmail();
 
       expect(component.errorMessages).toEqual(['E-mail inválido']);
+    });
+
+    it('falls back to the generic message without throwing when response.error is null (resend flow)', () => {
+      const component = createComponent('resend-email-confirmation');
+      component.ngOnInit();
+      accountServiceMock.user$.next(null);
+      accountServiceMock.resendEmailConfirmation.mockReturnValue(
+        throwError(() => ({ status: 500, error: null })),
+      );
+
+      component.form.setValue({ email: 'a@b.com' });
+
+      expect(() => component.sendEmail()).not.toThrow();
+      expect(component.errorMessages).toEqual(['ACCOUNT.SERVER_ERROR']);
+    });
+
+    it('surfaces server validation errors for the forgot-password flow', () => {
+      const component = createComponent('forgot-username-or-password');
+      component.ngOnInit();
+      accountServiceMock.user$.next(null);
+      accountServiceMock.forgotUsernameOrPassword.mockReturnValue(
+        throwError(() => ({ error: { errors: ['E-mail não encontrado'] } })),
+      );
+
+      component.form.setValue({ email: 'a@b.com' });
+      component.sendEmail();
+
+      expect(component.errorMessages).toEqual(['E-mail não encontrado']);
+    });
+
+    it('falls back to the generic message without throwing when response.error is null (forgot-password flow)', () => {
+      const component = createComponent('forgot-username-or-password');
+      component.ngOnInit();
+      accountServiceMock.user$.next(null);
+      accountServiceMock.forgotUsernameOrPassword.mockReturnValue(
+        throwError(() => ({ status: 500, error: null })),
+      );
+
+      component.form.setValue({ email: 'a@b.com' });
+
+      expect(() => component.sendEmail()).not.toThrow();
+      expect(component.errorMessages).toEqual(['ACCOUNT.SERVER_ERROR']);
     });
   });
 
