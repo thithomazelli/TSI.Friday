@@ -88,6 +88,25 @@ describe('AccountService', () => {
       });
       expect(emitted.at(-1)).toMatchObject({ id: '1', roles: ['Master'] });
     });
+
+    it('makes the new user visible to a fresh user$ subscriber synchronously, with no flush needed', () => {
+      // Regression test: this used to be backed by a Signal + toObservable(), which only reaches
+      // subscribers on the next effect flush rather than synchronously on set(). Login's own
+      // success handler calls setUser() then immediately navigateByUrl() in the same tick, and
+      // AuthorizationGuard subscribes to user$ fresh for every navigation - with the Signal, that
+      // brand-new subscription could still observe the pre-login value (no flush had happened
+      // yet), reject the navigation, and bounce the user straight back to the login page they had
+      // just authenticated out of. This must hold with no TestBed.flushEffects() call at all.
+      const user = { id: '1', tokenExpiresAtUtc: null } as unknown as User;
+      apiServiceMock.post.mockReturnValue(of(user));
+
+      service.login({ userName: 'admin', password: 'x' } as never).subscribe();
+
+      let sawImmediately: unknown;
+      service.user$.subscribe((u) => (sawImmediately = u));
+
+      expect(sawImmediately).toMatchObject({ id: '1' });
+    });
   });
 
   describe('logout', () => {

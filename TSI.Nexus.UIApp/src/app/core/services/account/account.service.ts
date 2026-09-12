@@ -1,5 +1,4 @@
-import { Injectable, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
+import { Injectable } from '@angular/core';
 import {
   ApiService,
   ConfirmEmail,
@@ -11,7 +10,7 @@ import {
   User,
   WebApiResponse,
 } from '@nexus/core';
-import { map, Observable } from 'rxjs';
+import { BehaviorSubject, map, Observable } from 'rxjs';
 import { filter, finalize, shareReplay } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { Router } from '@angular/router';
@@ -27,7 +26,16 @@ export class AccountService {
   // correctly waits rather than firing prematurely against a still-unknown session. undefined is
   // filtered out of user$ below to preserve that, the same "not loaded yet" sentinel pattern used
   // by FeatureFlagService/ProductService/etc.
-  private readonly _user = signal<User | null | undefined>(undefined);
+  //
+  // Deliberately a BehaviorSubject, not a Signal: a Signal only reaches subscribers of
+  // toObservable(signal) on the next effect flush (a scheduled microtask), not synchronously on
+  // .set(). login()'s own success handler calls setUser() then immediately navigateByUrl() in the
+  // very same synchronous tick - with a Signal, AuthorizationGuard's fresh user$ subscription for
+  // that navigation could still observe the pre-login value because the effect hadn't flushed yet,
+  // reject the navigation, and bounce straight back to the login page the user just authenticated
+  // out of. A BehaviorSubject.next() is visible to any subscriber, including a brand new one,
+  // the instant it's called - no flush to race.
+  private readonly _user = new BehaviorSubject<User | null | undefined>(undefined);
 
   // In-flight refresh Observable, deduplicating concurrent refreshUser() callers onto a single
   // HTTP request. Deliberately kept as RxJS rather than migrated: this isn't "current state" a
@@ -41,7 +49,7 @@ export class AccountService {
   // ballpark so the client doesn't give up on a token the server would still accept.
   private readonly clockSkewToleranceMs = 60_000;
 
-  readonly user$: Observable<User | null> = toObservable(this._user).pipe(
+  readonly user$: Observable<User | null> = this._user.asObservable().pipe(
     filter((u): u is User | null => u !== undefined),
   );
 
@@ -84,7 +92,7 @@ export class AccountService {
 
   /** Marks the session as logged-out locally, without navigating - see getStoredUser() callers. */
   emitNoUser(): void {
-    this._user.set(null);
+    this._user.next(null);
   }
 
   refreshUser(): Observable<void> {
@@ -171,7 +179,7 @@ export class AccountService {
     // Clear client state immediately so application stops using invalid token
     try {
       localStorage.removeItem(environment.userKey);
-      this._user.set(null);
+      this._user.next(null);
     } catch {
       // ignore
     }
@@ -259,7 +267,7 @@ export class AccountService {
     this.startAutoLogout(user.tokenExpiresAtUtc);
 
     localStorage.setItem(environment.userKey, JSON.stringify(user));
-    this._user.set(user);
+    this._user.next(user);
 
     // Apply the user's saved theme/language preference (falls back to whatever was already
     // applied from localStorage before login when the user has no saved preference yet).
