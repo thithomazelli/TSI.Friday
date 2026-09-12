@@ -513,6 +513,14 @@ em `ngOnInit()`) sem `takeUntil(this._destroy$)` — vazamento de subscription p
 relacionado ao `isAgendaEnabled$`/`combineLatest` migrado aqui. Reportado ao usuário; não corrigido
 nesta sessão pra manter o escopo do commit restrito ao que a spec pede.
 
+**Varredura final do resto do app** (todas as features fora de `core/`/`shared/`, já cobertos nas
+Fases 2/3): todo `new Subject`/`new BehaviorSubject` restante é o mesmo `_destroy$` de
+`takeUntil()` — nenhum estado de negócio sobrando. O único `combineLatest`/`combineLatestWith`
+restante (`event-form.component.ts`) é o carve-out de autocomplete já documentado na seção 3
+(`valueChanges` de Reactive Forms). Ou seja: **não há mais nenhum candidato de migração RxJS→Signals
+no frontend** — as Fases 2, 3 e 4 desta spec cobrem tudo que faz sentido migrar; o que resta em
+`_destroy$`/`valueChanges`/`debounceTime` é estrutural por design (seção 3) e fica como está.
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não
