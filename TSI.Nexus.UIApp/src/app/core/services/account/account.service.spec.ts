@@ -105,6 +105,59 @@ describe('AccountService', () => {
       expect(emitted.at(-1)).toBeNull();
       expect(apiServiceMock.post).toHaveBeenCalledWith('account/logout', {});
     });
+
+    it('ignores a refreshUser() call that was already in flight when logout() ran', () => {
+      const refresh$ = new Subject<User>();
+      apiServiceMock.get = vi.fn().mockReturnValue(refresh$);
+
+      const emitted: unknown[] = [];
+      service.user$.subscribe((u) => emitted.push(u));
+
+      service.refreshUser().subscribe();
+      service.logout();
+      TestBed.flushEffects();
+      expect(emitted.at(-1)).toBeNull();
+
+      // The pre-logout refresh resolves afterwards, against the cookie that was still valid when
+      // it was issued - it must not resurrect the session logout() just cleared.
+      refresh$.next({ id: '1', tokenExpiresAtUtc: null } as unknown as User);
+      refresh$.complete();
+      TestBed.flushEffects();
+
+      expect(emitted.at(-1)).toBeNull();
+    });
+
+    it('lets a fresh login() after logout() set the user again', () => {
+      const user = { id: '1', tokenExpiresAtUtc: null } as unknown as User;
+
+      const emitted: unknown[] = [];
+      service.user$.subscribe((u) => emitted.push(u));
+
+      service.logout();
+      TestBed.flushEffects();
+      expect(emitted.at(-1)).toBeNull();
+
+      apiServiceMock.post.mockReturnValue(of(user));
+      service.login({ userName: 'admin', password: 'x' } as never).subscribe();
+      TestBed.flushEffects();
+
+      expect(emitted.at(-1)).toMatchObject({ id: '1' });
+    });
+
+    it('clears a pending auto-logout timer so it cannot fire after logout', () => {
+      vi.useFakeTimers();
+      try {
+        service.startAutoLogout(new Date(Date.now() + 60_000).toISOString());
+        service.logout();
+        apiServiceMock.get.mockClear();
+
+        vi.advanceTimersByTime(60_000);
+
+        expect(apiServiceMock.get).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe('refreshUser', () => {

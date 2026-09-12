@@ -1,6 +1,6 @@
 <!--begin::App Wrapper-->
-<div [ngClass]="(isLoggedIn$ | async) ? 'app-wrapper' : 'login-box'">
-  @if (isLoggedIn$ | async) {
+<div [ngClass]="(showShell$ | async) ? 'app-wrapper' : 'login-box'">
+  @if (showShell$ | async) {
     <!--begin::Header-->
     <app-navbar class="app-header main-header"></app-navbar>
     <!--end::Header-->
@@ -16,7 +16,7 @@
     <router-outlet></router-outlet>
   </main>
   <!--end::App Main-->
-  @if (isLoggedIn$ | async) {
+  @if (showShell$ | async) {
     <!--begin::Footer-->
     <app-footer class="app-footer"></app-footer>
   }

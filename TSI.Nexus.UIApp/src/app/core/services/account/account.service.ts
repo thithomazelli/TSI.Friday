@@ -141,12 +141,33 @@ export class AccountService {
   login(model: Login): Observable<void> {
     return this.apiService.post<User>('account/login', model).pipe(
       map((user: User) => {
+        // A fresh, explicit login always wins over a previous logout - see the flag itself for
+        // why it exists.
+        this.loggedOut = false;
         this.setUser(user);
       }),
     );
   }
 
+  // Guards setUser() against a refreshUser() call that was already in flight (from the periodic
+  // checkRefreshOnNavigation() timer, or the auto-logout renewal attempt) when logout() ran: that
+  // request was issued against the still-valid pre-logout cookie, so it can resolve successfully
+  // *after* local state was cleared and resurrect a session the user just explicitly ended -
+  // leaving the shell hidden (isLoggedIn$ still reflects the logout) while the app is actually
+  // holding a live user again, or racing the navigation to the login page. Only a real login()
+  // clears the flag.
+  private loggedOut = false;
+
   logout(): void {
+    this.loggedOut = true;
+
+    // A pending auto-logout timer firing later would just attempt a renewal that setUser() now
+    // ignores, but there is no reason to let it fire at all once the session has been ended here.
+    if (this.logoutTimer) {
+      clearTimeout(this.logoutTimer);
+      this.logoutTimer = undefined;
+    }
+
     // Clear client state immediately so application stops using invalid token
     try {
       localStorage.removeItem(environment.userKey);
@@ -222,7 +243,7 @@ export class AccountService {
   }
 
   private setUser(user: User): void {
-    if (!user) {
+    if (!user || this.loggedOut) {
       return;
     }
 

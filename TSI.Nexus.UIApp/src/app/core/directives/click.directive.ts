@@ -23,10 +23,22 @@ export class ClickDirective {
     private renderer: Renderer2,
   ) {}
 
-  @HostListener('click')
-  onClick() {
+  @HostListener('click', ['$event'])
+  onClick(event: Event) {
     if (!this.action$ || typeof this.action$ !== 'function') {
       return;
+    }
+
+    // A type="submit" button inside a <form (ngSubmit)="..."> otherwise fires its handler TWICE
+    // per click: once here (which actually subscribes and runs the request) and once more from
+    // the native form submission this click triggers next, invoking the same handler again with
+    // nothing subscribing to its result - a wasted call at best, and at worst a second reset of
+    // whatever state the handler clears up front (e.g. an error message) racing the first call's
+    // real response. This directive already owns running the action, so it owns suppressing the
+    // redundant native submit too.
+    const nativeEl = this.el.nativeElement as HTMLElement;
+    if (nativeEl.tagName?.toLowerCase() === 'button' && (nativeEl as HTMLButtonElement).type === 'submit') {
+      event.preventDefault();
     }
 
     this.saveDisabledState();
@@ -35,7 +47,11 @@ export class ClickDirective {
     this.addSpinner();
     this.action$()
       .pipe(finalize(() => this.finishLoading()))
-      .subscribe();
+      // The bound action (login()'s tap, a form's submit(), ...) is responsible for surfacing its
+      // own error to the user; it re-throws after doing so rather than swallowing it, since a tap
+      // handler is a side-effect, not a catch. Subscribing with no error callback here would leave
+      // that re-thrown error uncaught on every single failure this directive drives.
+      .subscribe({ error: () => {} });
   }
 
   private saveDisabledState() {

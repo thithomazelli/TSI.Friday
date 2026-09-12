@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { AccountService, TranslationService } from './core';
-import { filter, map, Observable, Subscription } from 'rxjs';
+import { combineLatest, filter, map, Observable, startWith, Subscription } from 'rxjs';
 import { NavigationEnd, NavigationError, Router } from '@angular/router';
 import { environment } from '../environments/environment';
 import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
@@ -35,6 +35,15 @@ export class AppComponent implements OnInit, OnDestroy {
   // expose login state for template
   isLoggedIn$: Observable<boolean>;
 
+  // The navbar/sidebar/footer used to show as soon as isLoggedIn$ flipped true, regardless of
+  // whether the router had actually finished navigating away from an /account/* page (login,
+  // reset-password, ...) yet. Those pages render their own full-screen layout with no room for
+  // the shell, so a user landing on login right after their session got restored - or logging in
+  // and waiting on a lazy-loaded route chunk - would briefly (or, if that navigation stalled,
+  // indefinitely) see the shell rendered on top of the still-mounted account page. Gating on the
+  // current route too means the shell only ever appears once we're actually off /account/*.
+  showShell$: Observable<boolean>;
+
   private activityEvents = [
     'mousemove',
     'mousedown',
@@ -54,6 +63,15 @@ export class AppComponent implements OnInit, OnDestroy {
     private translationService: TranslationService,
   ) {
     this.isLoggedIn$ = this.accountService.user$.pipe(map((u) => !!u));
+
+    const isAccountRoute$ = this.router.events.pipe(
+      filter((evt): evt is NavigationEnd => evt instanceof NavigationEnd),
+      map((evt) => (evt.urlAfterRedirects || evt.url).startsWith('/account')),
+      startWith(this.router.url.startsWith('/account')),
+    );
+    this.showShell$ = combineLatest([this.isLoggedIn$, isAccountRoute$]).pipe(
+      map(([loggedIn, isAccountRoute]) => loggedIn && !isAccountRoute),
+    );
 
     // read interval from environment (seconds) with fallback to 30 seconds
     const sec = (environment && environment.tokenRefreshIntervalSeconds) ?? 30;
