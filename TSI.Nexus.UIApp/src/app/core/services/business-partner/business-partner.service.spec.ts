@@ -111,10 +111,25 @@ describe('BusinessPartnerService', () => {
     const paged$ = new Subject<WebApiResponse<unknown>>();
     apiServiceMock.get.mockReturnValue(paged$);
 
-    service.getAllPaged(BusinessPartnerType.Client, { page: 1, pageSize: 10 } as never);
+    let result: unknown;
+    service.getAllPaged(BusinessPartnerType.Client, { page: 1, pageSize: 10 } as never)
+      .subscribe((r) => (result = r));
+    paged$.next({ data: { items: [] } } as unknown as WebApiResponse<unknown>);
 
     expect(apiServiceMock.get).toHaveBeenCalledWith(
       expect.stringContaining('businesspartners/getAllClientsPaged?'),
+    );
+    expect(result).toEqual({ items: [] });
+  });
+
+  it('getAllPaged hits getAllSuppliersPaged for supplier type', () => {
+    const service = createService();
+    apiServiceMock.get.mockReturnValue(new Subject());
+
+    service.getAllPaged(BusinessPartnerType.Supplier, { page: 1, pageSize: 10 } as never);
+
+    expect(apiServiceMock.get).toHaveBeenCalledWith(
+      expect.stringContaining('businesspartners/getAllSuppliersPaged?'),
     );
   });
 
@@ -173,6 +188,33 @@ describe('BusinessPartnerService', () => {
     expect(emissions).toBe(4);
   });
 
+  it('add posts to the Companies endpoint for a non-Física documentType', () => {
+    const service = createService();
+    apiServiceMock.post.mockReturnValue(new Subject());
+
+    service.add({ documentType: 'Jurídica' } as Company).subscribe();
+
+    expect(apiServiceMock.post).toHaveBeenCalledWith('companies/add', expect.anything());
+  });
+
+  it('update puts to the Individuals endpoint for a Física documentType', () => {
+    const service = createService();
+    apiServiceMock.put.mockReturnValue(new Subject());
+
+    service.update({ documentType: 'Física' } as Individual).subscribe();
+
+    expect(apiServiceMock.put).toHaveBeenCalledWith('individuals/update', expect.anything());
+  });
+
+  it('falls back to an empty array when the loaded response carries no data', () => {
+    const service = createService();
+    const load$ = new Subject<WebApiResponse<BusinessPartner[]>>();
+    apiServiceMock.get.mockReturnValue(load$);
+
+    service.getClients();
+    expect(() => load$.next({} as WebApiResponse<BusinessPartner[]>)).not.toThrow();
+  });
+
   describe('addOrUpdateBusinessPartner', () => {
     it('does not throw and can be called for a new or existing id', () => {
       const service = createService();
@@ -204,6 +246,24 @@ describe('BusinessPartnerService', () => {
       expect(validator({ value: '11111111111' } as never)).toEqual({ cpfInvalido: true });
       expect(validator({ value: '12345678900' } as never)).toEqual({ cpfInvalido: true });
     });
+
+    it('rejects a CPF with the wrong number of digits', () => {
+      const service = createService();
+      const validator = service.cpfValidator();
+      expect(validator({ value: '123' } as never)).toEqual({ cpfInvalido: true });
+    });
+
+    it("rejects a CPF whose first check digit doesn't match", () => {
+      const service = createService();
+      const validator = service.cpfValidator();
+      expect(validator({ value: '52998224700' } as never)).toEqual({ cpfInvalido: true });
+    });
+
+    it('accepts a valid CPF whose second check digit needed the 10/11 reset rule', () => {
+      const service = createService();
+      const validator = service.cpfValidator();
+      expect(validator({ value: '10000002810' } as never)).toBeNull();
+    });
   });
 
   describe('cnpjValidator', () => {
@@ -224,6 +284,30 @@ describe('BusinessPartnerService', () => {
       const validator = service.cnpjValidator();
       expect(validator({ value: '11111111111111' } as never)).toEqual({ cnpjInvalido: true });
       expect(validator({ value: '11222333000199' } as never)).toEqual({ cnpjInvalido: true });
+    });
+
+    it('rejects a CNPJ with the wrong number of digits', () => {
+      const service = createService();
+      const validator = service.cnpjValidator();
+      expect(validator({ value: '123' } as never)).toEqual({ cnpjInvalido: true });
+    });
+
+    it('accepts a valid CNPJ whose first check digit needed the 0/1 reset rule', () => {
+      const service = createService();
+      const validator = service.cnpjValidator();
+      expect(validator({ value: '10000000000307' } as never)).toBeNull();
+    });
+
+    it('accepts a valid CNPJ whose second check digit needed the 0/1 reset rule', () => {
+      const service = createService();
+      const validator = service.cnpjValidator();
+      expect(validator({ value: '10000000000650' } as never)).toBeNull();
+    });
+
+    it("rejects a CNPJ with a correct first digit but a wrong second check digit", () => {
+      const service = createService();
+      const validator = service.cnpjValidator();
+      expect(validator({ value: '10000000000308' } as never)).toEqual({ cnpjInvalido: true });
     });
   });
 });
