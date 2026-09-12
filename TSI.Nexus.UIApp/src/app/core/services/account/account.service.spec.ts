@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { ApiService, ThemeService, TranslationService, User } from '@nexus/core';
 import { AccountService } from './account.service';
@@ -48,6 +48,66 @@ describe('AccountService', () => {
     expect(emitted).toEqual([null]);
     expect(apiServiceMock.get).not.toHaveBeenCalled();
     expect(apiServiceMock.post).not.toHaveBeenCalled();
+  });
+
+  describe('getStoredUser', () => {
+    afterEach(() => {
+      localStorage.clear();
+    });
+
+    it('returns null when nothing is stored', () => {
+      expect(service.getStoredUser()).toBeNull();
+    });
+
+    it('returns the parsed user when one is stored', () => {
+      localStorage.setItem('nexusAppUser', JSON.stringify({ id: '1' }));
+      expect(service.getStoredUser()).toEqual({ id: '1' });
+    });
+
+    it('returns null instead of throwing when the stored value is not valid JSON', () => {
+      localStorage.setItem('nexusAppUser', 'not-json{');
+      expect(service.getStoredUser()).toBeNull();
+    });
+  });
+
+  describe('simple delegating endpoints', () => {
+    it('register posts to account/register', () => {
+      apiServiceMock.post.mockReturnValue(of({}));
+      service.register({ userName: 'a' } as never).subscribe();
+      expect(apiServiceMock.post).toHaveBeenCalledWith('account/register', { userName: 'a' });
+    });
+
+    it('confirmEmail puts to account/confirm-email', () => {
+      const putMock = vi.fn().mockReturnValue(of(undefined));
+      (apiServiceMock as unknown as { put: typeof putMock }).put = putMock;
+      service.confirmEmail({ userId: 'u1' } as never).subscribe();
+      expect(putMock).toHaveBeenCalledWith('account/confirm-email', { userId: 'u1' });
+    });
+
+    it('resendEmailConfirmation posts to the email-scoped endpoint', () => {
+      apiServiceMock.post.mockReturnValue(of(undefined));
+      service.resendEmailConfirmation('a@b.com').subscribe();
+      expect(apiServiceMock.post).toHaveBeenCalledWith(
+        'account/resend-email-confirmation/a@b.com',
+        {},
+      );
+    });
+
+    it('forgotUsernameOrPassword posts to the email-scoped endpoint', () => {
+      apiServiceMock.post.mockReturnValue(of(undefined));
+      service.forgotUsernameOrPassword('a@b.com').subscribe();
+      expect(apiServiceMock.post).toHaveBeenCalledWith(
+        'account/forgot-username-or-password/a@b.com',
+        {},
+      );
+    });
+
+    it('resetPassword puts to account/reset-password', () => {
+      const putMock = vi.fn().mockReturnValue(of(undefined));
+      (apiServiceMock as unknown as { put: typeof putMock }).put = putMock;
+      service.resetPassword({ token: 't1' } as never).subscribe();
+      expect(putMock).toHaveBeenCalledWith('account/reset-password', { token: 't1' });
+    });
   });
 
   describe('isTokenExpired', () => {
@@ -106,6 +166,35 @@ describe('AccountService', () => {
       service.user$.subscribe((u) => (sawImmediately = u));
 
       expect(sawImmediately).toMatchObject({ id: '1' });
+    });
+
+    it('applies the saved theme and language preferences from the logged-in user', () => {
+      const themeService = TestBed.inject(ThemeService);
+      const translationService = TestBed.inject(TranslationService);
+      const user = {
+        id: '1',
+        tokenExpiresAtUtc: null,
+        theme: 'dark',
+        language: 'es',
+      } as unknown as User;
+      apiServiceMock.post.mockReturnValue(of(user));
+
+      service.login({ userName: 'admin', password: 'x' } as never).subscribe();
+
+      expect(themeService.apply).toHaveBeenCalledWith('dark');
+      expect(translationService.use).toHaveBeenCalledWith('es');
+    });
+
+    it('does not touch theme/language when the user has neither saved', () => {
+      const themeService = TestBed.inject(ThemeService);
+      const translationService = TestBed.inject(TranslationService);
+      const user = { id: '1', tokenExpiresAtUtc: null } as unknown as User;
+      apiServiceMock.post.mockReturnValue(of(user));
+
+      service.login({ userName: 'admin', password: 'x' } as never).subscribe();
+
+      expect(themeService.apply).not.toHaveBeenCalled();
+      expect(translationService.use).not.toHaveBeenCalled();
     });
   });
 
@@ -176,6 +265,102 @@ describe('AccountService', () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it('navigates to logout then to login when navigation succeeds', async () => {
+      const router = TestBed.inject(Router);
+
+      service.logout();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(router.navigateByUrl).toHaveBeenNthCalledWith(1, '/account/logout', {
+        replaceUrl: true,
+      });
+      expect(router.navigateByUrl).toHaveBeenNthCalledWith(2, '/account/login');
+    });
+
+    it('still tries to navigate to login when the logout navigation promise rejects', async () => {
+      const router = TestBed.inject(Router);
+      (router.navigateByUrl as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+        Promise.reject(new Error('nav failed')),
+      );
+
+      service.logout();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/account/login');
+    });
+
+    it('swallows a synchronous throw from the fallback login navigation', async () => {
+      const router = TestBed.inject(Router);
+      (router.navigateByUrl as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(Promise.reject(new Error('nav failed')))
+        .mockImplementationOnce(() => {
+          throw new Error('boom');
+        });
+
+      expect(() => service.logout()).not.toThrow();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  });
+
+  describe('startAutoLogout / attemptRenewalOrLogout', () => {
+    it('clears an already-running timer before starting a new one', () => {
+      vi.useFakeTimers();
+      try {
+        service.startAutoLogout(new Date(Date.now() + 60_000).toISOString());
+        expect(() =>
+          service.startAutoLogout(new Date(Date.now() + 120_000).toISOString()),
+        ).not.toThrow();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('attempts a renewal once the scheduled timer fires', () => {
+      vi.useFakeTimers();
+      try {
+        apiServiceMock.get.mockReturnValue(of({ id: '1', tokenExpiresAtUtc: null } as unknown as User));
+
+        service.startAutoLogout(new Date(Date.now() + 60_000).toISOString());
+        vi.advanceTimersByTime(60_000);
+
+        expect(apiServiceMock.get).toHaveBeenCalledWith('account/refresh-user-token');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('logs out immediately when expiresAtUtc is unparseable', () => {
+      const emitted: unknown[] = [];
+      service.user$.subscribe((u) => emitted.push(u));
+
+      service.startAutoLogout('not-a-date');
+
+      expect(emitted.at(-1)).toBeNull();
+    });
+
+    it('attempts a renewal immediately when the token has already expired', () => {
+      apiServiceMock.get.mockReturnValue(of({ id: '1', tokenExpiresAtUtc: null } as unknown as User));
+
+      service.startAutoLogout(new Date(Date.now() - 1000).toISOString());
+
+      expect(apiServiceMock.get).toHaveBeenCalledWith('account/refresh-user-token');
+    });
+
+    it('logs out when the renewal attempt fails', () => {
+      apiServiceMock.get.mockReturnValue(throwError(() => new Error('down')));
+      const emitted: unknown[] = [];
+      service.user$.subscribe((u) => emitted.push(u));
+
+      service.startAutoLogout(new Date(Date.now() - 1000).toISOString());
+
+      expect(emitted.at(-1)).toBeNull();
     });
   });
 
