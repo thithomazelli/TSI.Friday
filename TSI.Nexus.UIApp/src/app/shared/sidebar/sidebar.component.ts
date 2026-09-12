@@ -1,19 +1,20 @@
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   Component,
+  computed,
   ElementRef,
   OnDestroy,
   Renderer2,
-  OnInit,
+  Signal,
 } from '@angular/core';
-import { Observable, Subscription, combineLatest, map } from 'rxjs';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { User } from '@nexus/core';
 import { AccountService } from '../../core/services/account/account.service';
 import { FeatureFlagService } from '../../core/services/feature-flag/feature-flag.service';
 import { FeatureToggleKeys } from '../../core/models/feature-toggle.model';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { AsyncPipe, NgIf } from '@angular/common';
+import { NgIf } from '@angular/common';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 @Component({
@@ -25,73 +26,84 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
         RouterLink,
         RouterLinkActive,
         NgIf,
-        AsyncPipe,
         TranslatePipe,
     ],
 })
-export class SidebarComponent implements AfterViewInit, OnInit, OnDestroy {
+export class SidebarComponent implements AfterViewInit, OnDestroy {
   private listeners: (() => void)[] = [];
   private transitionCleanups: (() => void)[] = [];
-  private userSub: Subscription | null = null;
 
-  isAdmin = false;
-  isMaster = false;
-
-  // Exposed as observables and read via the async pipe in the template rather than subscribed
-  // into plain fields: no manual Subscription/ngOnDestroy bookkeeping, and - the point that
-  // actually matters here - the async pipe treats "no emission yet" as falsy, so a module stays
-  // out of the DOM until FeatureFlagService's toggles$ genuinely resolves instead of a guessed
-  // default flashing on screen first. toggles$ itself is a single shareReplay(1) stream shared by
-  // every one of these, so this fires one HTTP request total, not one per module.
+  // toSignal's initialValue: false is the direct signal equivalent of the async pipe's own
+  // "no emission yet reads as falsy" behavior this template always relied on - a module stays out
+  // of the DOM until FeatureFlagService's toggles$ genuinely resolves instead of a guessed default
+  // flashing on screen first. isEnabled() is backed by a single shared signal internally (see
+  // feature-flag.service.ts), so this still fires one HTTP request total, not one per module.
   // Assigned in the constructor, not here: a class field initializer runs before constructor
   // parameter properties are assigned, so featureFlagService wouldn't exist yet at this point.
-  isFleetModuleEnabled$!: Observable<boolean>;
-  isQuotesModuleEnabled$!: Observable<boolean>;
-  isSalesOrdersModuleEnabled$!: Observable<boolean>;
-  isPurchaseOrdersModuleEnabled$!: Observable<boolean>;
-  isVehicleMaintenanceEnabled$!: Observable<boolean>;
-  isFuelLogEnabled$!: Observable<boolean>;
-  isAgendaModuleEnabled$!: Observable<boolean>;
+  readonly isFleetModuleEnabled!: Signal<boolean>;
+  readonly isQuotesModuleEnabled!: Signal<boolean>;
+  readonly isSalesOrdersModuleEnabled!: Signal<boolean>;
+  readonly isPurchaseOrdersModuleEnabled!: Signal<boolean>;
+  readonly isVehicleMaintenanceEnabled!: Signal<boolean>;
+  readonly isFuelLogEnabled!: Signal<boolean>;
+  readonly isAgendaModuleEnabled!: Signal<boolean>;
+  readonly isAdmin!: Signal<boolean>;
+  readonly isMaster!: Signal<boolean>;
 
   constructor(
     private el: ElementRef,
     private renderer: Renderer2,
     private accountService: AccountService,
     private featureFlagService: FeatureFlagService,
-    private cdr: ChangeDetectorRef,
   ) {
-    this.isFleetModuleEnabled$ = this.featureFlagService.isEnabled(
-      FeatureToggleKeys.FleetModule,
-    );
-    this.isQuotesModuleEnabled$ = this.featureFlagService.isEnabled(
-      FeatureToggleKeys.QuotesModule,
-    );
-    this.isSalesOrdersModuleEnabled$ = this.featureFlagService.isEnabled(
-      FeatureToggleKeys.SalesOrdersModule,
-    );
-    this.isPurchaseOrdersModuleEnabled$ = this.featureFlagService.isEnabled(
-      FeatureToggleKeys.PurchaseOrdersModule,
-    );
-    this.isVehicleMaintenanceEnabled$ = combineLatest([
+    this.isFleetModuleEnabled = toSignal(
       this.featureFlagService.isEnabled(FeatureToggleKeys.FleetModule),
-      this.featureFlagService.isEnabled(FeatureToggleKeys.VehicleMaintenance),
-    ]).pipe(map(([groupEnabled, entityEnabled]) => groupEnabled && entityEnabled));
-    this.isFuelLogEnabled$ = combineLatest([
-      this.featureFlagService.isEnabled(FeatureToggleKeys.FleetModule),
-      this.featureFlagService.isEnabled(FeatureToggleKeys.FuelLog),
-    ]).pipe(map(([groupEnabled, entityEnabled]) => groupEnabled && entityEnabled));
-    this.isAgendaModuleEnabled$ = combineLatest([
-      this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
-      this.featureFlagService.isEnabled(FeatureToggleKeys.Event),
-    ]).pipe(map(([groupEnabled, entityEnabled]) => groupEnabled && entityEnabled));
-  }
+      { initialValue: false },
+    );
+    this.isQuotesModuleEnabled = toSignal(
+      this.featureFlagService.isEnabled(FeatureToggleKeys.QuotesModule),
+      { initialValue: false },
+    );
+    this.isSalesOrdersModuleEnabled = toSignal(
+      this.featureFlagService.isEnabled(FeatureToggleKeys.SalesOrdersModule),
+      { initialValue: false },
+    );
+    this.isPurchaseOrdersModuleEnabled = toSignal(
+      this.featureFlagService.isEnabled(FeatureToggleKeys.PurchaseOrdersModule),
+      { initialValue: false },
+    );
 
-  ngOnInit(): void {
-    this.userSub = this.accountService.user$.subscribe((user) => {
-      this.isAdmin = !!user?.roles?.includes('Admin');
-      this.isMaster = !!user?.roles?.includes('Master');
-      this.cdr.markForCheck();
-    });
+    const isVehicleMaintenanceModuleEnabled = toSignal(
+      this.featureFlagService.isEnabled(FeatureToggleKeys.VehicleMaintenance),
+      { initialValue: false },
+    );
+    this.isVehicleMaintenanceEnabled = computed(
+      () => this.isFleetModuleEnabled() && isVehicleMaintenanceModuleEnabled(),
+    );
+
+    const isFuelLogModuleEnabled = toSignal(
+      this.featureFlagService.isEnabled(FeatureToggleKeys.FuelLog),
+      { initialValue: false },
+    );
+    this.isFuelLogEnabled = computed(
+      () => this.isFleetModuleEnabled() && isFuelLogModuleEnabled(),
+    );
+
+    const isAgendaModuleGroupEnabled = toSignal(
+      this.featureFlagService.isEnabled(FeatureToggleKeys.AgendaModule),
+      { initialValue: false },
+    );
+    const isEventModuleEnabled = toSignal(
+      this.featureFlagService.isEnabled(FeatureToggleKeys.Event),
+      { initialValue: false },
+    );
+    this.isAgendaModuleEnabled = computed(
+      () => isAgendaModuleGroupEnabled() && isEventModuleEnabled(),
+    );
+
+    const currentUser = toSignal<User | null>(this.accountService.user$, { initialValue: null });
+    this.isAdmin = computed(() => !!currentUser()?.roles?.includes('Admin'));
+    this.isMaster = computed(() => !!currentUser()?.roles?.includes('Master'));
   }
 
   ngAfterViewInit(): void {
@@ -248,11 +260,6 @@ export class SidebarComponent implements AfterViewInit, OnInit, OnDestroy {
     this.transitionCleanups.forEach((un) => un());
     this.listeners = [];
     this.transitionCleanups = [];
-
-    if (this.userSub) {
-      this.userSub.unsubscribe();
-      this.userSub = null;
-    }
   }
 
   onSidebarMenuClick(event: MouseEvent) {

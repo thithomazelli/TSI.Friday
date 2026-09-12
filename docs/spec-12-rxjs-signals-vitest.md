@@ -194,7 +194,53 @@ ordem que este documento já definiu.
   esperam) — aqui a mudança é mais limitada, focada em não vazar `Subject`/estado mutável RxJS pro
   resto do app além do necessário.
 
-#### 4.2.1 Fase 2 — progresso e achados
+#### 4.3.1 Fase 3 — progresso e achados
+
+Levantamento em `shared/` encontrou só 4 arquivos com estado RxJS mutável real (`new Subject`):
+`grid.component.ts`, `event-calendar-view.component.ts`, `event-list.component.ts`,
+`product-picker-grid.component.ts`. Nos quatro, o único uso é `_destroy$` — o padrão idiomático
+`takeUntil(this._destroy$)` + `.next()/.complete()` no `ngOnDestroy()` — que é estrutural, não
+estado de negócio: não modela um "valor atual" que faça sentido como `Signal`, é só um sinal de
+"componente destruído, cancele". `grid.component.ts` também tem `_quickFilterChanged$`, usado com
+`debounceTime(300)` para o filtro server-side do ag-Grid — outro caso legítimo do limite estrutural
+da seção 3 (debounce é RxJS puro; um `Signal` não tem equivalente sem reembrulhar em Observable de
+qualquer forma). Nenhum dos quatro precisou de mudança.
+
+O trabalho real da Fase 3 foi `sidebar.component.ts`, o consumidor de `combineLatest` mais citado
+nos commits da Fase 2 como "sua vez chegou". Migrado: os 4 flags simples
+(`isFleetModuleEnabled`, `isQuotesModuleEnabled`, `isSalesOrdersModuleEnabled`,
+`isPurchaseOrdersModuleEnabled`) viram `toSignal(featureFlagService.isEnabled(key), {initialValue:
+false})` — `initialValue: false` é o equivalente direto do "sem emissão ainda = falso" que o async
+pipe já dava de graça, preservando exatamente o comportamento documentado no comentário original.
+Os 3 combinados (`isVehicleMaintenanceEnabled`, `isFuelLogEnabled`, `isAgendaModuleEnabled`) trocam
+`combineLatest([...]).pipe(map(...))` por `computed(() => grupo() && entidade())`. `isAdmin`/
+`isMaster` (antes um `.subscribe()` manual em `ngOnInit()` com `Subscription`/`ngOnDestroy()` e
+`cdr.markForCheck()` explícito) viram `toSignal(accountService.user$, {initialValue: null})` +
+`computed()` — elimina a subscription manual inteira, incluindo o unsubscribe no destroy.
+
+**Gotcha de ordenação de field initializer**: os `toSignal(this.featureFlagService...)` não podem
+ficar em inicializador de campo de classe — um inicializador de campo roda *antes* da atribuição
+das propriedades de parâmetro do construtor (`private featureFlagService: FeatureFlagService`),
+então `this.featureFlagService` ainda seria `undefined` nesse ponto. Por isso os campos são
+declarados só com o tipo (`readonly isFleetModuleEnabled!: Signal<boolean>`) e atribuídos dentro do
+corpo do construtor — o mesmo motivo que já estava documentado no comentário original do código
+para os antigos campos `Observable`.
+
+O template (`sidebar.component.html`) trocou todo `*ngIf="isX$ | async"` por `*ngIf="isX()"` — sem
+`AsyncPipe` no array de `imports` do componente, já que não sobrou nenhum `| async`.
+`sidebar.component.spec.ts` era o stub padrão do CLI (`TestBed.createComponent` sem nenhum
+provider) e já estava entre os specs quebrados do baseline (faltava `ActivatedRoute`, exigido pelas
+diretivas `routerLink`/`routerLinkActive` do template) — corrigido com `provideRouter([])` e mocks
+de `AccountService`/`FeatureFlagService`, cobrindo os flags simples e combinados, `isAdmin`/
+`isMaster` com e sem usuário, `onSidebarMenuClick()` e `ngOnDestroy()`. Isso reduz o baseline de
+specs quebrados por gap de DI de 41 pra 40 arquivos, de brinde.
+
+**Não migrado, intencionalmente**: `product-picker-grid.component.ts`'s `combineLatestWith` combina
+`valueChanges` de um `FormControl` (autocomplete de SKU/nome) com `productsArray$` — o mesmo caso
+já coberto pelo carve-out de autocomplete da seção 3 (`valueChanges` de Reactive Forms é RxJS
+estrutural, não estado interno) - não é candidato a `computed()`.
+
+### 4.2.1 Fase 2 — progresso e achados
 
 **`FeatureFlagService` (primeiro arquivo migrado)**: descoberta importante ao investigar antes de
 mexer — `isEnabled(key)` é consumido via `combineLatest([group$, entity$])` em **mais de 20
