@@ -40,6 +40,13 @@ describe('RegisterComponent', () => {
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/');
   });
 
+  it('does not redirect when there is no logged-in user', () => {
+    const component = createComponent();
+    accountServiceMock.user$.next(null);
+
+    expect(routerMock.navigateByUrl).not.toHaveBeenCalled();
+  });
+
   describe('register', () => {
     it('does not submit an invalid form', () => {
       const component = createComponent();
@@ -90,6 +97,24 @@ describe('RegisterComponent', () => {
       component.register();
 
       expect(component.errorMessages).toEqual(['Email already in use']);
+    });
+
+    it('appends a plain server error when there is no errors array', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      accountServiceMock.register.mockReturnValue(
+        throwError(() => ({ error: 'E-mail já cadastrado' })),
+      );
+
+      component.form.setValue({
+        firstName: 'Ana',
+        lastName: 'Silva',
+        email: 'ana@example.com',
+        password: '123456',
+      });
+      component.register();
+
+      expect(component.errorMessages).toEqual(['E-mail já cadastrado']);
     });
   });
 });
