@@ -323,6 +323,14 @@ migração (confirmado lendo o `VehicleService` original, que tem exatamente o m
 regressão nova — mas é um bug real e pré-existente na tela de relatório de frota, fora do escopo
 desta spec (RxJS→Signals). Reportado ao usuário separadamente; não corrigido aqui.
 
+**`UserService` (mesmo desenho, `refresh()` mais simples)**: idêntico ao `DriverService`/
+`VehicleService`, mas aqui `refresh()` já era só `this._refresh$.next()` (sem GET próprio) — vira
+`this.load()` direto, sem a duplicação de chamada HTTP que os outros dois têm. Spec pré-existente
+era um stub quebrado do CLI (`TestBed.configureTestingModule({})`, sem `ApiService`); substituído
+por um spec real. Único consumidor de `getAll()`/`users$` é o próprio arquivo (não usado em
+nenhum outro lugar do app hoje), então não há o mesmo risco de `forkJoin` encontrado no
+`fleet-report`.
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não

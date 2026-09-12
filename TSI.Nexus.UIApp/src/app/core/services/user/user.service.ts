@@ -1,10 +1,11 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ApiType } from '../../enums';
-import { BehaviorSubject, Observable, Subject } from 'rxjs';
+import { Observable } from 'rxjs';
 import { User } from '../../models';
 import { WebApiResponse } from '../../utilities';
 import { ApiService, PagedRequest, PagedResult } from '@nexus/core';
-import { map, shareReplay, startWith, switchMap, tap } from 'rxjs/operators';
+import { filter, map, tap } from 'rxjs/operators';
 import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({
@@ -12,20 +13,31 @@ import { toPagedQueryString } from '../../utilities/paged-request.utils';
 })
 export class UserService {
   private _baseEndPoint = ApiType.Users;
-  private _refresh$ = new Subject<void>();
-  private _userChangedSubject = new BehaviorSubject<void>(undefined);
-  userChanged$ = this._userChangedSubject.asObservable();
+  // See feature-flag.service.ts/product.service.ts for the full rationale: null means "not
+  // loaded yet" and is filtered out of users$ below; the first consumer triggers the fetch
+  // (constructor), every later one reads the cached value, refresh()/add()/update()/delete()
+  // invalidate it by re-fetching.
+  private readonly _users = signal<WebApiResponse<User[]> | null>(null);
+  private readonly _changedTick = signal(0);
 
-  // Shared stream behind getAll() - same shareReplay(1) pattern already used by
-  // FeatureFlagService/ProductService, so multiple consumers share one fetch instead of each
-  // firing its own GET.
-  readonly users$: Observable<WebApiResponse<User[]>> = this._refresh$.pipe(
-    startWith(undefined),
-    switchMap(() => this.apiService.get<WebApiResponse<User[]>>(`${this._baseEndPoint}/getAll`)),
-    shareReplay(1),
+  readonly users$: Observable<WebApiResponse<User[]>> = toObservable(this._users).pipe(
+    filter((v): v is WebApiResponse<User[]> => v !== null),
   );
+  readonly userChanged$: Observable<void> = toObservable(this._changedTick).pipe(map(() => undefined));
 
-  constructor(private apiService: ApiService) {}
+  constructor(private apiService: ApiService) {
+    this.load();
+  }
+
+  private load(): void {
+    this.apiService
+      .get<WebApiResponse<User[]>>(`${this._baseEndPoint}/getAll`)
+      .subscribe((response) => this._users.set(response));
+  }
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   getAll(): Observable<WebApiResponse<User[]>> {
     return this.users$;
@@ -48,7 +60,7 @@ export class UserService {
   }
 
   refresh(): void {
-    this._refresh$.next();
+    this.load();
   }
 
   add(user: User): Observable<WebApiResponse<User>> {
@@ -57,7 +69,7 @@ export class UserService {
       .pipe(
         tap(() => {
           this.refresh();
-          this._userChangedSubject.next();
+          this.notifyChanged();
         }),
       );
   }
@@ -68,7 +80,7 @@ export class UserService {
       .pipe(
         tap(() => {
           this.refresh();
-          this._userChangedSubject.next();
+          this.notifyChanged();
         }),
       );
   }
@@ -79,7 +91,7 @@ export class UserService {
       .pipe(
         tap(() => {
           this.refresh();
-          this._userChangedSubject.next();
+          this.notifyChanged();
         }),
       );
   }
