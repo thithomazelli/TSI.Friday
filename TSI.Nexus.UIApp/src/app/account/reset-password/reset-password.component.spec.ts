@@ -93,6 +93,32 @@ describe('ResetPasswordComponent', () => {
 
       expect(component.errorMessages).toEqual(['E-mail não encontrado']);
     });
+
+    it('falls back to the plain response.error string when there is no errors array', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      queryParamMap$.next(paramMap({}));
+      accountServiceMock.forgotUsernameOrPassword.mockReturnValue(
+        throwError(() => ({ error: 'Conta bloqueada' })),
+      );
+
+      component.form.setValue({ email: 'a@b.com' });
+      component.requestReset();
+
+      expect(component.errorMessages).toEqual(['Conta bloqueada']);
+    });
+
+    it('falls back to a generic message when the response has no error at all', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      queryParamMap$.next(paramMap({}));
+      accountServiceMock.forgotUsernameOrPassword.mockReturnValue(throwError(() => ({})));
+
+      component.form.setValue({ email: 'a@b.com' });
+      component.requestReset();
+
+      expect(component.errorMessages).toEqual(['Erro ao enviar o e-mail.']);
+    });
   });
 
   describe('resetPassword', () => {
@@ -135,6 +161,32 @@ describe('ResetPasswordComponent', () => {
       component.resetPassword();
 
       expect(component.errorMessages).toEqual(['Token expirado']);
+    });
+
+    it('falls back to the plain response.error string when there is no errors array', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      queryParamMap$.next(paramMap({ token: 'tok', email: 'a@b.com' }));
+      accountServiceMock.resetPassword.mockReturnValue(
+        throwError(() => ({ error: 'Token invalido' })),
+      );
+
+      component.form.setValue({ newPassword: '123456' });
+      component.resetPassword();
+
+      expect(component.errorMessages).toEqual(['Token invalido']);
+    });
+
+    it('falls back to a generic message when the response has no error at all', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      queryParamMap$.next(paramMap({ token: 'tok', email: 'a@b.com' }));
+      accountServiceMock.resetPassword.mockReturnValue(throwError(() => ({})));
+
+      component.form.setValue({ newPassword: '123456' });
+      component.resetPassword();
+
+      expect(component.errorMessages).toEqual(['Erro ao redefinir a senha.']);
     });
   });
 
