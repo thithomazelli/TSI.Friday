@@ -106,6 +106,33 @@ describe('UserDetailsPageComponent', () => {
       expect(component.data?.photo).toBe('photos/u1.jpg');
     });
 
+    it('ignores a photo$ emission with no photoPath', () => {
+      const component = createComponent();
+      const response$ = new Subject<WebApiResponse<User>>();
+      userServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      paramMap$.next(paramMap('u1'));
+      response$.next({ data: { id: 'u1' } as User } as WebApiResponse<User>);
+
+      photoServiceMock.photo$.next({ photoPath: '', userId: 'u1' });
+
+      expect(component.data?.photo).toBeUndefined();
+    });
+
+    it('navigates to not-found and stops loading when the request errors', () => {
+      const component = createComponent();
+      const response$ = new Subject<WebApiResponse<User>>();
+      userServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      paramMap$.next(paramMap('u1'));
+      response$.error(new Error('fail'));
+
+      expect(component.loading).toBe(false);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
+    });
+
     it('sets isOwnProfile when the current account matches the viewed user', () => {
       const component = createComponent();
       component.ngOnInit();
