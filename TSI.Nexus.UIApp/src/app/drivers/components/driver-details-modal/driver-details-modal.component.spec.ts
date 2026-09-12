@@ -40,6 +40,14 @@ describe('DriverDetailsModalComponent', () => {
     expect(component.id).toBe('d1');
   });
 
+  it('falls back to defaults when dialog data omits fields', () => {
+    const component = createComponent({});
+
+    expect(component.isEdit).toBe(false);
+    expect(component.data).toEqual({});
+    expect(component.id).toBeNull();
+  });
+
   it('sets the add title on init when not editing', () => {
     const component = createComponent(null);
     component.ngOnInit();

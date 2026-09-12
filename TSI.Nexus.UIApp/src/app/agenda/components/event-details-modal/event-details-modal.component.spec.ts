@@ -55,6 +55,18 @@ describe('EventDetailsModalComponent', () => {
     expect(component.lockedLinkLabel).toBe('Trip 1');
   });
 
+  it('falls back to defaults when dialog data omits fields', () => {
+    const component = createComponent({});
+
+    expect(component.isEdit).toBe(false);
+    expect(component.data).toBeNull();
+    expect(component.prefillStart).toBeNull();
+    expect(component.prefillEnd).toBeNull();
+    expect(component.lockedLinkField).toBeNull();
+    expect(component.lockedLinkId).toBeNull();
+    expect(component.lockedLinkLabel).toBeNull();
+  });
+
   it('closes the dialog with null when close() is called', () => {
     const component = createComponent(null);
     component.close();

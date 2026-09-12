@@ -12,7 +12,7 @@ export function parsePassengerRows(text: string, tripId: string): Passenger[] {
     .map((line) => {
       const columns = line.includes('\t') ? line.split('\t') : line.split(',');
       return {
-        name: (columns[0] ?? '').trim(),
+        name: columns[0].trim(),
         documentNumber: (columns[1] ?? '').trim(),
         seat: (columns[2] ?? '').trim(),
         phone: (columns[3] ?? '').trim(),

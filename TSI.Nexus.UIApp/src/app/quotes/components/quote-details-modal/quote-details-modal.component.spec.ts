@@ -34,6 +34,14 @@ describe('QuoteDetailsModalComponent', () => {
     expect(component.id).toBe('q1');
   });
 
+  it('falls back to defaults when dialog data omits fields', () => {
+    const component = createComponent({});
+
+    expect(component.isEdit).toBe(false);
+    expect(component.data).toEqual({ quoteProducts: [] });
+    expect(component.id).toBeNull();
+  });
+
   describe('close', () => {
     it('closes the dialog with no result', () => {
       const component = createComponent();

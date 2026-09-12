@@ -40,6 +40,13 @@ describe('BusinessPartnerDetailsModalComponent', () => {
     expect(component.id).toBe('bp1');
   });
 
+  it('falls back to defaults when dialog data omits data/id', () => {
+    const component = createComponent({ isEdit: true });
+
+    expect(component.data).toEqual({});
+    expect(component.id).toBeNull();
+  });
+
   describe('ngOnInit / initializeTitle', () => {
     it('builds an "add client" title when adding a client', () => {
       const component = createComponent({

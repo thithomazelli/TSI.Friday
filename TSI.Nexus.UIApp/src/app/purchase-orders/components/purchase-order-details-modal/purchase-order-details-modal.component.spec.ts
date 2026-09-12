@@ -44,6 +44,15 @@ describe('PurchaseOrderDetailsModalComponent', () => {
     expect(component.preselectedProductId).toBe('prod-1');
   });
 
+  it('falls back to defaults when dialog data omits fields', () => {
+    const component = createComponent({});
+
+    expect(component.isEdit).toBe(false);
+    expect(component.data).toEqual({ purchaseOrderProducts: [] });
+    expect(component.id).toBeNull();
+    expect(component.preselectedProductId).toBeNull();
+  });
+
   it('closes the dialog with null when close() is called', () => {
     const component = createComponent(null);
     component.close();

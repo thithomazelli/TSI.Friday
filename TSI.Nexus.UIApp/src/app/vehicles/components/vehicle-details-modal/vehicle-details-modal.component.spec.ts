@@ -61,6 +61,14 @@ describe('VehicleDetailsModalComponent', () => {
     expect(component.title).toBe('Editar Veículo');
   });
 
+  it('falls back to defaults when dialog data omits fields', () => {
+    const component = createComponent({});
+
+    expect(component.isEdit).toBe(false);
+    expect(component.data).toEqual({});
+    expect(component.id).toBeNull();
+  });
+
   it('closes the dialog with null when close() is called', () => {
     const component = createComponent(null);
     component.close();
