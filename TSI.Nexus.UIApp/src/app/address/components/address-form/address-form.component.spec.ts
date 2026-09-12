@@ -189,6 +189,22 @@ describe('AddressFormComponent', () => {
         ResponseStatus.Success,
       );
     });
+
+    it('shows an error notification when the delete fails', async () => {
+      const component = createComponent();
+      component.ngOnInit();
+      component.data = { id: 'a1' } as Address;
+      modalServiceMock.showSweetConfirmation.mockResolvedValue({ isConfirmed: true });
+      addressServiceMock.delete.mockReturnValue(throwError(() => new Error('fail')));
+
+      component.remove();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(notificationServiceMock.showMessage).toHaveBeenCalledWith(
+        'error',
+        'Erro ao remover',
+      );
+    });
   });
 
   describe('trackBy helpers', () => {

@@ -367,40 +367,30 @@ export class BusinessPartnerFormComponent
       )
       .then((result: any) => {
         if (result.isConfirmed) {
-          this.businessPartnerService
-            .delete(this.data as BusinessPartner)
-            .pipe(
-              tap({
-                next: (response: WebApiResponse<BusinessPartner>) => {
-                  if (this.isModal) {
-                    this.modalService.hideModal();
-                    this.modalService.showSweetNotification(
-                      '',
-                      response.message,
-                      response.status,
-                    );
-                  } else {
-                    this.modalService.showSweetNotification(
-                      '',
-                      response.message,
-                      response.status,
-                    );
-                    if (response.status === ResponseStatus.Success) {
-                      this.routerService.navigateByUrl(
-                        `/${this._baseEndPoint}`,
-                      );
-                    }
-                  }
-                },
-                error: (err) => {
-                  this.notificationService.showMessage(
-                    'error',
-                    'Erro ao remover',
-                  );
-                },
-              }),
-            )
-            .subscribe();
+          this.businessPartnerService.delete(this.data as BusinessPartner).subscribe({
+            next: (response: WebApiResponse<BusinessPartner>) => {
+              if (this.isModal) {
+                this.modalService.hideModal();
+                this.modalService.showSweetNotification(
+                  '',
+                  response.message,
+                  response.status,
+                );
+              } else {
+                this.modalService.showSweetNotification(
+                  '',
+                  response.message,
+                  response.status,
+                );
+                if (response.status === ResponseStatus.Success) {
+                  this.routerService.navigateByUrl(`/${this._baseEndPoint}`);
+                }
+              }
+            },
+            error: () => {
+              this.notificationService.showMessage('error', 'Erro ao remover');
+            },
+          });
         } else {
           if (this.isModal) {
             const initialState = {

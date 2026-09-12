@@ -172,35 +172,27 @@ export class AddressFormComponent
       )
       .then((result: any) => {
         if (result.isConfirmed) {
-          this.addressService
-            .delete(this.data as Address)
-            .pipe(
-              tap({
-                next: (response: WebApiResponse<Address>) => {
-                  if (this.isModal) {
-                    this.modalService.hideModal(this.dialogRef);
-                    this.modalService.showSweetNotification(
-                      '',
-                      response.message,
-                      response.status,
-                    );
-                  } else {
-                    this.modalService.showSweetNotification(
-                      '',
-                      response.message,
-                      response.status,
-                    );
-                  }
-                },
-                error: (err) => {
-                  this.notificationService.showMessage(
-                    'error',
-                    'Erro ao remover',
-                  );
-                },
-              }),
-            )
-            .subscribe();
+          this.addressService.delete(this.data as Address).subscribe({
+            next: (response: WebApiResponse<Address>) => {
+              if (this.isModal) {
+                this.modalService.hideModal(this.dialogRef);
+                this.modalService.showSweetNotification(
+                  '',
+                  response.message,
+                  response.status,
+                );
+              } else {
+                this.modalService.showSweetNotification(
+                  '',
+                  response.message,
+                  response.status,
+                );
+              }
+            },
+            error: () => {
+              this.notificationService.showMessage('error', 'Erro ao remover');
+            },
+          });
         } else {
           if (this.isModal) {
             const initialState = {

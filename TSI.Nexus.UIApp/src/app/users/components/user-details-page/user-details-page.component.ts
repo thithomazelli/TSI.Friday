@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, Signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, OnDestroy, OnInit, Signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AccountService, PhotoService, User, UserService } from '@nexus/core';
@@ -34,7 +34,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
         TranslatePipe,
     ],
 })
-export class UserDetailsPageComponent {
+export class UserDetailsPageComponent implements OnInit, OnDestroy {
   isEdit = false;
   data?: User | null = null;
   id: string | null = null;
@@ -68,7 +68,7 @@ export class UserDetailsPageComponent {
   }
 
   ngOnInit(): void {
-    this.activatedRoute.paramMap.subscribe((params) => {
+    this.activatedRoute.paramMap.pipe(takeUntil(this._destroy$)).subscribe((params) => {
       const idParam = params.get('id');
 
       if (idParam && idParam !== 'new') {
@@ -81,13 +81,13 @@ export class UserDetailsPageComponent {
       }
     });
 
-    this.photoService.photo$.subscribe((response) => {
+    this.photoService.photo$.pipe(takeUntil(this._destroy$)).subscribe((response) => {
       if (response.photoPath) {
         this.data!.photo = response.photoPath;
       }
     });
 
-    this.accountService.user$.subscribe((currentUser) => {
+    this.accountService.user$.pipe(takeUntil(this._destroy$)).subscribe((currentUser) => {
       this.isOwnProfile = !!currentUser && currentUser.id === this.id;
     });
   }

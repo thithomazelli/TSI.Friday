@@ -123,4 +123,26 @@ describe('UserDetailsPageComponent', () => {
     const component = createComponent();
     expect(() => component.ngOnDestroy()).not.toThrow();
   });
+
+  describe('subscription teardown', () => {
+    it('stops reacting to paramMap/photo$/user$ after ngOnDestroy', () => {
+      const component = createComponent();
+      const response$ = new Subject<WebApiResponse<User>>();
+      userServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      paramMap$.next(paramMap('u1'));
+      response$.next({ data: { id: 'u1' } as User } as WebApiResponse<User>);
+      component.ngOnDestroy();
+
+      // None of these should throw (no live subscribers) and none should mutate state anymore.
+      paramMap$.next(paramMap('u2'));
+      photoServiceMock.photo$.next({ photoPath: 'photos/u2.jpg', userId: 'u2' });
+      accountServiceMock.user$.next({ id: 'u1' } as User);
+
+      expect(component.id).toBe('u1');
+      expect(component.data?.photo).toBeUndefined();
+      expect(component.isOwnProfile).toBe(false);
+    });
+  });
 });

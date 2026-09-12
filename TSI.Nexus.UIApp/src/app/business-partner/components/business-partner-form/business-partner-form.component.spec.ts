@@ -11,7 +11,7 @@ import {
   NotificationService,
   ResponseStatus,
 } from '@nexus/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { BusinessPartnerFormComponent } from './business-partner-form.component';
 import { BusinessPartnerDetailsModalComponent } from '../business-partner-details-modal/business-partner-details-modal.component';
 
@@ -323,6 +323,23 @@ describe('BusinessPartnerFormComponent', () => {
 
       expect(businessPartnerServiceMock.delete).toHaveBeenCalledWith(component.data);
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/clients');
+    });
+
+    it('shows an error notification when the delete fails', async () => {
+      const component = createComponent();
+      component.isModal = false;
+      component.ngOnInit();
+      modalServiceMock.showSweetConfirmation.mockResolvedValue({ isConfirmed: true });
+      businessPartnerServiceMock.delete.mockReturnValue(throwError(() => new Error('fail')));
+
+      component.remove();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(notificationServiceMock.showMessage).toHaveBeenCalledWith(
+        'error',
+        'Erro ao remover',
+      );
+      expect(routerMock.navigateByUrl).not.toHaveBeenCalledWith('/clients');
     });
   });
 });
