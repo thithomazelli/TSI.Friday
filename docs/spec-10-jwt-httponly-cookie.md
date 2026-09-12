@@ -237,3 +237,33 @@ pegar evidência real de produção (DevTools → aba Login → Response Headers
 Application → Cookies logo depois, pra ver se o cookie aparece salvo ali ou não), ou (b) montar um
 repro local 100% `https` nos dois lados (SPA e API) antes de reaplicar, pra isolar se é
 especificamente o mismatch de esquema ou algo mais estrutural no desenho do cookie cross-subdomínio.
+
+### Item (b) resolvido — repro local 100% https confirma o desenho
+
+Montado um repro fiel à topologia real de produção: dois subdomínios (`app.test.local` e
+`api.test.local`, ambos sob o mesmo domínio registrável, replicando `serodio.` /
+`serodio-api.nexusoperations.com.br`), cada um com certificado próprio, `ng serve --ssl` pro SPA e
+Kestrel com certificado real pra API — nada de `localhost` com esquema divergente. Login de verdade
+via Playwright:
+
+- `Set-Cookie` chega, o navegador **guarda** o cookie (`BrowserContext.cookies()` mostra
+  `nexus_auth` com `Domain: api.test.local`, `HttpOnly`, `Secure`, `SameSite: Strict`).
+- Toda chamada seguinte (`refresh-user-token`, `featuretoggles/getAll`, `vehicles/getAll`,
+  `products/getAll`, `payments/getDelayed`, etc.) volta `200` — sessão inteira funcionando, sem
+  nenhum 401.
+
+Ou seja: **o desenho está correto**. `SameSite=Strict` entre dois subdomínios do mesmo domínio
+registrável, ambos `https`, funciona exatamente como esperado — o bug das duas tentativas foi
+inteiramente o mismatch de esquema do ambiente de dev local (`http://localhost` +
+`https://localhost:7181`), nunca um problema de arquitetura do cookie em si. Como o CORS de produção
+já exige `https://serodio.nexusoperations.com.br` batendo exato há anos (evidência indireta, mas
+conclusiva: um mismatch de esquema já teria quebrado o fluxo antigo por header também), produção
+deveria se comportar como esse repro, não como o `localhost` local.
+
+**Retomada (tentativa 3)**: reaplicada a tentativa 2 (cookie + `UseForwardedHeaders`) sem nenhuma
+mudança adicional de desenho — a suspeita de causa em produção continua sendo algo específico do
+hosting IIS (`ForwardedHeaders` já somado; possível também mangling de `Set-Cookie` por algum módulo
+IIS, não verificável sem acesso real ao servidor). Se quebrar uma terceira vez, o próximo passo
+**não é mais hipótese** — é pegar o `Set-Cookie` real da resposta de login em produção (DevTools) e
+comparar byte a byte com o que o Kestrel realmente gerou, pra ver se algo no meio do caminho
+(IIS/ARR/proxy) está alterando o header.
