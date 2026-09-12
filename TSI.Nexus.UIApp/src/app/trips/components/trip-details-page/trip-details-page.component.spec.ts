@@ -102,6 +102,18 @@ describe('TripDetailsPageComponent', () => {
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
     });
 
+    it('navigates to not-found and stops loading when the request errors', () => {
+      const component = createComponent('t1');
+      const response$ = new Subject<WebApiResponse<Trip>>();
+      tripServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      response$.error(new Error('fail'));
+
+      expect(component.loading).toBe(false);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
+    });
+
     it('re-fetches on a real paymentChanged$ event, but not on the skip(1)-dropped first one', () => {
       const component = createComponent('t1');
       const firstResponse$ = new Subject<WebApiResponse<Trip>>();
@@ -128,6 +140,24 @@ describe('TripDetailsPageComponent', () => {
   describe('getStatusLabel', () => {
     it('returns an empty string when there is no data', () => {
       const component = createComponent(null);
+      expect(component.getStatusLabel()).toBe('');
+    });
+
+    it('returns an empty string when data has no status', () => {
+      const component = createComponent(null);
+      component.data = { id: 't1' } as Trip;
+      expect(component.getStatusLabel()).toBe('');
+    });
+
+    it('resolves the mapped status label', () => {
+      const component = createComponent(null);
+      component.data = { id: 't1', status: 'Open' } as unknown as Trip;
+      expect(component.getStatusLabel()).toBe('Em aberto');
+    });
+
+    it('falls back to an empty string for a status with no mapped label', () => {
+      const component = createComponent(null);
+      component.data = { id: 't1', status: 'Unknown' } as unknown as Trip;
       expect(component.getStatusLabel()).toBe('');
     });
   });
@@ -181,11 +211,37 @@ describe('TripDetailsPageComponent', () => {
       expect(progressHandle.success).toHaveBeenCalled();
       expect(component.emittingServiceOrder).toBe(false);
     });
+
+    it('reports an error when PDF generation fails', () => {
+      const component = createComponent(null);
+      component.data = { id: 't1', tripNumber: 'V-1000' } as Trip;
+      const error$ = new Subject<Blob>();
+      tripServiceMock.getServiceOrderPdf.mockReturnValue(error$);
+
+      component.emitServiceOrder();
+      error$.error(new Error('boom'));
+
+      expect(progressHandle.error).toHaveBeenCalled();
+      expect(component.emittingServiceOrder).toBe(false);
+    });
   });
 
   it('ngOnDestroy does not throw', () => {
     const component = createComponent(null);
     component.ngOnInit();
     expect(() => component.ngOnDestroy()).not.toThrow();
+  });
+
+  it('ngOnDestroy also unsubscribes from tripChanged$/paymentChanged$ when editing an existing trip', () => {
+    const component = createComponent('t1');
+    tripServiceMock.getById.mockReturnValue(new Subject());
+    component.ngOnInit();
+
+    component.ngOnDestroy();
+    tripServiceMock.getById.mockClear();
+    tripServiceMock.tripChanged$.next();
+    tripServiceMock.tripChanged$.next();
+
+    expect(tripServiceMock.getById).not.toHaveBeenCalled();
   });
 });
