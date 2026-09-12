@@ -1,14 +1,21 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ApiService, ApiType, WebApiResponse } from '@nexus/core';
 import { TripLeg } from '@nexus/core';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { map, tap } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class TripLegService {
   private _baseEndPoint = ApiType.TripLegs;
-  private _tripLegChangedSubject = new BehaviorSubject<void>(undefined);
-  tripLegChanged$ = this._tripLegChangedSubject.asObservable();
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
+
+  readonly tripLegChanged$: Observable<void> = toObservable(this._changedTick).pipe(map(() => undefined));
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(private apiService: ApiService) {}
 
@@ -21,18 +28,18 @@ export class TripLegService {
   add(tripLeg: TripLeg): Observable<WebApiResponse<TripLeg>> {
     return this.apiService
       .post<WebApiResponse<TripLeg>>(`${this._baseEndPoint}/add`, tripLeg)
-      .pipe(tap(() => this._tripLegChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   update(tripLeg: TripLeg): Observable<WebApiResponse<TripLeg>> {
     return this.apiService
       .put<WebApiResponse<TripLeg>>(`${this._baseEndPoint}/update`, tripLeg)
-      .pipe(tap(() => this._tripLegChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(tripLeg: TripLeg): Observable<WebApiResponse<TripLeg>> {
     return this.apiService
       .delete<WebApiResponse<TripLeg>>(`${this._baseEndPoint}/remove`, tripLeg)
-      .pipe(tap(() => this._tripLegChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 }

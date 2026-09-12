@@ -1,17 +1,27 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { ApiType } from '../../enums';
 import { AgendaEvent } from '../../models';
 import { ApiService, WebApiResponse } from '@nexus/core';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { Observable, map, tap } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class EventService {
   private _baseEndPoint = ApiType.Events;
-  private _eventChangedSubject = new BehaviorSubject<void>(undefined);
+  // A tick counter rather than the changed entity itself: consumers only ever react by
+  // reloading their own list (see event-list/upcoming-event-notification), never read a payload
+  // off this stream. toObservable() replays the current tick to every new subscriber exactly like
+  // the BehaviorSubject<void> this replaces did, so a fresh subscriber still gets one immediate
+  // emission before any real change happens.
+  private readonly _changedTick = signal(0);
 
-  eventChanged$ = this._eventChangedSubject.asObservable();
+  readonly eventChanged$: Observable<void> = toObservable(this._changedTick).pipe(map(() => undefined));
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(private apiService: ApiService) {}
 
@@ -40,18 +50,18 @@ export class EventService {
   add(event: AgendaEvent): Observable<WebApiResponse<AgendaEvent>> {
     return this.apiService
       .post<WebApiResponse<AgendaEvent>>(`${this._baseEndPoint}/add`, event)
-      .pipe(tap(() => this._eventChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   update(event: AgendaEvent): Observable<WebApiResponse<AgendaEvent>> {
     return this.apiService
       .put<WebApiResponse<AgendaEvent>>(`${this._baseEndPoint}/update`, event)
-      .pipe(tap(() => this._eventChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(event: AgendaEvent): Observable<WebApiResponse<AgendaEvent>> {
     return this.apiService
       .delete<WebApiResponse<AgendaEvent>>(`${this._baseEndPoint}/remove`, event)
-      .pipe(tap(() => this._eventChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 }
