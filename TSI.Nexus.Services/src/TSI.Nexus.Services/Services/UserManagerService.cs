@@ -758,7 +758,11 @@ namespace TSI.Nexus.Services
         private async Task<Dictionary<string, string>> BuildUserIdToRoleMapAsync()
         {
             var userIdToRole = new Dictionary<string, string>();
-            foreach (var role in _roleManager.Roles)
+            // Materialized before the loop: MySQL doesn't support MARS, so enumerating
+            // _roleManager.Roles (an IQueryable) directly with an `await` in the loop body would
+            // try to open a second DataReader on the same connection while the first is still open.
+            var roles = _roleManager.Roles.ToList();
+            foreach (var role in roles)
             {
                 var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
                 foreach (var userInRole in usersInRole)

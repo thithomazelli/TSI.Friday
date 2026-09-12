@@ -206,6 +206,30 @@ describe('UsersComponent', () => {
     });
   });
 
+  describe('fullName column cell renderer', () => {
+    it('does not throw for a placeholder row with no data (ag-Grid infinite scroll)', () => {
+      const component = createComponent();
+      const fullNameColumn = component.columnDefs.find((c) => c.colId === 'fullName')!;
+
+      expect(() =>
+        (fullNameColumn.cellRenderer as (params: any) => string)({ value: '', data: undefined }),
+      ).not.toThrow();
+    });
+
+    it('links to the user details page once data is available', () => {
+      const component = createComponent();
+      const fullNameColumn = component.columnDefs.find((c) => c.colId === 'fullName')!;
+
+      const html = (fullNameColumn.cellRenderer as (params: any) => string)({
+        value: 'Ana Silva',
+        data: { id: 'u1' },
+      });
+
+      expect(html).toContain(`/${component.baseEndPoint}/u1`);
+      expect(html).toContain('Ana Silva');
+    });
+  });
+
   describe('photo column cell renderer', () => {
     it('fetches the photo when an attachment id is present', () => {
       const component = createComponent();

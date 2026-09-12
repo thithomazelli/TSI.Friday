@@ -119,7 +119,7 @@ export class UsersComponent implements OnInit, OnDestroy {
         return `<a
           class="ag-link"
           data-action="view"
-          routerLink="/${this.baseEndPoint}/${params.data.id}">${value}</a>`;
+          routerLink="/${this.baseEndPoint}/${params.data?.id}">${value}</a>`;
       },
     },
     {
