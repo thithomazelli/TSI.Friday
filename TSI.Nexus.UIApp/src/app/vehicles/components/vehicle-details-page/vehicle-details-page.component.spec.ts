@@ -116,6 +116,48 @@ describe('VehicleDetailsPageComponent', () => {
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
     });
 
+    it('navigates to not-found and stops loading when the request errors', () => {
+      const component = createComponent();
+      const response$ = new Subject<WebApiResponse<Vehicle>>();
+      vehicleServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      paramMap$.next(paramMap('v1'));
+      response$.error(new Error('fail'));
+
+      expect(component.loading).toBe(false);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
+    });
+
+    it('falls back to an empty trip list when the response has no data', () => {
+      const component = createComponent();
+      const response$ = new Subject<WebApiResponse<Vehicle>>();
+      vehicleServiceMock.getById.mockReturnValue(response$);
+      tripServiceMock.getByVehicleId.mockReturnValue(of({} as WebApiResponse<Trip[]>));
+
+      component.ngOnInit();
+      paramMap$.next(paramMap('v1'));
+      response$.next({ data: { id: 'v1' } } as WebApiResponse<Vehicle>);
+
+      expect(component.tripAgendaEvents).toEqual([]);
+    });
+
+    it('falls back to an empty leg list when building a trip agenda event', () => {
+      const component = createComponent();
+      const response$ = new Subject<WebApiResponse<Vehicle>>();
+      vehicleServiceMock.getById.mockReturnValue(response$);
+      const trip = { id: 'trip1' } as Trip;
+      tripServiceMock.getByVehicleId.mockReturnValue(of({ data: [trip] } as WebApiResponse<Trip[]>));
+      tripLegServiceMock.getByTrip.mockReturnValue(of({} as WebApiResponse<unknown>));
+      tripServiceMock.buildAgendaEvent.mockReturnValue({ id: 'agenda1' });
+
+      component.ngOnInit();
+      paramMap$.next(paramMap('v1'));
+      response$.next({ data: { id: 'v1' } } as WebApiResponse<Vehicle>);
+
+      expect(tripServiceMock.buildAgendaEvent).toHaveBeenCalledWith(trip, []);
+    });
+
     it('re-fetches on a real vehicleChanged$ event, but not on the skip(1)-dropped first one', () => {
       const component = createComponent();
       const firstResponse$ = new Subject<WebApiResponse<Vehicle>>();
@@ -152,10 +194,31 @@ describe('VehicleDetailsPageComponent', () => {
 
       expect(component.getStatusLabel()).toBe('VEHICLES.STATUS_AVAILABLE');
     });
+
+    it('falls back to an empty string for a status with no mapped label', () => {
+      const component = createComponent();
+      component.data = { status: 'Unknown' } as unknown as Vehicle;
+
+      expect(component.getStatusLabel()).toBe('');
+    });
   });
 
   it('ngOnDestroy does not throw', () => {
     const component = createComponent();
     expect(() => component.ngOnDestroy()).not.toThrow();
+  });
+
+  it('ngOnDestroy also unsubscribes from vehicleChanged$/maintenanceChanged$ when editing an existing vehicle', () => {
+    const component = createComponent();
+    vehicleServiceMock.getById.mockReturnValue(new Subject());
+    component.ngOnInit();
+    paramMap$.next(paramMap('v1'));
+
+    component.ngOnDestroy();
+    vehicleServiceMock.getById.mockClear();
+    vehicleServiceMock.vehicleChanged$.next();
+    vehicleServiceMock.vehicleChanged$.next();
+
+    expect(vehicleServiceMock.getById).not.toHaveBeenCalled();
   });
 });
