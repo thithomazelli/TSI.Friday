@@ -259,6 +259,26 @@ isso, exatamente o problema que `Subject` (sem `BehaviorSubject`) resolve de gra
 os 4 consumidores reais antes de decidir (`grep` teria sido enganoso aqui — o nome do stream difere
 o suficiente do padrão `_xChangedSubject` que passar batido era fácil).
 
+**`AddressService`**: mesmo padrão "changed$" acima — `_addresses$` (`BehaviorSubject<Address[]>`)
+era estado morto (zero consumidores, confirmado por leitura completa do arquivo), removido;
+`_addressChangedSubject` virou `signal(0)` + `notifyChanged()`. `addressChanged$` tem consumidor real
+(`address.component.ts`), então a API pública (`Observable<void>`) foi preservada via
+`toObservable`. Spec pré-existente (`address.service.spec.ts`) era um stub quebrado do CLI,
+substituído por um spec real.
+
+**`ProductService` (segundo do padrão shareReplay, mesmo desenho do `FeatureFlagService`)**:
+`refresh$ Subject + switchMap(() => http.get(...)) + shareReplay(1)` virou
+`signal<WebApiResponse<Product[]> | null>(null)` (estado "carregado" cacheado, primeiro consumidor
+dispara o fetch no construtor, os demais leem o valor já resolvido) + `signal(0)` separado pra
+`productChanged$` (distinto de `products$`: `add`/`update`/`delete` disparam os dois — `refresh()`
+pra recarregar o catálogo e `notifyChanged()` pra quem só quer saber "algo mudou"). Investigação
+prévia (`grep` + leitura de `product-picker-grid.component.ts:275-300`) confirmou que o único
+consumidor com lógica não trivial (`combineLatestWith(productsArray$)`) só depende de emissões ao
+vivo, nunca de completude do stream — importante porque o stream antigo (baseado em HTTP) completava
+a cada round-trip e o novo (baseado em `signal`) nunca completa; os outros 4 consumidores só fazem
+`this.products$ = this.productService.getAll();` e não dependem de `complete()` de forma alguma.
+`product.service.spec.ts` estava vazio (0 bytes), spec real escrito do zero.
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não
