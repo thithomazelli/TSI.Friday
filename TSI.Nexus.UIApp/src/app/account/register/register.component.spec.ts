@@ -116,5 +116,27 @@ describe('RegisterComponent', () => {
 
       expect(component.errorMessages).toEqual(['E-mail já cadastrado']);
     });
+
+    it('falls back to the generic message without throwing when response.error itself is null', () => {
+      // Regression test: a failure that never reaches the API with a JSON body (dead
+      // upstream/dev-proxy 500, timeout) carries response.error === null. response.error.errors
+      // used to throw reading .errors off null right there in the error handler, aborting before
+      // errorMessages/markForCheck() ever ran.
+      const component = createComponent();
+      component.ngOnInit();
+      accountServiceMock.register.mockReturnValue(
+        throwError(() => ({ status: 500, error: null })),
+      );
+
+      component.form.setValue({
+        firstName: 'Ana',
+        lastName: 'Silva',
+        email: 'ana@example.com',
+        password: '123456',
+      });
+
+      expect(() => component.register()).not.toThrow();
+      expect(component.errorMessages).toEqual(['ACCOUNT.SERVER_ERROR']);
+    });
   });
 });

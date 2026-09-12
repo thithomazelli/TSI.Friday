@@ -134,6 +134,22 @@ describe('LoginComponent', () => {
 
       expect(component.errorMessages).toEqual(['ACCOUNT.SERVER_ERROR']);
     });
+
+    it('falls back to the generic message without throwing when response.error itself is null', () => {
+      // Regression test: a failure that never reaches the API with a JSON body - a dead
+      // upstream/dev-proxy 500, a timeout - carries response.error === null, not an object with
+      // no .errors. `response.error.errors` used to throw reading .errors off null right there in
+      // tap()'s error handler, which aborted before errorMessages/markForCheck() ever ran and left
+      // the login page blank with no feedback at all, instead of falling through to this message.
+      const component = createComponent();
+      component.ngOnInit();
+      accountServiceMock.login.mockReturnValue(throwError(() => ({ status: 500, error: null })));
+
+      component.form.setValue({ userName: 'admin', password: 'wrong' });
+
+      expect(() => component.login().subscribe({ error: () => {} })).not.toThrow();
+      expect(component.errorMessages).toEqual(['ACCOUNT.SERVER_ERROR']);
+    });
   });
 
   describe('resendEmailConfirmation', () => {

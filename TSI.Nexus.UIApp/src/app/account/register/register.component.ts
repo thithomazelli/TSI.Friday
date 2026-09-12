@@ -103,10 +103,15 @@ export class RegisterComponent extends FormBaseComponent implements OnInit {
         this.router.navigateByUrl('account/login');
       },
       error: (response) => {
-        if (response.error.errors) {
+        // response.error is null (not just missing .errors) for a failure that never reached the
+        // API with a JSON body - see login.component.ts's error handler for the full story.
+        if (response.error?.errors) {
           this.errorMessages = response.error.errors;
         } else {
-          this.errorMessages = [...this.errorMessages, response.error];
+          this.errorMessages = [
+            ...this.errorMessages,
+            response.error ?? this.translationService.instant('ACCOUNT.SERVER_ERROR'),
+          ];
         }
         this.cdr.markForCheck();
       },

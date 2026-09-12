@@ -91,7 +91,13 @@ export class LoginComponent extends FormBaseComponent implements OnInit {
           }
         },
         error: (response) => {
-          if (response.error.errors) {
+          // response.error is null (not just missing .errors) for a failure that never reached
+          // the API with a JSON body - a dead upstream/dev-proxy 500, a timeout, a CORS-blocked
+          // response. response.error.errors used to assume an object was always there and threw
+          // reading .errors off null, and that exception - inside tap()'s own error handler -
+          // aborted before errorMessages/markForCheck() ever ran, leaving the login page blank
+          // with no visible feedback at all instead of falling through to the generic message.
+          if (response.error?.errors) {
             this.errorMessages = response.error.errors;
           } else if (typeof response.error === 'string') {
             this.errorMessages = [...this.errorMessages, response.error];
