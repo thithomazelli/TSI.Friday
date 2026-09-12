@@ -358,6 +358,14 @@ compartilham uma requisição; uma nova chamada depois de completar dispara outr
 também que os specs de `authorization.guard.ts`, `app.component.ts` e `navbar.component.ts` —
 principais consumidores de `user$` — continuam passando sem alteração.
 
+**`ThemeService`/`TranslationService`/`PhotoService` (estado único, não mais o padrão
+shareReplay)**: os três eram só um `BehaviorSubject` com valor inicial (tema, idioma, e um objeto
+`{ photoPath, userId }`) — o caso mais simples e direto de migração pra `signal()`, sem sentinel de
+"not loaded yet" (sempre há um valor real desde o início, diferente de `FeatureFlagService`/
+`AccountService`). `theme$`/`language$`/`photo$` viram `toObservable(signal)` direto, sem `filter`.
+Nenhum dos três tinha spec real antes: `theme.service.spec.ts`/`translation.service.spec.ts` não
+existiam; `photo.service.spec.ts` era um stub quebrado do CLI. Todos escritos do zero.
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não

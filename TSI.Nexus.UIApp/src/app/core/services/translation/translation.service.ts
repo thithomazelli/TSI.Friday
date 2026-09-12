@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { Observable } from 'rxjs';
 import { PT_BR } from '../../i18n/pt-br';
 import { EN } from '../../i18n/en';
 import { ES } from '../../i18n/es';
@@ -24,14 +25,12 @@ const DICTIONARIES: Record<AppLanguage, Record<string, unknown>> = {
   providedIn: 'root',
 })
 export class TranslationService {
-  private _language$ = new BehaviorSubject<AppLanguage>(
-    this.readInitialLanguage(),
-  );
+  private readonly _language = signal<AppLanguage>(this.readInitialLanguage());
 
-  language$ = this._language$.asObservable();
+  readonly language$: Observable<AppLanguage> = toObservable(this._language);
 
   get current(): AppLanguage {
-    return this._language$.value;
+    return this._language();
   }
 
   constructor() {
@@ -39,7 +38,7 @@ export class TranslationService {
   }
 
   use(language: AppLanguage): void {
-    this._language$.next(language);
+    this._language.set(language);
     try {
       localStorage.setItem(STORAGE_KEY, language);
     } catch {

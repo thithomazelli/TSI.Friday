@@ -1,20 +1,20 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { Observable } from 'rxjs';
 import { ApiService, ApiType } from '@nexus/core';
 
 @Injectable({ providedIn: 'root' })
 export class PhotoService {
   private _photoEndPoint = ApiType.Photos;
-  private _photoSubject = new BehaviorSubject<{
-    photoPath: string;
-    userId?: string;
-  }>({ photoPath: '' });
-  photo$ = this._photoSubject.asObservable();
+  private readonly _photo = signal<{ photoPath: string; userId?: string }>({
+    photoPath: '',
+  });
+  readonly photo$: Observable<{ photoPath: string; userId?: string }> = toObservable(this._photo);
 
   constructor(private apiService: ApiService) {}
 
   updateUserPhoto(photoPath: string, userId?: string): void {
-    this._photoSubject.next({ photoPath, userId });
+    this._photo.set({ photoPath, userId });
   }
 
   /** POST photos/UploadPhoto — atualiza o atributo photo na entidade */
