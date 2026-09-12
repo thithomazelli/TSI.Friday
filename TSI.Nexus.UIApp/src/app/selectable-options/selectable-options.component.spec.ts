@@ -56,6 +56,15 @@ describe('SelectableOptionsComponent', () => {
     expect(component.loading).toBe(false);
   });
 
+  it('defaults to an empty list when the response has no data', () => {
+    const component = createComponent();
+    selectableOptionServiceMock.getByGroup.mockReturnValue(of({}));
+
+    component.ngOnInit();
+
+    expect(component.options).toEqual([]);
+  });
+
   it('stops loading and keeps options empty when the load request errors out', () => {
     const component = createComponent();
     selectableOptionServiceMock.getByGroup.mockReturnValue(throwError(() => new Error('boom')));

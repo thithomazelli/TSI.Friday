@@ -34,6 +34,15 @@ describe('FeatureTogglesComponent', () => {
     expect(component.loading).toBe(false);
   });
 
+  it('defaults to an empty list when the response has no data', () => {
+    const component = createComponent();
+    featureFlagServiceMock.getAll.mockReturnValue(of({}));
+
+    component.ngOnInit();
+
+    expect(component.toggles).toEqual([]);
+  });
+
   it('stops loading when the load request errors out', () => {
     const component = createComponent();
     featureFlagServiceMock.getAll.mockReturnValue(throwError(() => new Error('boom')));

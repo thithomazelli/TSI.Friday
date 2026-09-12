@@ -72,6 +72,15 @@ describe('DocumentTemplatesComponent', () => {
     expect(component.loading).toBe(false);
   });
 
+  it('defaults to an empty list when the response has no data', () => {
+    const component = createComponent();
+    documentTemplateServiceMock.getAll.mockReturnValue(of({}));
+
+    component.ngOnInit();
+
+    expect(component.templates).toEqual([]);
+  });
+
   describe('getFileExtension', () => {
     it('returns jpg for Letterhead', () => {
       const component = createComponent();

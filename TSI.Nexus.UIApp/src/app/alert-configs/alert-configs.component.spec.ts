@@ -168,5 +168,17 @@ describe('AlertConfigsComponent', () => {
         'ALERT_CONFIGS.UPDATE_THRESHOLD_ERROR',
       );
     });
+
+    it('does not apply the response value when the backend reports a non-success status', () => {
+      const alert = { key: 'a1', thresholdDays: 5 } as AlertConfig;
+      const response = { status: ResponseStatus.Error, message: 'falhou', data: { thresholdDays: 7 } };
+      const component = createComponent();
+      alertConfigServiceMock.setThresholdDays.mockReturnValue(of(response));
+
+      component.saveThreshold(alert);
+
+      expect(alert.thresholdDays).toBe(5);
+      expect(notificationServiceMock.showMessage).toHaveBeenCalledWith(response.status, response.message);
+    });
   });
 });
