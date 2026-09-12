@@ -62,6 +62,34 @@ disciplina (interface + implementação, responsabilidade única, favorecer comp
 herança ou a `if/switch` gigante) em vez de atalhos que quebrem esse desenho — é isso que mantém o
 código limpo e organizado à medida que o sistema cresce.
 
+## Qualidade obrigatória: testes, segurança e performance
+
+Este projeto já passou por uma auditoria completa de segurança e performance (achados altos e
+médios corrigidos: JWT, controle de acesso, path traversal, senha em log, N+1 queries, over-
+fetching, paginação, etc.). Regredir qualquer um desses pontos com código novo é tão grave quanto
+nunca ter corrigido — as regras abaixo existem pra isso não acontecer de novo, silenciosamente.
+
+- **Teste é parte da entrega, não um extra**: nenhuma tarefa — backend ou frontend, feature nova ou
+  ajuste em código existente — está concluída sem teste automatizado cobrindo o que mudou. No
+  backend isso já era regra (ver "Unit test obrigatório" abaixo); no frontend vale exatamente
+  igual: todo componente/serviço/guard/interceptor novo, e toda mudança de comportamento em um já
+  existente, ganha (ou atualiza) seu spec correspondente. "Vou testar manualmente e não escrever o
+  spec" não é uma opção válida — só reduz cobertura junto com o resto do código que já não tem.
+- **Nunca introduzir uma vulnerabilidade nova**: antes de considerar qualquer código pronto,
+  checar contra as classes de falha já encontradas nesta base — autenticação/autorização faltando
+  ou fraca (`[Authorize]`/roles corretos, nunca confiar em dado vindo do cliente pra decidir
+  permissão), path traversal em qualquer código que monte caminho de arquivo a partir de input,
+  segredo/senha/token em log ou em resposta de API, injeção (SQL via string concatenada, XSS via
+  `innerHTML`/`bypassSecurityTrust*` sem sanitização), CORS/cookie mal configurado. Na dúvida se
+  algo é sensível, tratar como se fosse.
+- **Nunca introduzir uma regressão de performance nova**: os padrões já estabelecidos existem
+  porque já causaram problema real antes — `AsNoTracking()` em leitura, paginação server-side
+  (`GetPagedAsync`) em qualquer listagem com volume real (nunca `GetAllAsync`/`QueryAsync` sem
+  limite pra uma tela nova), agregação em SQL em vez de trazer tudo pra memória e somar em C#/TS,
+  nunca N+1 (uma query por item de uma lista dentro de um loop) onde um `Include`/join resolve.
+  Qualquer desvio desses padrões num código novo precisa de uma razão explícita, não só "funcionou
+  no teste local com poucos dados".
+
 ## Arquitetura do backend
 
 Camadas como projetos .NET separados, dependência em uma direção só:
@@ -142,6 +170,10 @@ código novo; todo componente novo é standalone e declara seus próprios `impor
 
 ### Padrões de tela obrigatórios no frontend
 
+- **Unit test obrigatório**: mesmo espírito do backend (ver "Qualidade obrigatória" acima) — todo
+  componente/serviço/guard/interceptor novo, e toda mudança de comportamento relevante em um já
+  existente, ganha spec correspondente (`npm test` deve passar limpo antes de considerar o
+  trabalho concluído).
 - **Organização de pastas/nomenclatura**: seguir a mesma estrutura já usada nas outras features —
   `<feature>/components/<entidade>-list`, `<entidade>-form`, `<entidade>-details-modal` (ou
   `-details-page`), etc. (ver `business-partner/components/` como referência:
