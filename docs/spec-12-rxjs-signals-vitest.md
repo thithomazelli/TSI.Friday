@@ -117,9 +117,25 @@ migração:
    escopo confirmado das Fases 1-4 (cada um desses arquivos precisa ser revisto/reescrito junto da
    migração pra Signals do respectivo módulo), não como pendência da Fase 0.
 
+5. **`vi.mock()`/`vi.hoisted()` não funcionam sob `@angular/build:unit-test`, nem pra pacote npm
+   não-relativo**: tentativa de mockar `jspdf`/`html2canvas` em `report-pdf.spec.ts` falhou com
+   `Error: N calls ... were defined outside of the module's top level scope` — a mensagem sugere
+   hoisting malformado, mas a causa real é que o builder da Angular processa/empacota o arquivo de
+   teste *antes* do plugin de mock-hoisting do Vitest analisar o AST, então qualquer `vi.mock`
+   (mesmo de especificador não-relativo) quebra. O próprio patch da Angular (`vitest-mock-patch`,
+   em `@angular/build/src/builders/unit-test/runners/vitest/build-options.js`) já avisa: "Please
+   use Angular TestBed for mocking dependencies" — ou seja, mock de módulo via `vi.mock` está fora
+   de escopo aqui por design, não é bug a contornar. Saída usada em `report-pdf.ts`: extrair a
+   lógica pura testável (`chunkRows`) pra uma função exportada separada da orquestração
+   html2canvas/jsPDF (que fica sem teste unitário — depende de Canvas 2D real, não é
+   razoavelmente testável em jsdom de qualquer forma, e vale checagem manual na Fase 5). Regra
+   geral pro resto da spec: qualquer código que só faz sentido testar mockando um módulo externo
+   inteiro (não um serviço Angular injetável) deve isolar a lógica pura numa função à parte, testar
+   essa função, e deixar a integração com a lib externa pra verificação manual/E2E.
+
 **Decisão: GO.** Vitest funciona para o que a spec precisa (`TestBed`,
-`provideHttpClientTesting`, `vi.fn()`, matchers Jest-style) — as três gotchas acima são conhecidas
-e têm solução direta, sem gambiarra. Segue pra Fase 1.
+`provideHttpClientTesting`, `vi.fn()`, matchers Jest-style) — as quatro gotchas acima são
+conhecidas e têm solução direta, sem gambiarra. Segue pra Fase 1.
 
 ### 4.2 RxJS → Signals, por camada
 

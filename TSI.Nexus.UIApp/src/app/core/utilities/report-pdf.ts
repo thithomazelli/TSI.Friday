@@ -8,6 +8,20 @@ import jsPDF from 'jspdf';
 // page in practice.
 const ROWS_PER_PAGE = 30;
 
+/**
+ * Splits rows into fixed-size pages, always returning at least one (possibly empty) chunk so a
+ * report with zero matching rows still renders a single page of headers/totals instead of none.
+ * Extracted as a pure function so the pagination boundary (rows near/at a multiple of the page
+ * size) can be unit tested without needing to mock html2canvas/jsPDF's real DOM/canvas rendering.
+ */
+export function chunkRows<T>(rows: T[], pageSize: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < rows.length; i += pageSize) {
+    chunks.push(rows.slice(i, i + pageSize));
+  }
+  return chunks.length === 0 ? [[]] : chunks;
+}
+
 export interface ReportPdfInput {
   // Full title + date-range block shown once, at the top of page 1 only.
   fullHeaderHtml: string;
@@ -69,15 +83,7 @@ export async function downloadReportPdf(
   document.body.appendChild(hiddenWrapper);
 
   try {
-    const rowChunks: string[][] = [];
-    for (let i = 0; i < input.rowsHtml.length; i += ROWS_PER_PAGE) {
-      rowChunks.push(input.rowsHtml.slice(i, i + ROWS_PER_PAGE));
-    }
-    if (rowChunks.length === 0) {
-      // No rows matched the filters - still produce a single page with just headers/totals
-      // rather than an empty PDF.
-      rowChunks.push([]);
-    }
+    const rowChunks = chunkRows(input.rowsHtml, ROWS_PER_PAGE);
 
     const widthMm = 210;
     const total = rowChunks.length;
