@@ -324,6 +324,18 @@ a fonte original de fato *nunca* completava (por estar atrás de um Subject que 
 de assumir que o "nunca completa" do `toObservable` é equivalente — nem todo `shareReplay(1)` tem
 esse formato.
 
+**`SelectableOptionService` (mesmo formato do `BusinessPartnerService`, `take(1)` aplicado desde o
+início)**: cache por grupo (`SelectableOptionGroup`) com o mesmo desenho — `Map<Group,
+WritableSignal<...>>` + `Map<Group, Observable<...>>` criado sob demanda via `Injector` injetado.
+Como o cache original também era um `http.get(...).pipe(shareReplay(1))` simples (GET que
+completa, não um stream nunca-completa por trás de um Subject), `take(1)` já foi incluído desde a
+primeira versão desta migração — lição direta do bug encontrado e corrigido no
+`BusinessPartnerService` acima. Nenhum consumidor de `getByGroup()` usa `forkJoin`
+(`selectable-options.component.ts` só faz `.subscribe()` direto), mas o `take(1)` é correto de
+qualquer forma, por ser fiel ao comportamento original. Sem spec pré-existente; escrito do zero,
+incluindo um teste dedicado de "completa após a única emissão" pra travar esse comportamento
+igual ao do `BusinessPartnerService`.
+
 **`DriverService`/`VehicleService` (mesmo desenho do `ProductService`, sem cache por tipo)**:
 `_refresh$ Subject + startWith(undefined) + switchMap(() => http.get(...)) + shareReplay(1)` virou
 `signal<WebApiResponse<Entity[]> | null>(null)` com fetch disparado no construtor
