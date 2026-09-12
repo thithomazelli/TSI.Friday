@@ -12,10 +12,10 @@ describe('ClickDirective', () => {
       setProperty: (el: Element, name: string, value: unknown) => {
         (el as unknown as Record<string, unknown>)[name] = value;
       },
-      addClass: (el: Element, name: string) => el.classList.add(name),
+      addClass: (el: Element | null, name: string) => el?.classList.add(name),
       removeClass: (el: Element, name: string) => el.classList.remove(name),
       createElement: (name: string) => document.createElement(name),
-      appendChild: (parent: Element, child: Element) => parent.appendChild(child),
+      appendChild: (parent: Element, child: Element | null) => child && parent.appendChild(child),
       removeChild: (parent: Element, child: Element) => parent.removeChild(child),
     } as unknown as Renderer2;
   }
@@ -152,6 +152,114 @@ describe('ClickDirective', () => {
       directive.onClick(clickEvent());
 
       expect(button.querySelectorAll('.app-click-spinner').length).toBe(1);
+    });
+
+    it('re-applies the disabled state to a sibling link that was already disabled before the click', () => {
+      const form = document.createElement('form');
+      const button = document.createElement('button');
+      const otherLink = document.createElement('a');
+      otherLink.setAttribute('aria-disabled', 'true');
+      otherLink.setAttribute('tabindex', '-1');
+      otherLink.classList.add('disabled');
+      form.appendChild(button);
+      form.appendChild(otherLink);
+
+      const directive = new ClickDirective(new ElementRef(button), fakeRenderer());
+      const action$ = new Subject<null>();
+      directive.action$ = () => action$;
+
+      directive.onClick(clickEvent());
+      action$.next(null);
+      action$.complete();
+
+      expect(otherLink.getAttribute('aria-disabled')).toBe('true');
+      expect(otherLink.getAttribute('tabindex')).toBe('-1');
+      expect(otherLink.classList.contains('disabled')).toBe(true);
+    });
+
+    it('does not re-attach the blocking click handler to a sibling link on a re-entrant click', () => {
+      const form = document.createElement('form');
+      const button = document.createElement('button');
+      const otherLink = document.createElement('a');
+      form.appendChild(button);
+      form.appendChild(otherLink);
+      const addEventListenerSpy = vi.spyOn(otherLink, 'addEventListener');
+
+      const directive = new ClickDirective(new ElementRef(button), fakeRenderer());
+      directive.action$ = () => new Subject<null>();
+
+      directive.onClick(clickEvent());
+      directive.onClick(clickEvent());
+
+      expect(addEventListenerSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips renderer.setProperty on the host element itself when it is an anchor', () => {
+      const link = document.createElement('a');
+      const renderer = fakeRenderer();
+      const setPropertySpy = vi.spyOn(renderer, 'setProperty');
+      const directive = new ClickDirective(new ElementRef(link), renderer);
+      directive.action$ = () => new Subject<null>();
+
+      directive.onClick(clickEvent());
+
+      expect(setPropertySpy).not.toHaveBeenCalledWith(link, 'disabled', true);
+    });
+  });
+
+  describe('setDisabled(false) (re-enabling siblings, direct call)', () => {
+    it('removes aria-disabled/tabindex/class and detaches the blocking handler from a re-enabled link', () => {
+      const form = document.createElement('form');
+      const button = document.createElement('button');
+      const otherLink = document.createElement('a');
+      form.appendChild(button);
+      form.appendChild(otherLink);
+      const directive = new ClickDirective(new ElementRef(button), fakeRenderer());
+
+      (directive as unknown as { setDisabled: (d: boolean) => void }).setDisabled(true);
+      (directive as unknown as { setDisabled: (d: boolean) => void }).setDisabled(false);
+
+      expect(otherLink.hasAttribute('aria-disabled')).toBe(false);
+      expect(otherLink.hasAttribute('tabindex')).toBe(false);
+      expect(otherLink.classList.contains('disabled')).toBe(false);
+
+      const linkClick = new MouseEvent('click', { cancelable: true });
+      otherLink.dispatchEvent(linkClick);
+      expect(linkClick.defaultPrevented).toBe(false);
+    });
+
+    it('does not throw when re-enabling a link that was never disabled', () => {
+      const form = document.createElement('form');
+      const button = document.createElement('button');
+      const otherLink = document.createElement('a');
+      form.appendChild(button);
+      form.appendChild(otherLink);
+      const directive = new ClickDirective(new ElementRef(button), fakeRenderer());
+
+      expect(() =>
+        (directive as unknown as { setDisabled: (d: boolean) => void }).setDisabled(false),
+      ).not.toThrow();
+    });
+  });
+
+  describe('addSpinner/removeSpinner edge cases', () => {
+    it('does not throw when the renderer fails to create the spinner element', () => {
+      const button = document.createElement('button');
+      const renderer = fakeRenderer();
+      vi.spyOn(renderer, 'createElement').mockReturnValueOnce(null as unknown as Element);
+      const directive = new ClickDirective(new ElementRef(button), renderer);
+      directive.action$ = () => new Subject<null>();
+
+      expect(() => directive.onClick(clickEvent())).not.toThrow();
+    });
+
+    it('removeSpinner does nothing when no spinner was ever added', () => {
+      const button = document.createElement('button');
+      const directive = new ClickDirective(new ElementRef(button), fakeRenderer());
+
+      expect(() =>
+        (directive as unknown as { removeSpinner: () => void }).removeSpinner(),
+      ).not.toThrow();
     });
   });
 
