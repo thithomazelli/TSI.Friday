@@ -172,6 +172,129 @@ describe('ImageCropModalComponent', () => {
 
       expect(component.zoom).toBe(2.5);
     });
+
+    it('keeps the current zoom when the transform carries no scale', () => {
+      const component = createComponent();
+      component.zoom = 1.75;
+
+      component.onTransformChange({ translateH: 0, translateV: 0 });
+
+      expect(component.zoom).toBe(1.75);
+    });
+
+    it('falls back to the current zoom/translate values once measured, when the transform omits them', () => {
+      const component = createComponent();
+      (component as unknown as { baseImgWidth: number }).baseImgWidth = 500;
+      (component as unknown as { baseImgHeight: number }).baseImgHeight = 500;
+      component.frameSize = 200;
+      component.zoom = 1;
+
+      component.onTransformChange({});
+
+      // scale ?? this.zoom -> 1; translateH/V ?? 0 -> already-centered pan needs no clamping.
+      expect(component.transform.translateH).toBe(0);
+      expect(component.transform.translateV).toBe(0);
+    });
+  });
+
+  describe('ngAfterViewInit', () => {
+    it('does nothing when the cropper wrapper is not in the DOM yet', () => {
+      const component = createComponent();
+
+      expect(() => component.ngAfterViewInit()).not.toThrow();
+      expect((component as unknown as { resizeObserver?: unknown }).resizeObserver).toBeUndefined();
+    });
+
+    it('observes the wrapper and re-measures after the dialog finishes opening', () => {
+      const component = createComponent();
+      const wrapper = document.createElement('div');
+      wrapper.className = 'cropper-wrapper';
+      elementRefMock.nativeElement.appendChild(wrapper);
+
+      component.ngAfterViewInit();
+
+      expect((component as unknown as { resizeObserver?: { observe: unknown } }).resizeObserver).toBeTruthy();
+      expect(dialogRefMock.afterOpened).toHaveBeenCalled();
+    });
+  });
+
+  describe('measure (via ngAfterViewInit -> afterOpened)', () => {
+    it('reads the rendered image and wrapper sizes to compute the frame size', () => {
+      const component = createComponent();
+      const wrapper = document.createElement('div');
+      wrapper.className = 'cropper-wrapper';
+      const img = document.createElement('img');
+      img.className = 'ngx-ic-source-image';
+      wrapper.appendChild(img);
+      elementRefMock.nativeElement.appendChild(wrapper);
+
+      vi.spyOn(img, 'getBoundingClientRect').mockReturnValue({
+        width: 400,
+        height: 300,
+      } as DOMRect);
+      vi.spyOn(wrapper, 'getBoundingClientRect').mockReturnValue({
+        width: 500,
+        height: 500,
+      } as DOMRect);
+
+      component.ngAfterViewInit();
+
+      // shorterSide = min(500, 500, 400, 300) = 300; frameSize = max(60, 300 - 8) = 292.
+      expect(component.frameSize).toBe(292);
+    });
+
+    it('leaves frameSize unchanged when the image has not rendered with real dimensions yet', () => {
+      const component = createComponent();
+      const wrapper = document.createElement('div');
+      wrapper.className = 'cropper-wrapper';
+      const img = document.createElement('img');
+      img.className = 'ngx-ic-source-image';
+      wrapper.appendChild(img);
+      elementRefMock.nativeElement.appendChild(wrapper);
+      // jsdom's default getBoundingClientRect() returns all-zero dimensions.
+
+      const before = component.frameSize;
+      component.ngAfterViewInit();
+
+      expect(component.frameSize).toBe(before);
+    });
+
+    it('does not throw when the wrapper has no source image yet', () => {
+      const component = createComponent();
+      const wrapper = document.createElement('div');
+      wrapper.className = 'cropper-wrapper';
+      elementRefMock.nativeElement.appendChild(wrapper);
+
+      expect(() => component.ngAfterViewInit()).not.toThrow();
+    });
+
+    it('does nothing when there is no wrapper to measure at all', () => {
+      const component = createComponent();
+
+      expect(() => (component as unknown as { measure: () => void }).measure()).not.toThrow();
+    });
+
+    it('re-measures whenever the resize observer fires', () => {
+      let capturedCallback: (() => void) | undefined;
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(cb: () => void) {
+            capturedCallback = cb;
+          }
+          observe = vi.fn();
+          disconnect = vi.fn();
+        },
+      );
+      const component = createComponent();
+      const wrapper = document.createElement('div');
+      wrapper.className = 'cropper-wrapper';
+      elementRefMock.nativeElement.appendChild(wrapper);
+
+      component.ngAfterViewInit();
+
+      expect(() => capturedCallback!()).not.toThrow();
+    });
   });
 
   describe('ngOnDestroy', () => {
