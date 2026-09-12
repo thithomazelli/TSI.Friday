@@ -54,6 +54,14 @@ describe('LoginComponent', () => {
     expect(component.returnUrl).toBe('/orders');
   });
 
+  it('does not touch returnUrl when the query param map itself is falsy', () => {
+    const component = createComponent();
+    accountServiceMock.user$.next(null);
+    queryParamMap$.next(null as unknown as { get: (key: string) => string | null });
+
+    expect(component.returnUrl).toBeNull();
+  });
+
   describe('login', () => {
     it('does not submit an invalid form', () => {
       const component = createComponent();
@@ -103,6 +111,17 @@ describe('LoginComponent', () => {
       component.login().subscribe({ error: () => {} });
 
       expect(component.errorMessages).toEqual(['Invalid credentials']);
+    });
+
+    it('appends a plain string server error to errorMessages', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      accountServiceMock.login.mockReturnValue(throwError(() => ({ error: 'Conta bloqueada' })));
+
+      component.form.setValue({ userName: 'admin', password: 'wrong' });
+      component.login().subscribe({ error: () => {} });
+
+      expect(component.errorMessages).toEqual(['Conta bloqueada']);
     });
 
     it('falls back to a translated generic error message', () => {
