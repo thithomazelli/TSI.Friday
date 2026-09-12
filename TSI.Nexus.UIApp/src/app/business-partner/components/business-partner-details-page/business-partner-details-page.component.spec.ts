@@ -106,6 +106,50 @@ describe('BusinessPartnerDetailsPageComponent', () => {
 
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
     });
+
+    it('navigates to not-found and stops loading when the request errors', () => {
+      const component = createComponent('bp1');
+      const response$ = new Subject<WebApiResponse<Company | Individual>>();
+      businessPartnerServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      response$.error(new Error('fail'));
+
+      expect(component.loading).toBe(false);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
+    });
+
+    it('re-initializes when the active language changes', () => {
+      const component = createComponent(null);
+      component.ngOnInit();
+
+      routerMock.url = '/suppliers';
+      translationServiceMock.language$.next('en');
+
+      expect(component.baseEndPoint).toBe('suppliers');
+      expect(component.canDisplayOrdersTab).toBe(false);
+    });
+
+    it('sets up for a new supplier when the route is under /suppliers', () => {
+      const component = createComponent(null);
+      routerMock.url = '/suppliers';
+
+      component.ngOnInit();
+
+      expect(component.baseEndPoint).toBe('suppliers');
+      expect(component.canDisplayOrdersTab).toBe(false);
+      expect(component.data).toEqual({ type: 'Supplier' });
+    });
+
+    it('leaves baseEndPoint/title empty for a route that is neither clients nor suppliers', () => {
+      const component = createComponent(null);
+      routerMock.url = '/other';
+
+      component.ngOnInit();
+
+      expect(component.baseEndPoint).toBe('');
+      expect(component.title).toBe('');
+    });
   });
 
   it('ngOnDestroy does not throw', () => {
