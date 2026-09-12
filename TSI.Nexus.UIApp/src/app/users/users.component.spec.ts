@@ -8,7 +8,7 @@ import {
   UserService,
 } from '@nexus/core';
 import { GridApi } from 'ag-grid-community';
-import { Subject, of } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
 import { UsersComponent } from './users.component';
 import { GridComponent } from '../shared/grid/grid.component';
 
@@ -110,6 +110,23 @@ describe('UsersComponent', () => {
 
       expect(gridRef.gridApi.purgeInfiniteCache).not.toHaveBeenCalled();
     });
+
+    it('ngOnDestroy does not throw when called before ngOnInit', () => {
+      const component = createComponent();
+      expect(() => component.ngOnDestroy()).not.toThrow();
+    });
+  });
+
+  describe('pagedDataSource', () => {
+    it('delegates to userService.getAllPaged', () => {
+      const component = createComponent();
+      const request = { page: 1, pageSize: 10 } as never;
+      userServiceMock.getAllPaged.mockReturnValue(of({ items: [] }));
+
+      component.pagedDataSource(request);
+
+      expect(userServiceMock.getAllPaged).toHaveBeenCalledWith(request);
+    });
   });
 
   describe('openModal', () => {
@@ -204,6 +221,17 @@ describe('UsersComponent', () => {
 
       expect(result).toBe('Custom');
     });
+
+    it('falls back to an empty string when there is no role at all', () => {
+      const component = createComponent();
+      const roleColumn = component.columnDefs.find((c) => c.field === 'role')!;
+
+      const result = (roleColumn.cellRenderer as (params: any) => string)({
+        data: { role: undefined },
+      });
+
+      expect(result).toBe('');
+    });
   });
 
   describe('fullName column cell renderer', () => {
@@ -228,6 +256,44 @@ describe('UsersComponent', () => {
       expect(html).toContain(`/${component.baseEndPoint}/u1`);
       expect(html).toContain('Ana Silva');
     });
+
+    it('renders an empty label when the cell value is null/undefined', () => {
+      const component = createComponent();
+      const fullNameColumn = component.columnDefs.find((c) => c.colId === 'fullName')!;
+
+      const html = (fullNameColumn.cellRenderer as (params: any) => string)({
+        value: null,
+        data: { id: 'u1' },
+      });
+
+      expect(html).toContain('></a>');
+    });
+
+    it('composes firstName and lastName via the valueGetter, falling back per field', () => {
+      const component = createComponent();
+      const fullNameColumn = component.columnDefs.find((c) => c.colId === 'fullName')!;
+      const valueGetter = fullNameColumn.valueGetter as (params: any) => string;
+
+      expect(valueGetter({ data: { firstName: 'Ana', lastName: 'Silva' } })).toBe('Ana Silva');
+      expect(valueGetter({ data: { firstName: 'Ana' } })).toBe('Ana');
+      expect(valueGetter({ data: { lastName: 'Silva' } })).toBe('Silva');
+      expect(valueGetter({ data: undefined })).toBe('');
+    });
+  });
+
+  describe('actions column cell renderer', () => {
+    it('renders view/edit/delete action buttons', () => {
+      const component = createComponent();
+      const actionsColumn = component.columnDefs.find(
+        (c) => c.headerName === 'COMMON.ACTIONS',
+      )!;
+
+      const html = (actionsColumn.cellRenderer as () => string)();
+
+      expect(html).toContain('data-action="view"');
+      expect(html).toContain('data-action="edit"');
+      expect(html).toContain('data-action="delete"');
+    });
   });
 
   describe('photo column cell renderer', () => {
@@ -242,6 +308,21 @@ describe('UsersComponent', () => {
 
       expect(container).toBeInstanceOf(HTMLElement);
       expect(photoServiceMock.getPhoto).toHaveBeenCalledWith('Users', 'u1', 'att-1');
+    });
+
+    it('keeps the fallback icon visible when the photo request errors', () => {
+      const component = createComponent();
+      photoServiceMock.getPhoto.mockReturnValue(
+        new Observable((subscriber) => subscriber.error(new Error('boom'))),
+      );
+      const photoColumn = component.columnDefs.find((c) => c.field === 'photo')!;
+
+      expect(() =>
+        (photoColumn.cellRenderer as (params: any) => HTMLElement)({
+          value: 'att-1',
+          data: { id: 'u1' },
+        }),
+      ).not.toThrow();
     });
 
     it('does not fetch a photo when there is no attachment id', () => {
