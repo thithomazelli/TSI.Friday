@@ -20,6 +20,10 @@ describe('PdfProgressComponent', () => {
     );
   }
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('should create in the indeterminate state with the given title', () => {
     const component = createComponent('Gerando relatório');
 
