@@ -1,8 +1,6 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import { environment } from '../../../../environments/environment';
 
 import { ApiService, ApiType, Attachment, WebApiResponse } from '@nexus/core';
 
@@ -12,10 +10,7 @@ export class AttachmentService {
   private _attachmentChangedSubject = new BehaviorSubject<void>(undefined);
   attachmentChanged$ = this._attachmentChangedSubject.asObservable();
 
-  constructor(
-    private apiService: ApiService,
-    private http: HttpClient,
-  ) {}
+  constructor(private apiService: ApiService) {}
 
   getById(id: string): Observable<WebApiResponse<Attachment>> {
     return this.apiService.get<WebApiResponse<Attachment>>(
@@ -132,10 +127,7 @@ export class AttachmentService {
   }
 
   downloadFile(id: string): Observable<Blob> {
-    return this.http.get(
-      `${environment.appUrl}/api/${this._baseEndPoint}/getFileById/${id}`,
-      { responseType: 'blob' },
-    );
+    return this.apiService.getBlob(`${this._baseEndPoint}/getFileById/${id}`);
   }
 
   private buildFormData(attachment: Attachment): FormData {

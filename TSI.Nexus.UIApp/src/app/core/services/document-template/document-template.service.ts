@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   ApiService,
@@ -8,7 +7,6 @@ import {
   DocumentTemplateType,
   WebApiResponse,
 } from '@nexus/core';
-import { environment } from '../../../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
@@ -16,10 +14,7 @@ import { environment } from '../../../../environments/environment';
 export class DocumentTemplateService {
   private _baseEndPoint = ApiType.DocumentTemplates;
 
-  constructor(
-    private apiService: ApiService,
-    private httpClient: HttpClient,
-  ) {}
+  constructor(private apiService: ApiService) {}
 
   getAll(): Observable<WebApiResponse<DocumentTemplate[]>> {
     return this.apiService.get<WebApiResponse<DocumentTemplate[]>>(
@@ -36,10 +31,7 @@ export class DocumentTemplateService {
   }
 
   download(type: DocumentTemplateType): Observable<Blob> {
-    return this.httpClient.get(
-      `${environment.appUrl}/api/${this._baseEndPoint}/download/${type}`,
-      { responseType: 'blob' },
-    );
+    return this.apiService.getBlob(`${this._baseEndPoint}/download/${type}`);
   }
 
   upload(
@@ -48,8 +40,8 @@ export class DocumentTemplateService {
   ): Observable<WebApiResponse<DocumentTemplate>> {
     const formData = new FormData();
     formData.append('file', file);
-    return this.httpClient.post<WebApiResponse<DocumentTemplate>>(
-      `${environment.appUrl}/api/${this._baseEndPoint}/upload/${type}`,
+    return this.apiService.post<WebApiResponse<DocumentTemplate>>(
+      `${this._baseEndPoint}/upload/${type}`,
       formData,
     );
   }

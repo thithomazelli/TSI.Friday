@@ -1,7 +1,5 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 import { ApiService, ApiType } from '@nexus/core';
 
 @Injectable({ providedIn: 'root' })
@@ -13,10 +11,7 @@ export class PhotoService {
   }>({ photoPath: '' });
   photo$ = this._photoSubject.asObservable();
 
-  constructor(
-    private http: HttpClient,
-    private apiService: ApiService,
-  ) {}
+  constructor(private apiService: ApiService) {}
 
   updateUserPhoto(photoPath: string, userId?: string): void {
     this._photoSubject.next({ photoPath, userId });
@@ -45,12 +40,7 @@ export class PhotoService {
     entityId: string,
     fileName: string,
   ): Observable<Blob> {
-    return this.http.get(
-      `${environment.appUrl}/api/${this._photoEndPoint}/getPhoto`,
-      {
-        params: { entity, entityId, fileName },
-        responseType: 'blob',
-      },
-    );
+    const query = new URLSearchParams({ entity, entityId, fileName }).toString();
+    return this.apiService.getBlob(`${this._photoEndPoint}/getPhoto?${query}`);
   }
 }
