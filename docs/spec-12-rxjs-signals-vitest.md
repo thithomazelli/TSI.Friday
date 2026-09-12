@@ -300,6 +300,30 @@ estado). `business-partner.service.spec.ts` estava vazio (0 bytes), spec real es
 cache por tipo, `refresh()`, `businessPartnerChanged$`, `add`/`update`/`delete` e os dois
 validators (`cpfValidator`/`cnpjValidator`, inalterados — não usam RxJS).
 
+**Correção pós-commit ao `BusinessPartnerService` acima (regressão real encontrada e corrigida
+na mesma sessão)**: diferente dos outros services desta seção (`FeatureFlagService`/
+`ProductService`/`DriverService`/`VehicleService`/`UserService`), o cache por tipo ORIGINAL do
+`BusinessPartnerService` não era `_refresh$.pipe(startWith, switchMap(...), shareReplay(1))` — era
+só `this.apiService.get(...).pipe(tap(...), shareReplay(1))`, ou seja, um único GET que **completa**
+normalmente, com `shareReplay(1)` só pra compartilhar entre assinantes concorrentes. A migração
+inicial pra `toObservable(signal)` (que nunca completa, replicando o padrão dos outros services)
+quebrou essa premissa: `event-form.component.ts`'s `mergeResponses()` faz
+`forkJoin([businessPartnerService.getClients(), businessPartnerService.getSuppliers()])`, e
+`forkJoin` só emite depois que **todas** as fontes completam — sem completar, essa tela pararia de
+popular a lista de participantes vinculáveis do tipo "cliente/fornecedor" no formulário de evento.
+Diferente do achado do `fleet-report` (que já estava quebrado antes desta spec, não uma regressão
+nova), este era um bug genuíno introduzido pela própria migração — não havia spec cobrindo
+`event-form.component.ts` que pegasse isso automaticamente. Corrigido adicionando `take(1)` depois
+do `filter(...)` na Observable derivada: preserva "resolve uma vez, decycle e completa" pro
+primeiro assinante, e também funciona corretamente pra um assinante tardio (que já pega o valor
+atual do signal via replay do `toObservable` e completa imediatamente em seguida) — o mesmo
+comportamento que `shareReplay(1)` sobre um GET que já completou. Novo teste
+("getClients()/getSuppliers() complete after their single emission (forkJoin compatibility)")
+adicionado ao spec pra travar esse comportamento. Lição: ao migrar um cache shareReplay, checar se
+a fonte original de fato *nunca* completava (por estar atrás de um Subject que nunca fecha) antes
+de assumir que o "nunca completa" do `toObservable` é equivalente — nem todo `shareReplay(1)` tem
+esse formato.
+
 **`DriverService`/`VehicleService` (mesmo desenho do `ProductService`, sem cache por tipo)**:
 `_refresh$ Subject + startWith(undefined) + switchMap(() => http.get(...)) + shareReplay(1)` virou
 `signal<WebApiResponse<Entity[]> | null>(null)` com fetch disparado no construtor

@@ -74,6 +74,26 @@ describe('BusinessPartnerService', () => {
     expect(response).toBe(loaded);
   });
 
+  it('getClients()/getSuppliers() complete after their single emission (forkJoin compatibility)', () => {
+    const load$ = new Subject<WebApiResponse<BusinessPartner[]>>();
+    apiServiceMock = { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() };
+    apiServiceMock.get.mockReturnValue(load$);
+    TestBed.configureTestingModule({
+      providers: [{ provide: ApiService, useValue: apiServiceMock }],
+    });
+    const service = TestBed.inject(BusinessPartnerService);
+
+    let completed = false;
+    service.getClients().subscribe({ complete: () => (completed = true) });
+    TestBed.flushEffects();
+    expect(completed).toBe(false);
+
+    load$.next({ data: [] } as unknown as WebApiResponse<BusinessPartner[]>);
+    TestBed.flushEffects();
+
+    expect(completed).toBe(true);
+  });
+
   it('refresh clears the cache for that type and re-fetches', () => {
     const service = createService();
     const second$ = new Subject<WebApiResponse<BusinessPartner[]>>();

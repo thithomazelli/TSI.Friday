@@ -15,7 +15,7 @@ import {
 } from '@nexus/core';
 
 import { Observable } from 'rxjs';
-import { filter, map, tap } from 'rxjs/operators';
+import { filter, map, take, tap } from 'rxjs/operators';
 import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({ providedIn: 'root' })
@@ -228,8 +228,15 @@ export class BusinessPartnerService {
       this._byTypeState.set(type, state);
       this.loadByType(type, state);
 
+      // take(1): unlike the other shareReplay-cache services in this file (FeatureFlagService/
+      // ProductService/etc.), the ORIGINAL per-type cache here was a plain http.get(...).pipe(
+      // shareReplay(1)) - a single completing GET, not a never-completing _refresh$-driven
+      // stream. Callers rely on that completion (e.g. event-form.component.ts's
+      // forkJoin([getClients(), getSuppliers()])), so take(1) preserves "resolves once, then
+      // completes" - toObservable() alone never completes, which would otherwise hang forkJoin.
       cached = toObservable(state, { injector: this.injector }).pipe(
         filter((v): v is WebApiResponse<BusinessPartner[]> => v !== null),
+        take(1),
       );
       this._byTypeCache.set(type, cached);
     }
