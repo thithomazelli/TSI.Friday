@@ -65,6 +65,17 @@ describe('CameraCaptureModalComponent', () => {
       expect(dialogRefMock.close).not.toHaveBeenCalled();
     });
 
+    it('does not attach the stream when the video element ref is not available', async () => {
+      const tracks = [{ stop: vi.fn() }];
+      const stream = { getTracks: () => tracks } as unknown as MediaStream;
+      const getUserMedia = vi.fn().mockResolvedValue(stream);
+      Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true });
+
+      await component.ngAfterViewInit();
+
+      expect(dialogRefMock.close).not.toHaveBeenCalled();
+    });
+
     it('closes the modal when getUserMedia rejects', async () => {
       const getUserMedia = vi.fn().mockRejectedValue(new Error('denied'));
       Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true });
@@ -100,6 +111,15 @@ describe('CameraCaptureModalComponent', () => {
 
       expect(component.canvasEl.nativeElement.width).toBe(1280);
       expect(component.canvasEl.nativeElement.height).toBe(720);
+    });
+
+    it('does nothing when the canvas cannot provide a 2d context', () => {
+      component.videoEl = videoRef();
+      component.canvasEl = canvasRef({ getContext: vi.fn().mockReturnValue(null) });
+
+      component.capture();
+
+      expect(component.capturedDataUrl).toBeNull();
     });
   });
 
