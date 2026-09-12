@@ -188,3 +188,52 @@ verificar `TokenExpiresAtUtc` e a ausência de `JWT`.
 6. Confirmar que uma chamada `curl -H "Authorization: Bearer <token>"` direta (sem cookie) ainda
    autentica — garante que o `OnMessageReceived` não quebrou o caminho por header pra
    Swagger/ferramentas manuais.
+
+## 6. Duas tentativas revertidas — histórico de causas
+
+### Tentativa 1 (commit `e706bcf`, revertida como `f452813`)
+
+Passou pela verificação local (item 5) e foi deployada, mas quebrou o login real em produção: o
+usuário autenticava e caía de volta pro login em seguida (ciclo `getAll` → 401 → tentativa de
+renovação → logout automático). Revertida imediatamente pra restaurar o serviço. Não foi possível
+confirmar a causa raiz com evidência direta de produção (egress bloqueado nesta sessão pro domínio
+real) — a hipótese registrada na época era `hostingModel="OutOfProcess"` do IIS sem
+`app.UseForwardedHeaders(...)` no `Program.cs`, quebrando a detecção de `Request.IsHttps` atrás do
+reverse proxy.
+
+### Tentativa 2 (commit `e32c6c2`, revertida como `c526d96`)
+
+Reaplicou a tentativa 1 e somou o fix de `UseForwardedHeaders` da hipótese acima. Quebrou de novo, e
+desta vez o usuário confirmou que o mesmo erro acontecia tanto em produção quanto localmente — sinal
+de que a causa não era (só) a hipótese do IIS. Em vez de arriscar uma terceira tentativa às cegas,
+subimos um ambiente local real (MySQL + `dotnet run` + `ng serve`) e reproduzimos com login de
+verdade via Playwright, inspecionando os headers reais de rede:
+
+- O login retorna `200` com um `Set-Cookie` bem formado:
+  `nexus_auth=...; path=/; secure; samesite=strict; httponly` (não é um bug de `Path` — o ASP.NET
+  Core já emite `path=/` corretamente).
+- Mesmo assim, `BrowserContext.cookies()` volta **vazio** logo depois do login — o navegador nunca
+  chegou a *guardar* o cookie. Toda chamada seguinte (`refresh-user-token`, `featuretoggles/getAll`,
+  etc.) sai sem `Cookie` nenhum e leva 401, disparando o logout automático.
+
+**Causa confirmada para o repro local**: o ambiente de dev serve o SPA em `http://localhost` (porta
+80, HTTP puro) enquanto a API roda em `https://localhost:7181`. Sob as regras de
+*schemeful-same-site* do Chrome (desde a v89), isso conta como uma troca **cross-site** (o esquema
+difere), e o navegador descarta silenciosamente um cookie `SameSite=Strict` (ou até `Lax`) recebido
+via uma resposta de fetch/XHR cross-site — não é só "não manda de volta depois", ele nunca chega a
+armazenar o cookie. `SameSite=Strict` cross-*origem* mas mesmo-*site* (ex.: `app.foo.com` chamando
+`api.foo.com`, ambos `https`) funciona normalmente; o problema é especificamente o `http`/`https`
+divergente.
+
+Essa causa específica não deveria se aplicar à produção: `serodio.nexusoperations.com.br` e
+`serodio-api.nexusoperations.com.br` são ambos `https` (confirmado indiretamente — o fluxo antigo por
+header já dependia de CORS com origem exata batendo, então um mismatch de esquema já teria quebrado
+tudo há meses, não só esse recurso novo). Ou seja, produção provavelmente está batendo na mesma
+*classe* de bug (cookie chega mas o navegador não persiste/não manda) por um gatilho diferente —
+ainda não identificado com evidência real de produção.
+
+**Antes de tentar de novo**: não repetir o padrão de "hipótese plausível → deploy → revert". Ou (a)
+pegar evidência real de produção (DevTools → aba Login → Response Headers → `Set-Cookie`, e a aba
+Application → Cookies logo depois, pra ver se o cookie aparece salvo ali ou não), ou (b) montar um
+repro local 100% `https` nos dois lados (SPA e API) antes de reaplicar, pra isolar se é
+especificamente o mismatch de esquema ou algo mais estrutural no desenho do cookie cross-subdomínio.
