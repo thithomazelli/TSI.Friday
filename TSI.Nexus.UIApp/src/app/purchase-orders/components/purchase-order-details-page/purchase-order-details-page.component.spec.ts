@@ -92,6 +92,18 @@ describe('PurchaseOrderDetailsPageComponent', () => {
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
     });
 
+    it('navigates to not-found and stops loading when the request errors', () => {
+      const component = createComponent('po1');
+      const response$ = new Subject<WebApiResponse<PurchaseOrder>>();
+      purchaseOrderServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      response$.error(new Error('fail'));
+
+      expect(component.loading).toBe(false);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
+    });
+
     it('re-fetches on a real purchaseOrderProductChanged$ event, but not on the skip(1)-dropped first one', () => {
       const component = createComponent('po1');
       const firstResponse$ = new Subject<WebApiResponse<PurchaseOrder>>();
@@ -120,11 +132,42 @@ describe('PurchaseOrderDetailsPageComponent', () => {
       const component = createComponent(null);
       expect(component.getStatusLabel()).toBe('');
     });
+
+    it('returns an empty string when data has no status', () => {
+      const component = createComponent(null);
+      component.data = { id: 'po1', status: null } as unknown as PurchaseOrder;
+      expect(component.getStatusLabel()).toBe('');
+    });
+
+    it('resolves the mapped status label', () => {
+      const component = createComponent(null);
+      component.data = { id: 'po1', status: 'Open' } as unknown as PurchaseOrder;
+      expect(component.getStatusLabel()).toBe('Em aberto');
+    });
+
+    it('falls back to an empty string for a status with no mapped label', () => {
+      const component = createComponent(null);
+      component.data = { id: 'po1', status: 'Unknown' } as unknown as PurchaseOrder;
+      expect(component.getStatusLabel()).toBe('');
+    });
   });
 
   it('ngOnDestroy does not throw', () => {
     const component = createComponent(null);
     component.ngOnInit();
     expect(() => component.ngOnDestroy()).not.toThrow();
+  });
+
+  it('ngOnDestroy also unsubscribes from purchaseOrderChanged$/purchaseOrderProductChanged$/paymentChanged$ when editing', () => {
+    const component = createComponent('po1');
+    purchaseOrderServiceMock.getById.mockReturnValue(new Subject());
+    component.ngOnInit();
+
+    component.ngOnDestroy();
+    purchaseOrderServiceMock.getById.mockClear();
+    purchaseOrderServiceMock.purchaseOrderChanged$.next();
+    purchaseOrderServiceMock.purchaseOrderChanged$.next();
+
+    expect(purchaseOrderServiceMock.getById).not.toHaveBeenCalled();
   });
 });

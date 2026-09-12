@@ -112,6 +112,19 @@ describe('QuoteDetailsPageComponent', () => {
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
     });
 
+    it('navigates to not-found and stops loading when the request errors', () => {
+      const guid = '11111111-1111-1111-1111-111111111111';
+      const component = createComponent(guid);
+      const response$ = new Subject<WebApiResponse<Quote>>();
+      quoteServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      response$.error(new Error('fail'));
+
+      expect(component.loading).toBe(false);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
+    });
+
     it('re-fetches (using the same fetch method) on a real quoteProductChanged$ event, but not on the skip(1)-dropped first one', () => {
       const component = createComponent('Q-1000');
       const firstResponse$ = new Subject<WebApiResponse<Quote>>();
@@ -151,6 +164,24 @@ describe('QuoteDetailsPageComponent', () => {
       const component = createComponent(null);
       expect(component.getStatusLabel()).toBe('');
     });
+
+    it('returns an empty string when data has no status', () => {
+      const component = createComponent(null);
+      component.data = { id: 'q1', status: null } as unknown as Quote;
+      expect(component.getStatusLabel()).toBe('');
+    });
+
+    it('resolves the mapped status label', () => {
+      const component = createComponent(null);
+      component.data = { id: 'q1', status: 'Open' } as unknown as Quote;
+      expect(component.getStatusLabel()).toBe('Em aberto');
+    });
+
+    it('falls back to an empty string for a status with no mapped label', () => {
+      const component = createComponent(null);
+      component.data = { id: 'q1', status: 'Unknown' } as unknown as Quote;
+      expect(component.getStatusLabel()).toBe('');
+    });
   });
 
   describe('emitQuote', () => {
@@ -184,11 +215,35 @@ describe('QuoteDetailsPageComponent', () => {
       expect(progressHandle.error).toHaveBeenCalled();
       expect(component.emittingQuote).toBe(false);
     });
+
+    it('does nothing while a previous emission is still in flight', () => {
+      const component = createComponent(null);
+      component.data = { id: 'q1', quoteNumber: 'Q-1000' } as Quote;
+      component.emittingQuote = true;
+
+      component.emitQuote();
+
+      expect(modalServiceMock.showPdfProgress).not.toHaveBeenCalled();
+    });
   });
 
   it('ngOnDestroy does not throw', () => {
     const component = createComponent(null);
     component.ngOnInit();
     expect(() => component.ngOnDestroy()).not.toThrow();
+  });
+
+  it('ngOnDestroy also unsubscribes from quoteChanged$/quoteProductChanged$ when editing an existing quote', () => {
+    const guid = '11111111-1111-1111-1111-111111111111';
+    const component = createComponent(guid);
+    quoteServiceMock.getById.mockReturnValue(new Subject());
+    component.ngOnInit();
+
+    component.ngOnDestroy();
+    quoteServiceMock.getById.mockClear();
+    quoteServiceMock.quoteChanged$.next();
+    quoteServiceMock.quoteChanged$.next();
+
+    expect(quoteServiceMock.getById).not.toHaveBeenCalled();
   });
 });

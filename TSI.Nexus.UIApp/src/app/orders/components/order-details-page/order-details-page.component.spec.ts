@@ -104,6 +104,18 @@ describe('OrderDetailsPageComponent', () => {
       expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
     });
 
+    it('navigates to not-found and stops loading when the request errors', () => {
+      const component = createComponent('o1');
+      const response$ = new Subject<WebApiResponse<Order>>();
+      orderServiceMock.getById.mockReturnValue(response$);
+
+      component.ngOnInit();
+      response$.error(new Error('fail'));
+
+      expect(component.loading).toBe(false);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/not-found');
+    });
+
     it('re-fetches on a real orderProductChanged$ event, but not on the skip(1)-dropped first one', () => {
       const component = createComponent('o1');
       const firstResponse$ = new Subject<WebApiResponse<Order>>();
@@ -134,6 +146,24 @@ describe('OrderDetailsPageComponent', () => {
   describe('getStatusLabel', () => {
     it('returns an empty string when there is no data', () => {
       const component = createComponent(null);
+      expect(component.getStatusLabel()).toBe('');
+    });
+
+    it('returns an empty string when data has no status', () => {
+      const component = createComponent(null);
+      component.data = { id: 'o1', status: null } as unknown as Order;
+      expect(component.getStatusLabel()).toBe('');
+    });
+
+    it('resolves the mapped status label', () => {
+      const component = createComponent(null);
+      component.data = { id: 'o1', status: 'Open' } as unknown as Order;
+      expect(component.getStatusLabel()).toBe('Em aberto');
+    });
+
+    it('falls back to an empty string for a status with no mapped label', () => {
+      const component = createComponent(null);
+      component.data = { id: 'o1', status: 'Unknown' } as unknown as Order;
       expect(component.getStatusLabel()).toBe('');
     });
   });
@@ -170,11 +200,34 @@ describe('OrderDetailsPageComponent', () => {
       expect(progressHandle.error).toHaveBeenCalled();
       expect(component.emittingSalesOrder).toBe(false);
     });
+
+    it('does nothing while a previous emission is still in flight', () => {
+      const component = createComponent(null);
+      component.data = { id: 'o1', orderNumber: '123' } as Order;
+      component.emittingSalesOrder = true;
+
+      component.emitSalesOrder();
+
+      expect(modalServiceMock.showPdfProgress).not.toHaveBeenCalled();
+    });
   });
 
   it('ngOnDestroy does not throw', () => {
     const component = createComponent(null);
     component.ngOnInit();
     expect(() => component.ngOnDestroy()).not.toThrow();
+  });
+
+  it('ngOnDestroy also unsubscribes from orderChanged$/orderProductChanged$/paymentChanged$ when editing an existing order', () => {
+    const component = createComponent('o1');
+    orderServiceMock.getById.mockReturnValue(new Subject());
+    component.ngOnInit();
+
+    component.ngOnDestroy();
+    orderServiceMock.getById.mockClear();
+    orderServiceMock.orderChanged$.next();
+    orderServiceMock.orderChanged$.next();
+
+    expect(orderServiceMock.getById).not.toHaveBeenCalled();
   });
 });
