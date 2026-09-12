@@ -2,9 +2,11 @@
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Hosting;
 using TSI.Nexus.Contracts.Interfaces;
 using TSI.Nexus.Contracts.Models;
 using TSI.Nexus.Contracts.Models.DTOs;
@@ -19,10 +21,12 @@ namespace TSI.Nexus.WebAPI.Controllers
         private const string AuthCookieName = "nexus_auth";
 
         private readonly IUserManagerService _userManagerService;
+        private readonly IWebHostEnvironment _env;
 
-        public AccountController(IUserManagerService userManagerService)
+        public AccountController(IUserManagerService userManagerService, IWebHostEnvironment env)
         {
             _userManagerService = userManagerService;
+            _env = env;
         }
 
         [Authorize]
@@ -137,7 +141,11 @@ namespace TSI.Nexus.WebAPI.Controllers
                 new CookieOptions
                 {
                     HttpOnly = true,
-                    Secure = true,
+                    // A real Secure cookie needs an HTTPS connection to even be stored by the
+                    // browser. ng serve's dev proxy (proxy.conf.json) makes the SPA and this API
+                    // look same-origin over plain http locally, so Secure would silently drop the
+                    // cookie there - relaxed only in Development, never in Production/Homolog.
+                    Secure = !_env.IsDevelopment(),
                     SameSite = SameSiteMode.Strict,
                     Expires = user.TokenExpiresAtUtc.HasValue
                         ? new DateTimeOffset(user.TokenExpiresAtUtc.Value, TimeSpan.Zero)

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -15,11 +16,14 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
     {
         private readonly AccountController _controller;
         private readonly Mock<IUserManagerService> _userManagerServiceMock;
+        private readonly Mock<IWebHostEnvironment> _envMock;
 
         public AccountControllerTests()
         {
             _userManagerServiceMock = new Mock<IUserManagerService>();
-            _controller = new AccountController(_userManagerServiceMock.Object);
+            _envMock = new Mock<IWebHostEnvironment>();
+            _envMock.Setup(_ => _.EnvironmentName).Returns("Production");
+            _controller = new AccountController(_userManagerServiceMock.Object, _envMock.Object);
         }
 
         private void SetUser(string name = null, string userId = null)
@@ -132,6 +136,36 @@ namespace TSI.Nexus.WebAPI.Tests.Controllers
             Assert.Contains("nexus_auth=raw-jwt-value", setCookie);
             Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("samesite=strict", setCookie, StringComparison.OrdinalIgnoreCase);
+            // Secure in Production (the fixture's default environment) - see the Development test
+            // below for why this flips off there.
+            Assert.Contains("secure", setCookie, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public async Task AccountController_Login_ShouldNotSetSecureCookie_WhenEnvironmentIsDevelopment()
+        {
+            // Arrange - ng serve's dev proxy (proxy.conf.json) makes the SPA and this API look
+            // same-origin over plain http locally; a Secure cookie would never be stored by the
+            // browser over that connection, so Development relaxes it - Production/Homolog never do.
+            _envMock.Setup(_ => _.EnvironmentName).Returns("Development");
+            SetHttpContextWithoutUser();
+            var loginDto = new LoginDto { UserName = "joao.silva", Password = "123456" };
+            var expectedResult = new UserDto
+            {
+                Id = "1",
+                UserName = "joao.silva",
+                JWT = "raw-jwt-value",
+                TokenExpiresAtUtc = DateTime.UtcNow.AddMinutes(15),
+            };
+            _userManagerServiceMock.Setup(_ => _.Login(loginDto)).ReturnsAsync(expectedResult);
+
+            // Act
+            await _controller.Login(loginDto);
+
+            // Assert
+            var setCookie = _controller.Response.Headers.SetCookie.ToString();
+            Assert.DoesNotContain("secure", setCookie, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
