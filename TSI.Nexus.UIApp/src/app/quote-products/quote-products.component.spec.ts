@@ -7,7 +7,7 @@ import {
   ResponseStatus,
   TranslationService,
 } from '@nexus/core';
-import { Subject, of } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { QuoteProductsComponent } from './quote-products.component';
 
 describe('QuoteProductsComponent', () => {
@@ -92,6 +92,11 @@ describe('QuoteProductsComponent', () => {
 
       expect(quoteProductServiceMock.getAll).not.toHaveBeenCalled();
     });
+
+    it('ngOnDestroy does not throw when called before ngOnInit', () => {
+      const component = createComponent();
+      expect(() => component.ngOnDestroy()).not.toThrow();
+    });
   });
 
   describe('getQuoteProducts (via ngOnInit trigger)', () => {
@@ -130,6 +135,26 @@ describe('QuoteProductsComponent', () => {
       quoteProductChanged$.next();
 
       expect(quoteProductServiceMock.getByEntityId).toHaveBeenCalledWith('p1', 'Product');
+    });
+
+    it('falls back to an empty array when the response carries no data', () => {
+      const component = createComponent();
+      quoteProductServiceMock.getAll.mockReturnValue(of({}));
+      component.ngOnInit();
+
+      quoteProductChanged$.next();
+
+      expect(component.rowData).toEqual([]);
+    });
+
+    it('stops loading without throwing when the request errors', () => {
+      const component = createComponent();
+      quoteProductServiceMock.getAll.mockReturnValue(throwError(() => new Error('boom')));
+      component.ngOnInit();
+
+      expect(() => quoteProductChanged$.next()).not.toThrow();
+
+      expect(component.loading).toBe(false);
     });
   });
 
@@ -208,6 +233,62 @@ describe('QuoteProductsComponent', () => {
       const column = component.columnDefs.find((c) => c.field === 'totalPrice')!;
 
       expect((column.valueFormatter as (params: any) => string)({ value: 0 })).toBe('R$ 0,00');
+    });
+  });
+
+  describe('productSku/productName cell renderers', () => {
+    it('renders the value as an edit link', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const sku = component.columnDefs.find((c) => c.field === 'productSku')!;
+      const name = component.columnDefs.find((c) => c.field === 'productName')!;
+
+      expect((sku.cellRenderer as (params: any) => string)({ value: 'SKU-1' })).toBe(
+        '<a data-action="edit" class="ag-link">SKU-1</a>',
+      );
+      expect((name.cellRenderer as (params: any) => string)({ value: 'Produto A' })).toBe(
+        '<a data-action="edit" class="ag-link">Produto A</a>',
+      );
+    });
+
+    it('falls back to an empty string for a falsy value', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const sku = component.columnDefs.find((c) => c.field === 'productSku')!;
+      const name = component.columnDefs.find((c) => c.field === 'productName')!;
+
+      expect((sku.cellRenderer as (params: any) => string)({ value: null })).toBe(
+        '<a data-action="edit" class="ag-link"></a>',
+      );
+      expect((name.cellRenderer as (params: any) => string)({ value: null })).toBe(
+        '<a data-action="edit" class="ag-link"></a>',
+      );
+    });
+  });
+
+  describe('actions column cell renderer', () => {
+    it('includes the delete button when not viewed from the products screen', () => {
+      const component = createComponent();
+      component.isFromProductsView = false;
+      component.ngOnInit();
+      const actions = component.columnDefs.find((c) => c.headerName === 'COMMON.ACTIONS')!;
+
+      const html = (actions.cellRenderer as () => string)();
+
+      expect(html).toContain('data-action="edit"');
+      expect(html).toContain('data-action="delete"');
+    });
+
+    it('omits the delete button when viewed from the products screen', () => {
+      const component = createComponent();
+      component.isFromProductsView = true;
+      component.ngOnInit();
+      const actions = component.columnDefs.find((c) => c.headerName === 'COMMON.ACTIONS')!;
+
+      const html = (actions.cellRenderer as () => string)();
+
+      expect(html).toContain('data-action="edit"');
+      expect(html).not.toContain('data-action="delete"');
     });
   });
 });
