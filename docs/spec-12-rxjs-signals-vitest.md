@@ -137,6 +137,40 @@ migração:
 `provideHttpClientTesting`, `vi.fn()`, matchers Jest-style) — as quatro gotchas acima são
 conhecidas e têm solução direta, sem gambiarra. Segue pra Fase 1.
 
+### 4.1.2 Fase 1 — resultado (concluída)
+
+Cobertura real escrita pros 172 arquivos que não importam `rxjs` (survey original citava ~168; a
+contagem exata pós-levantamento foi 172): 26 componentes sem RxJS que ainda não tinham spec algum
+(toda a família `*-details-modal`, `AuditTabComponent`, `CurrencyFieldComponent`/`DateFieldComponent`
+como `ControlValueAccessor`, os dois modais de foto, `PdfProgressComponent`,
+`UserPreferencesComponent`, `SelectableOptionsComponent`, `AlertConfigsComponent`,
+`FeatureTogglesComponent`, `DocumentTemplatesComponent`, `AgendaComponent`), a pipe `TranslatePipe`,
+e as funções puras em `core/utilities/*` (`format-utils`, `download-blob`, `paged-request.utils`,
+`report-pdf.ts`'s `chunkRows`, `passenger-import-parser`) e `core/animations/card-collapse.animation`.
+Os arquivos que sobraram sem spec (`*.routes.ts`, `*.model.ts`/`*.enum.ts`/interfaces, `index.ts` de
+barrel, `app.config.ts`, dicionários de i18n) são puramente declarativos — zero statement/branch
+executável pra cobrir, então não entram no escopo de "spec obrigatório" (uma suíte de teste sobre um
+`interface`/enum só reafirmaria o próprio arquivo).
+
+Achado técnico adicional confirmado durante esta fase, junto do padrão de `TestBed.createComponent()`
+documentado acima: pra qualquer um dos componentes `*-details-modal` que embutem um `*FormComponent`
+real no próprio template (`imports: [XxxFormComponent]`), usar `TestBed.createComponent()` +
+`fixture` arrasta a árvore de DI inteira daquele form filho (ngx-mask config, serviços de dado de
+referência etc.) — dependências que pertencem à spec do form, não à do modal. Solução adotada
+uniformemente: instanciar a classe do modal diretamente via `new XxxDetailsModalComponent(...)`,
+sem TestBed nem fixture, já que o construtor não tem nenhum DI além dos parâmetros explícitos —
+100% da lógica real do modal (mapeamento de `dialogData`, `close()`, título traduzido) fica coberta
+sem precisar satisfazer a árvore de dependência do form embutido.
+
+Também durante esta fase: `karma.conf.js`/dependências Karma/Jasmine removidas de `package.json`
+(item 2 do plano da seção 4.1) — `npm run build` e `npx ng test` seguem verdes sem elas.
+
+Os ~46 arquivos de spec pré-existentes que compilam mas falham em runtime (achado da Fase 0,
+majoritariamente componentes com RxJS que ficam fora do escopo desta fase, ou stubs do CLI testando
+nomes de classe que não existem mais) continuam como escopo confirmado das Fases 2-4 — não foram
+tocados aqui pra não misturar "escrever teste novo" com "migrar pra Signals", que é exatamente a
+ordem que este documento já definiu.
+
 ### 4.2 RxJS → Signals, por camada
 
 - **Estado de serviço** (`BehaviorSubject` + `.asObservable()` + `.next()`): vira `signal()` +
