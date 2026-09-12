@@ -171,5 +171,21 @@ describe('TripService', () => {
 
       expect(event.endDate).toEqual(event.startDate);
     });
+
+    it('clamps endDate to startDate when the computed arrival is earlier than the departure', () => {
+      const service = createService();
+      const trip = { id: 't1', tripNumber: 'T-001' } as Trip;
+      const legs = [
+        leg({
+          departureDate: new Date('2024-01-05T08:00:00'),
+          arrivalDate: new Date('2024-01-01T10:00:00'),
+        }),
+      ];
+
+      const event = service.buildAgendaEvent(trip, legs);
+
+      expect(event.startDate).toEqual(new Date('2024-01-05T08:00:00'));
+      expect(event.endDate).toEqual(new Date('2024-01-05T08:00:00'));
+    });
   });
 });

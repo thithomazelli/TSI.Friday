@@ -54,6 +54,21 @@ describe('ApiService', () => {
     expect(response).toEqual({ id: '1' });
   });
 
+  it('put() should send the body and return the response', () => {
+    let response: { id: string } | undefined;
+    service.put<{ id: string }>('vehicles/update', { id: '1', plate: 'ABC1234' }).subscribe((res) => {
+      response = res;
+    });
+
+    const req = httpMock.expectOne(`${environment.appUrl}/api/vehicles/update`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ id: '1', plate: 'ABC1234' });
+    expect(req.request.withCredentials).toBe(true);
+    req.flush({ id: '1' });
+
+    expect(response).toEqual({ id: '1' });
+  });
+
   it('getBlob() should request a blob response type', () => {
     let response: Blob | undefined;
     service.getBlob('documenttemplates/download/Order').subscribe((res) => {

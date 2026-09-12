@@ -56,11 +56,15 @@ describe('DriverService', () => {
     const paged$ = new Subject<WebApiResponse<unknown>>();
     apiServiceMock.get.mockReturnValue(paged$);
 
-    service.getAllPaged({ page: 1, pageSize: 10 } as never);
+    let result: unknown;
+    service.getAllPaged({ page: 1, pageSize: 10 } as never).subscribe((r) => (result = r));
+    const pagedResult = { items: [], totalCount: 0 };
+    paged$.next({ data: pagedResult } as WebApiResponse<unknown>);
 
     expect(apiServiceMock.get).toHaveBeenCalledWith(
       expect.stringContaining('drivers/getAllPaged?'),
     );
+    expect(result).toBe(pagedResult);
   });
 
   it('getById hits the expected endpoint', () => {

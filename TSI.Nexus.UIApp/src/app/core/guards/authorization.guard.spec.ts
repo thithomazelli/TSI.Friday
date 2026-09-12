@@ -114,6 +114,16 @@ describe('AuthorizationGuard', () => {
     expect(allowed).toBe(false);
   });
 
+  it('allows access when every flag in an array is enabled', () => {
+    guard = makeGuard({ roles: ['Admin'] } as User);
+    featureFlagServiceMock.isEnabled.mockReturnValue(of(true));
+
+    const allowed = activate(route({ featureFlag: ['FleetModule', 'Vehicles'] }), state());
+
+    expect(allowed).toBe(true);
+    expect(routerMock.navigate).not.toHaveBeenCalledWith(['not-found']);
+  });
+
   it('allows access when there are no role or feature flag restrictions', () => {
     guard = makeGuard({ roles: [] } as unknown as User);
 
