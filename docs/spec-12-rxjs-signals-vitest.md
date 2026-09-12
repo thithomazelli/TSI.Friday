@@ -79,6 +79,48 @@ Angular 21 tem builder experimental `@angular/build:unit-test` com `runner: 'vit
 3. Configurar cobertura (`@vitest/coverage-v8` ou equivalente) com threshold 100% nos arquivos
    cobertos por este spec — thresholds sobem por fase, não de uma vez.
 
+### 4.1.1 Fase 0 — resultado do spike (GO)
+
+`tsconfig.spec.json` nunca existiu no repo — ou seja, `ng test`/`npm test` já estava
+**completamente quebrado sob o Karma/Jasmine antigo** antes de qualquer mudança desta spec (não é
+uma regressão introduzida aqui). Criar `tsconfig.spec.json` + trocar `angular.json`'s `test` target
+pro builder `@angular/build:unit-test` (`runner: "vitest"`) expôs isso: o builder compila **todo o
+fileset de specs como um único programa TypeScript**, então um único spec quebrado bloqueia a
+suíte inteira — não só o arquivo com erro. Achados do spike, cada um relevante pro resto da
+migração:
+
+1. **Tipos globais**: `describe`/`it`/`expect`/`vi` só existem como globais com
+   `"types": ["vitest/globals"]` em `tsconfig.spec.json`'s `compilerOptions` — sem isso o
+   TypeScript não reconhece nenhum dos dois.
+2. **`done` callback do Jasmine não existe no Vitest**: `it('nome', (done) => { ...; done(); })`
+   quebra com `TS2349: This expression is not callable` — o parâmetro do callback no Vitest é um
+   `TestContext`, não um resolver. Para observable síncrono (`of(...)`), a saída é não usar `done`
+   nenhum: assert direto dentro do `.subscribe()` (`let result; obs$.subscribe(v => result = v);
+   expect(result)...`) já é suficiente, porque a emissão acontece dentro do próprio `subscribe()`.
+   Para caso genuinamente assíncrono, usar `it('nome', async () => { await ... })` em vez de
+   `done`.
+3. **`TestBed.inject(MeuComponent)` não substitui `TestBed.createComponent(...).componentInstance`
+   pra componente**: instanciar um componente via `TestBed.inject()` (em vez de
+   `TestBed.createComponent()`) pula a criação da view, então qualquer token atrelado a view/host
+   (`Renderer2`, `MatDialogRef`, `ActivatedRoute` quando resolvido via rota real, etc.) falha com
+   `NG0201: No provider found`. Corrigido em `app.component.spec.ts` trocando pra
+   `TestBed.createComponent(AppComponent).componentInstance` sem chamar `detectChanges()` (evita
+   disparar `ngOnInit()` automaticamente, já que os testes existentes chamam `ngOnInit()` na mão
+   dentro de `NgZone.run(...)`).
+4. **Descoberta paralela, fora do escopo da Fase 0**: rodar a suíte inteira pela primeira vez (algo
+   que nunca funcionou antes) revelou **46 arquivos de spec pré-existentes que compilam mas falham
+   em runtime** — majoritariamente componentes com `MatDialogRef`/`MAT_DIALOG_DATA`/
+   `ActivatedRoute` não providos no `TestBed`, e alguns testando nomes de classe que não existem
+   mais (renomeados em refatorações anteriores, ex. `ClientDetailsModalComponent` →
+   `BusinessPartnerDetailsModalComponent`, já corrigido). Isso não é uma regressão desta spec — é o
+   estado real, nunca antes visível, do que `ng test` já continha. Fica documentado aqui como
+   escopo confirmado das Fases 1-4 (cada um desses arquivos precisa ser revisto/reescrito junto da
+   migração pra Signals do respectivo módulo), não como pendência da Fase 0.
+
+**Decisão: GO.** Vitest funciona para o que a spec precisa (`TestBed`,
+`provideHttpClientTesting`, `vi.fn()`, matchers Jest-style) — as três gotchas acima são conhecidas
+e têm solução direta, sem gambiarra. Segue pra Fase 1.
+
 ### 4.2 RxJS → Signals, por camada
 
 - **Estado de serviço** (`BehaviorSubject` + `.asObservable()` + `.next()`): vira `signal()` +

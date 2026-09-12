@@ -1,33 +1,113 @@
 import { TestBed } from '@angular/core/testing';
-import { RouterModule } from '@angular/router';
+import { NgZone } from '@angular/core';
+import { Title } from '@angular/platform-browser';
+import { Router } from '@angular/router';
+import { SwUpdate } from '@angular/service-worker';
+import { Observable, of, Subject } from 'rxjs';
+import { AccountService, TranslationService, User } from './core';
 import { AppComponent } from './app.component';
 
 describe('AppComponent', () => {
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-    imports: [
-        RouterModule.forRoot([])
-    ],
-    declarations: [AppComponent],
-}).compileComponents();
-  });
+  let accountServiceMock: {
+    user$: Observable<User | null>;
+    getStoredUser: ReturnType<typeof vi.fn>;
+    emitNoUser: ReturnType<typeof vi.fn>;
+    isTokenExpired: ReturnType<typeof vi.fn>;
+    logout: ReturnType<typeof vi.fn>;
+    refreshUser: ReturnType<typeof vi.fn>;
+    startAutoLogout: ReturnType<typeof vi.fn>;
+  };
+  let routerEvents$: Subject<unknown>;
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
+  function createComponent() {
+    accountServiceMock = {
+      user$: of(null),
+      getStoredUser: vi.fn().mockReturnValue(null),
+      emitNoUser: vi.fn(),
+      isTokenExpired: vi.fn().mockReturnValue(true),
+      logout: vi.fn(),
+      refreshUser: vi.fn().mockReturnValue(of(undefined)),
+      startAutoLogout: vi.fn(),
+    };
+    routerEvents$ = new Subject();
+
+    TestBed.configureTestingModule({
+      providers: [
+        AppComponent,
+        { provide: Router, useValue: { events: routerEvents$.asObservable() } },
+        { provide: AccountService, useValue: accountServiceMock },
+        { provide: SwUpdate, useValue: { isEnabled: false, versionUpdates: of() } },
+        { provide: Title, useValue: { setTitle: vi.fn() } },
+        {
+          provide: TranslationService,
+          useValue: { instant: (key: string) => key, language$: of('pt-BR') },
+        },
+      ],
+    });
+
+    return TestBed.createComponent(AppComponent).componentInstance;
+  }
+
+  it('should create', () => {
+    const app = createComponent();
     expect(app).toBeTruthy();
   });
 
-  it(`should have as title 'TSI.Nexus.UIApp'`, () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    expect(app.title).toEqual('TSI.Nexus.UIApp');
+  it('exposes isLoggedIn$ derived from AccountService.user$', () => {
+    const userAccountServiceMock: { user$: Observable<User | null>; getStoredUser: ReturnType<typeof vi.fn> } = {
+      user$: of({ id: '1' } as unknown as User),
+      getStoredUser: vi.fn(),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        AppComponent,
+        { provide: Router, useValue: { events: of() } },
+        { provide: AccountService, useValue: userAccountServiceMock },
+        { provide: SwUpdate, useValue: { isEnabled: false, versionUpdates: of() } },
+        { provide: Title, useValue: { setTitle: vi.fn() } },
+        { provide: TranslationService, useValue: { instant: (k: string) => k, language$: of('pt-BR') } },
+      ],
+    });
+    const app = TestBed.createComponent(AppComponent).componentInstance;
+
+    let loggedIn: boolean | undefined;
+    app.isLoggedIn$.subscribe((v) => (loggedIn = v));
+    expect(loggedIn).toBe(true);
   });
 
-  it('should render title', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, TSI.Nexus.UIApp');
+  it('ngOnInit emits no user and does not call refreshUser when nothing is stored', () => {
+    const app = createComponent();
+    TestBed.inject(NgZone).run(() => app.ngOnInit());
+
+    expect(accountServiceMock.emitNoUser).toHaveBeenCalled();
+    expect(accountServiceMock.refreshUser).not.toHaveBeenCalled();
+
+    app.ngOnDestroy();
+  });
+
+  it('ngOnInit logs out when the stored token is already expired', () => {
+    const app = createComponent();
+    accountServiceMock.getStoredUser.mockReturnValue({ tokenExpiresAtUtc: '2000-01-01' });
+    accountServiceMock.isTokenExpired.mockReturnValue(true);
+
+    TestBed.inject(NgZone).run(() => app.ngOnInit());
+
+    expect(accountServiceMock.logout).toHaveBeenCalled();
+    expect(accountServiceMock.refreshUser).not.toHaveBeenCalled();
+
+    app.ngOnDestroy();
+  });
+
+  it('ngOnInit refreshes the session when a valid token is stored', () => {
+    const app = createComponent();
+    accountServiceMock.getStoredUser.mockReturnValue({ tokenExpiresAtUtc: '2999-01-01' });
+    accountServiceMock.isTokenExpired.mockReturnValue(false);
+
+    TestBed.inject(NgZone).run(() => app.ngOnInit());
+
+    expect(accountServiceMock.refreshUser).toHaveBeenCalled();
+    expect(accountServiceMock.logout).not.toHaveBeenCalled();
+
+    app.ngOnDestroy();
   });
 });
