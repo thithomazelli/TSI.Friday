@@ -300,6 +300,29 @@ estado). `business-partner.service.spec.ts` estava vazio (0 bytes), spec real es
 cache por tipo, `refresh()`, `businessPartnerChanged$`, `add`/`update`/`delete` e os dois
 validators (`cpfValidator`/`cnpjValidator`, inalterados — não usam RxJS).
 
+**`DriverService`/`VehicleService` (mesmo desenho do `ProductService`, sem cache por tipo)**:
+`_refresh$ Subject + startWith(undefined) + switchMap(() => http.get(...)) + shareReplay(1)` virou
+`signal<WebApiResponse<Entity[]> | null>(null)` com fetch disparado no construtor
+(`load()`) — recipe idêntica ao `ProductService`. `refresh()` (usado por um botão manual de
+"atualizar" numa tela) preserva o comportamento original de fazer seu próprio GET **e também**
+invalidar o cache compartilhado chamando `load()` de novo — os dois services já faziam duas
+chamadas HTTP nesse método antes da migração (uma pro valor de retorno, outra disparada
+internamente pra atualizar o stream compartilhado), então isso não é uma regressão nova. Nenhum
+spec pré-existia para nenhum dos dois; ambos escritos do zero.
+
+**Achado paralelo, sem relação com Signals (bug pré-existente, não corrigido nesta migração)**:
+`fleet-report.component.ts:161` usa `forkJoin({ vehicles: this.vehicleService.getAll(), trips:
+..., maintenances: ..., drivers: this.driverService.getAll() })` — `forkJoin` só emite depois que
+**todas** as fontes completam. Mas tanto o `vehicles$` quanto o `drivers$` originais (a versão
+RxJS, antes desta migração) já eram `_refresh$.pipe(startWith(undefined), switchMap(...),
+shareReplay(1))`, e como `_refresh$` é um `Subject<void>` que nunca chama `.complete()`, esse
+stream **nunca completa** — logo esse `forkJoin` já não emitia nada em produção antes desta
+migração (confirmado lendo o `VehicleService` original, que tem exatamente o mesmo formato do
+`DriverService` antes da mudança). A migração pra `signal`/`toObservable` preserva esse mesmo
+"nunca completa" (documentado como comportamento pretendido no `ProductService`), então não é uma
+regressão nova — mas é um bug real e pré-existente na tela de relatório de frota, fora do escopo
+desta spec (RxJS→Signals). Reportado ao usuário separadamente; não corrigido aqui.
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não
