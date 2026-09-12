@@ -61,6 +61,12 @@ describe('CurrencyFieldComponent', () => {
     expect(onTouched).toHaveBeenCalled();
   });
 
+  it('does nothing when onBlur runs before onChange/onTouched are registered', () => {
+    component.displayValue = '1.234,50';
+
+    expect(() => component.onBlur()).not.toThrow();
+  });
+
   it('sets isDisabled via setDisabledState', () => {
     component.setDisabledState(true);
     expect(component.isDisabled).toBe(true);
