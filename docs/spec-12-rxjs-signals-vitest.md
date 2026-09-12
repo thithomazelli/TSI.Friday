@@ -279,6 +279,27 @@ a cada round-trip e o novo (baseado em `signal`) nunca completa; os outros 4 con
 `this.products$ = this.productService.getAll();` e não dependem de `complete()` de forma alguma.
 `product.service.spec.ts` estava vazio (0 bytes), spec real escrito do zero.
 
+**`BusinessPartnerService` (terceiro do padrão shareReplay, com uma variação)**: aqui o cache não é
+um único valor (como `FeatureFlagService`/`ProductService`), e sim **por tipo**
+(`Map<BusinessPartnerType, Observable<...>>`, só 2 valores possíveis — `Client`/`Supplier`,
+confirmado no enum). Migrado pra `Map<BusinessPartnerType, WritableSignal<...>>` + um `Map` paralelo
+com o `Observable` (`toObservable`) derivado de cada signal, criado sob demanda na primeira chamada
+de `getClients()`/`getSuppliers()`/`refresh()` — não no field initializer, então precisa de
+`Injector` injetado no construtor e passado explicitamente (`toObservable(state, { injector:
+this.injector })`), já que essas Observables não nascem em contexto de injeção implícito. Achado
+paralelo, mais sutil que os outros: `_businessPartners$` (`BehaviorSubject<BusinessPartner[]>`) é
+alimentado por `getAllBusinessPartnersByType()` e por `addOrUpdateBusinessPartner()` (chamado por 6
+forms — orçamento, pedido, viagem, transação, etc. — depois de criar um parceiro novo/editar um
+existente durante o preenchimento do form) mas **nunca lido em lugar nenhum** (nem getter público,
+nem `.subscribe()`) — ou seja, `addOrUpdateBusinessPartner()` já não tinha efeito observável antes
+desta migração. Diferente do achado de estado morto dos outros services, aqui a API pública
+(`addOrUpdateBusinessPartner()`) continua sendo chamada por 6 componentes reais, então o método foi
+mantido (não é escopo desta spec remover uma API pública com 6 call sites) — só o `BehaviorSubject`
+interno virou `signal<BusinessPartner[]>([])` puro (sem `toObservable`, já que nada de fora lê esse
+estado). `business-partner.service.spec.ts` estava vazio (0 bytes), spec real escrito cobrindo
+cache por tipo, `refresh()`, `businessPartnerChanged$`, `add`/`update`/`delete` e os dois
+validators (`cpfValidator`/`cnpjValidator`, inalterados — não usam RxJS).
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não

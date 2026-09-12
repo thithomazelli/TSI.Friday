@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, signal, WritableSignal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { AbstractControl, ValidatorFn } from '@angular/forms';
 
 import {
@@ -13,27 +14,47 @@ import {
   WebApiResponse,
 } from '@nexus/core';
 
-import { BehaviorSubject, Observable } from 'rxjs';
-import { map, shareReplay, tap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { filter, map, tap } from 'rxjs/operators';
 import { toPagedQueryString } from '../../utilities/paged-request.utils';
 
 @Injectable({ providedIn: 'root' })
 export class BusinessPartnerService {
   private _baseEndPoint = ApiType.BusinessPartners;
-  private _businessPartners$ = new BehaviorSubject<BusinessPartner[]>([]);
-  private _businessPartnerChangedSubject = new BehaviorSubject<void>(undefined);
-  businessPartnerChanged$ = this._businessPartnerChangedSubject.asObservable();
+  // Never exposed as an Observable anywhere in the app (no getter, no .subscribe()) -
+  // addOrUpdateBusinessPartner()'s only reader is itself, so a plain signal is enough here;
+  // no toObservable() needed for state nobody outside this class ever reads.
+  private readonly _businessPartners: WritableSignal<BusinessPartner[]> = signal([]);
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
+  readonly businessPartnerChanged$: Observable<void> = toObservable(this._changedTick).pipe(
+    map(() => undefined),
+  );
 
   // Several forms across the app (viagem, transação, orçamento, pedido, evento, ...) each ask for
   // the client/supplier list independently, previously firing one HTTP GET apiece. Cached per
-  // type with shareReplay(1) - same pattern used by FeatureFlagService/ProductService - and
-  // cleared on any write via addOrUpdateBusinessPartner()/add()/update()/delete().
-  private _byTypeCache = new Map<
+  // type - same recipe as FeatureFlagService/ProductService, now keyed by type - and cleared on
+  // any write via addOrUpdateBusinessPartner()/add()/update()/delete(). toObservable() needs an
+  // injection context; since these Observables are built lazily (first call to
+  // getClients()/getSuppliers()/refresh(), not at field-init time), the injected Injector is
+  // passed explicitly instead of relying on an implicit one.
+  private readonly _byTypeState = new Map<
+    BusinessPartnerType,
+    WritableSignal<WebApiResponse<BusinessPartner[]> | null>
+  >();
+  private readonly _byTypeCache = new Map<
     BusinessPartnerType,
     Observable<WebApiResponse<BusinessPartner[]>>
   >();
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private injector: Injector,
+  ) {}
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   getClients(): Observable<WebApiResponse<BusinessPartner[]>> {
     return this.getAllBusinessPartnersByType(BusinessPartnerType.Client);
@@ -68,6 +89,7 @@ export class BusinessPartnerService {
   refresh(
     type: BusinessPartnerType,
   ): Observable<WebApiResponse<BusinessPartner[]>> {
+    this._byTypeState.delete(type);
     this._byTypeCache.delete(type);
     return this.getAllBusinessPartnersByType(type);
   }
@@ -86,21 +108,23 @@ export class BusinessPartnerService {
       >(`${endPointUrl}/add`, businessPartner)
       .pipe(
         tap(() => {
+          this._byTypeState.clear();
           this._byTypeCache.clear();
-          this._businessPartnerChangedSubject.next();
+          this.notifyChanged();
         }),
       );
   }
 
   addOrUpdateBusinessPartner(businessPartner: BusinessPartner): void {
-    const current = this._businessPartners$.value;
+    const current = this._businessPartners();
     const idx = current.findIndex((c) => c.id === businessPartner.id);
+    const updated = [...current];
     if (idx > -1) {
-      current[idx] = businessPartner;
+      updated[idx] = businessPartner;
     } else {
-      current.push(businessPartner);
+      updated.push(businessPartner);
     }
-    this._businessPartners$.next([...current]);
+    this._businessPartners.set(updated);
   }
 
   update(
@@ -117,8 +141,9 @@ export class BusinessPartnerService {
       >(`${endPointUrl}/update`, businessPartner)
       .pipe(
         tap(() => {
+          this._byTypeState.clear();
           this._byTypeCache.clear();
-          this._businessPartnerChangedSubject.next();
+          this.notifyChanged();
         }),
       );
   }
@@ -132,8 +157,9 @@ export class BusinessPartnerService {
       >(`${this._baseEndPoint}/remove`, businessPartner)
       .pipe(
         tap(() => {
+          this._byTypeState.clear();
           this._byTypeCache.clear();
-          this._businessPartnerChangedSubject.next();
+          this.notifyChanged();
         }),
       );
   }
@@ -198,18 +224,28 @@ export class BusinessPartnerService {
   ): Observable<WebApiResponse<BusinessPartner[]>> {
     let cached = this._byTypeCache.get(type);
     if (!cached) {
-      cached = this.apiService
-        .get<
-          WebApiResponse<BusinessPartner[]>
-        >(`${this._baseEndPoint}/getAll${type === BusinessPartnerType.Client ? 'Clients' : 'Suppliers'}`)
-        .pipe(
-          tap((response) => {
-            this._businessPartners$.next(response.data);
-          }),
-          shareReplay(1),
-        );
+      const state = signal<WebApiResponse<BusinessPartner[]> | null>(null);
+      this._byTypeState.set(type, state);
+      this.loadByType(type, state);
+
+      cached = toObservable(state, { injector: this.injector }).pipe(
+        filter((v): v is WebApiResponse<BusinessPartner[]> => v !== null),
+      );
       this._byTypeCache.set(type, cached);
     }
     return cached;
+  }
+
+  private loadByType(
+    type: BusinessPartnerType,
+    state: WritableSignal<WebApiResponse<BusinessPartner[]> | null>,
+  ): void {
+    const route = type === BusinessPartnerType.Client ? 'getAllClients' : 'getAllSuppliers';
+    this.apiService
+      .get<WebApiResponse<BusinessPartner[]>>(`${this._baseEndPoint}/${route}`)
+      .subscribe((response) => {
+        this._businessPartners.set(response.data ?? []);
+        state.set(response);
+      });
   }
 }
