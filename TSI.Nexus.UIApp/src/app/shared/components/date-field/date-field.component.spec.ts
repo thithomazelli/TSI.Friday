@@ -70,6 +70,16 @@ describe('DateFieldComponent', () => {
 
       expect(component.effectiveDisabled).toBe(true);
     });
+
+    it('defaults onTouched to a no-op and lets registerOnTouched replace it', () => {
+      expect(() => component.onTouched()).not.toThrow();
+
+      const onTouched = vi.fn();
+      component.registerOnTouched(onTouched);
+      component.onTouched();
+
+      expect(onTouched).toHaveBeenCalled();
+    });
   });
 
   describe('toggleCalendar', () => {
@@ -166,6 +176,13 @@ describe('DateFieldComponent', () => {
       component.onInputChange(inputEvent('0501'));
 
       expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('leaves 2 or fewer digits unformatted', () => {
+      const event = inputEvent('5');
+      component.onInputChange(event);
+
+      expect((event.target as HTMLInputElement).value).toBe('5');
     });
   });
 
