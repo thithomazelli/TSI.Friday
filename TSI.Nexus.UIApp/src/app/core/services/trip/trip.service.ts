@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { Observable } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import {
   AgendaEvent,
@@ -18,20 +19,19 @@ import { toPagedQueryString } from '../../utilities/paged-request.utils';
 })
 export class TripService {
   private _baseEndPoint = ApiType.Trips;
-  private _trips$ = new BehaviorSubject<Trip[]>([]);
-  private _tripChangedSubject = new BehaviorSubject<void>(undefined);
-  tripChanged$ = this._tripChangedSubject.asObservable();
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
+
+  readonly tripChanged$: Observable<void> = toObservable(this._changedTick).pipe(map(() => undefined));
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(private apiService: ApiService) {}
 
   getAll(): Observable<WebApiResponse<Trip[]>> {
-    return this.apiService
-      .get<WebApiResponse<Trip[]>>(`${this._baseEndPoint}/getAll`)
-      .pipe(
-        tap((response) => {
-          this._trips$.next(response.data);
-        }),
-      );
+    return this.apiService.get<WebApiResponse<Trip[]>>(`${this._baseEndPoint}/getAll`);
   }
 
   getAllPaged(request: PagedRequest): Observable<PagedResult<Trip>> {
@@ -59,39 +59,21 @@ export class TripService {
   getByBusinessPartnerId(
     businessPartnerId: string,
   ): Observable<WebApiResponse<Trip[]>> {
-    return this.apiService
-      .get<
-        WebApiResponse<Trip[]>
-      >(`${this._baseEndPoint}/getByBusinessPartnerId/${businessPartnerId}`)
-      .pipe(
-        tap((response) => {
-          this._trips$.next(response.data);
-        }),
-      );
+    return this.apiService.get<
+      WebApiResponse<Trip[]>
+    >(`${this._baseEndPoint}/getByBusinessPartnerId/${businessPartnerId}`);
   }
 
   getByDriverId(driverId: string): Observable<WebApiResponse<Trip[]>> {
-    return this.apiService
-      .get<
-        WebApiResponse<Trip[]>
-      >(`${this._baseEndPoint}/getByDriverId/${driverId}`)
-      .pipe(
-        tap((response) => {
-          this._trips$.next(response.data);
-        }),
-      );
+    return this.apiService.get<
+      WebApiResponse<Trip[]>
+    >(`${this._baseEndPoint}/getByDriverId/${driverId}`);
   }
 
   getByVehicleId(vehicleId: string): Observable<WebApiResponse<Trip[]>> {
-    return this.apiService
-      .get<
-        WebApiResponse<Trip[]>
-      >(`${this._baseEndPoint}/getByVehicleId/${vehicleId}`)
-      .pipe(
-        tap((response) => {
-          this._trips$.next(response.data);
-        }),
-      );
+    return this.apiService.get<
+      WebApiResponse<Trip[]>
+    >(`${this._baseEndPoint}/getByVehicleId/${vehicleId}`);
   }
 
   refreshTrips(): Observable<WebApiResponse<Trip[]>> {
@@ -138,18 +120,18 @@ export class TripService {
   add(trip: Trip): Observable<WebApiResponse<Trip>> {
     return this.apiService
       .post<WebApiResponse<Trip>>(`${this._baseEndPoint}/add`, trip)
-      .pipe(tap(() => this._tripChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   update(trip: Trip): Observable<WebApiResponse<Trip>> {
     return this.apiService
       .put<WebApiResponse<Trip>>(`${this._baseEndPoint}/update`, trip)
-      .pipe(tap(() => this._tripChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(trip: Trip): Observable<WebApiResponse<Trip>> {
     return this.apiService
       .delete<WebApiResponse<Trip>>(`${this._baseEndPoint}/remove`, trip)
-      .pipe(tap(() => this._tripChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 }

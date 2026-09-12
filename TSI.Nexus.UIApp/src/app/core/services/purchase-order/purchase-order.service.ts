@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { Observable } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import {
   ApiService,
@@ -16,20 +17,19 @@ import { toPagedQueryString } from '../../utilities/paged-request.utils';
 })
 export class PurchaseOrderService {
   private _baseEndPoint = ApiType.PurchaseOrders;
-  private _purchaseOrders$ = new BehaviorSubject<PurchaseOrder[]>([]);
-  private _purchaseOrderChangedSubject = new BehaviorSubject<void>(undefined);
-  purchaseOrderChanged$ = this._purchaseOrderChangedSubject.asObservable();
+  // See event.service.ts for why this is a tick counter rather than a BehaviorSubject<void>.
+  private readonly _changedTick = signal(0);
+
+  readonly purchaseOrderChanged$: Observable<void> = toObservable(this._changedTick).pipe(map(() => undefined));
+
+  private notifyChanged(): void {
+    this._changedTick.update((v) => v + 1);
+  }
 
   constructor(private apiService: ApiService) {}
 
   getAll(): Observable<WebApiResponse<PurchaseOrder[]>> {
-    return this.apiService
-      .get<WebApiResponse<PurchaseOrder[]>>(`${this._baseEndPoint}/getAll`)
-      .pipe(
-        tap((response) => {
-          this._purchaseOrders$.next(response.data);
-        }),
-      );
+    return this.apiService.get<WebApiResponse<PurchaseOrder[]>>(`${this._baseEndPoint}/getAll`);
   }
 
   // Server-side paged/sorted/filtered listing for the top-level Purchase Orders grid - the tab
@@ -51,15 +51,9 @@ export class PurchaseOrderService {
   getByBusinessPartnerId(
     businessPartnerId: string,
   ): Observable<WebApiResponse<PurchaseOrder[]>> {
-    return this.apiService
-      .get<
-        WebApiResponse<PurchaseOrder[]>
-      >(`${this._baseEndPoint}/getByBusinessPartnerId/${businessPartnerId}`)
-      .pipe(
-        tap((response) => {
-          this._purchaseOrders$.next(response.data);
-        }),
-      );
+    return this.apiService.get<
+      WebApiResponse<PurchaseOrder[]>
+    >(`${this._baseEndPoint}/getByBusinessPartnerId/${businessPartnerId}`);
   }
 
   refreshPurchaseOrders(): Observable<WebApiResponse<PurchaseOrder[]>> {
@@ -71,7 +65,7 @@ export class PurchaseOrderService {
       .post<
         WebApiResponse<PurchaseOrder>
       >(`${this._baseEndPoint}/add`, purchaseOrder)
-      .pipe(tap(() => this._purchaseOrderChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   update(purchaseOrder: PurchaseOrder): Observable<WebApiResponse<PurchaseOrder>> {
@@ -79,7 +73,7 @@ export class PurchaseOrderService {
       .put<
         WebApiResponse<PurchaseOrder>
       >(`${this._baseEndPoint}/update`, purchaseOrder)
-      .pipe(tap(() => this._purchaseOrderChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 
   delete(purchaseOrder: PurchaseOrder): Observable<WebApiResponse<PurchaseOrder>> {
@@ -87,6 +81,6 @@ export class PurchaseOrderService {
       .delete<
         WebApiResponse<PurchaseOrder>
       >(`${this._baseEndPoint}/remove`, purchaseOrder)
-      .pipe(tap(() => this._purchaseOrderChangedSubject.next()));
+      .pipe(tap(() => this.notifyChanged()));
   }
 }

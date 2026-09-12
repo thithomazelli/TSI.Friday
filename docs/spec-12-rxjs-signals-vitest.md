@@ -222,6 +222,31 @@ fazer a asserção (ver `feature-flag.service.spec.ts`). Isso só se aplica a sp
 `toObservable()`; specs que leem um `signal()`/`computed()` diretamente (sem passar por Observable)
 não precisam disso — a leitura de um signal é sempre síncrona.
 
+**Padrão "changed$" repetido em ~15 serviços de entidade** (`EventService`, `TripLegService`,
+`AttachmentService`, `FuelLogService`, `PassengerService`, `QuoteTripLegService`,
+`VehicleMaintenanceProductService`, `VehicleMaintenanceService`, `OrderService`, `PaymentService`,
+`PurchaseOrderService`, `QuoteService`, `TransactionService`, `TripService`, ...): todos tinham o
+mesmo `_xChangedSubject = new BehaviorSubject<void>(undefined)` exposto como `xChanged$` — usado
+pelos componentes de lista (`event-list`, `trip-leg-list`, etc.) só como "algo mudou, recarregue",
+nunca lendo um payload. Migrado uniformemente pro mesmo `signal(0)` + `toObservable(tick).pipe(map(()
+=> undefined))` do `FeatureFlagService`, com um `notifyChanged()` privado chamado no lugar do
+`.next()`. `toObservable` replaya o valor atual pra todo novo subscriber, igual o
+`BehaviorSubject<void>` fazia — nenhum consumidor precisou mudar.
+
+**Achado paralelo em `order`/`payment`/`purchase-order`/`quote`/`transaction`/`trip`**: cada um
+desses services também tinha um `_orders$`/`_payments$`/etc. (`BehaviorSubject<Entity[]>`)
+populado via `.next(response.data)` dentro de `getAll()`/`getByX()` — mas **sem nenhum consumidor
+em lugar nenhum do app** (nem um getter público, nem um `.subscribe()`). Estado morto, não uma
+migração pendente — removido inteiramente em vez de convertido pra `signal()` (CLAUDE.md: "se você
+tem certeza que algo não é usado, pode deletar completamente"). Confirmado via leitura completa de
+cada arquivo antes de remover, não só grep.
+
+**Achado adicional, sem relação com Signals**: `order.service.spec.ts` e `quote.service.spec.ts`
+estavam **vazios** (0 bytes) e `payment.service.spec.ts`/`transaction.service.spec.ts` eram stubs
+do CLI (`TestBed.configureTestingModule({})` sem prover `ApiService`, falhando por `HttpClient` sem
+provider) — os quatro já contavam entre os ~46 arquivos quebrados desde a Fase 0. Substituídos
+pelos specs reais escritos junto da migração desta fase, reduzindo esse número.
+
 ### 4.3 Testes — 100% de cobertura
 
 Confirmado com você: a cobertura final é escrita **em cima do código já migrado pra Signals**, não
