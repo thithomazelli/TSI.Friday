@@ -8,7 +8,7 @@ import {
   TranslationService,
 } from '@nexus/core';
 import { GridApi } from 'ag-grid-community';
-import { Subject, of } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { TransactionsComponent } from './transactions.component';
 import { GridComponent } from '../shared/grid/grid.component';
 
@@ -141,6 +141,31 @@ describe('TransactionsComponent', () => {
     });
   });
 
+  describe('ngOnDestroy', () => {
+    it('does not throw when destroyed before ngOnInit ever subscribed', () => {
+      const component = createComponent();
+
+      expect(() => component.ngOnDestroy()).not.toThrow();
+    });
+  });
+
+  describe('typeMap / conditionMap / statusMap getters', () => {
+    it('exposes translated labels', () => {
+      const component = createComponent();
+
+      expect(component.typeMap).toEqual({ Incoming: 'REPORTS.INCOMING', Outgoing: 'REPORTS.OUTGOING' });
+      expect(component.conditionMap).toEqual({
+        FullPayment: 'TRANSACTIONS.FULL_PAYMENT',
+        InPayments: 'TRANSACTIONS.IN_PAYMENTS',
+      });
+      expect(component.statusMap).toEqual({
+        Approved: 'REPORTS.STATUS_PAID',
+        Pending: 'REPORTS.STATUS_OPEN',
+        Delayed: 'REPORTS.STATUS_DELAYED',
+      });
+    });
+  });
+
   describe('openModal', () => {
     it('opens the transaction details modal', () => {
       const component = createComponent();
@@ -179,6 +204,24 @@ describe('TransactionsComponent', () => {
       component.deleteTransaction({ id: 't1' } as Transaction);
 
       expect(component.filteredRowData).toEqual([{ id: 't2' }]);
+    });
+
+    it('does not touch the grid/rows when the deletion fails, but still notifies', () => {
+      const component = createComponent();
+      const gridRef = mockGridRef();
+      (component as any).gridRef = gridRef;
+      transactionServiceMock.delete.mockReturnValue(
+        of({ status: ResponseStatus.Error, message: 'Falha' }),
+      );
+
+      component.deleteTransaction({ id: 't1' } as Transaction);
+
+      expect(gridRef.gridApi.purgeInfiniteCache).not.toHaveBeenCalled();
+      expect(modalServiceMock.showSweetNotification).toHaveBeenCalledWith(
+        '',
+        'Falha',
+        ResponseStatus.Error,
+      );
     });
   });
 
@@ -251,6 +294,134 @@ describe('TransactionsComponent', () => {
       expect(component.filterType).toEqual({ Incoming: false, Outgoing: false });
       expect(component.filteredRowData).toEqual([{ id: 't1' }]);
     });
+
+    it('top-level: clearFilters purges the grid cache without touching filteredRowData', () => {
+      const component = createComponent();
+      const gridRef = mockGridRef();
+      (component as any).gridRef = gridRef;
+      component.filterStatus.Approved = true;
+
+      component.clearFilters();
+
+      expect(gridRef.gridApi.purgeInfiniteCache).toHaveBeenCalled();
+    });
+
+    it('embedded: excludes rows with no date when a date filter is active', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' };
+      component.rowData = [
+        { id: 't1' } as unknown as Transaction,
+        { id: 't2', date: '2024-01-01' } as unknown as Transaction,
+      ];
+      component.filterStartDate = '2024-01-01';
+
+      component.applyFilters();
+
+      expect(component.filteredRowData.map((t) => t.id)).toEqual(['t2']);
+    });
+
+    it('embedded: filters by start date only', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' };
+      component.rowData = [
+        { id: 't1', date: '2024-01-01' } as unknown as Transaction,
+        { id: 't2', date: '2024-02-01' } as unknown as Transaction,
+      ];
+      component.filterStartDate = '2024-01-15';
+
+      component.applyFilters();
+
+      expect(component.filteredRowData.map((t) => t.id)).toEqual(['t2']);
+    });
+
+    it('embedded: filters by end date only', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' };
+      component.rowData = [
+        { id: 't1', date: '2024-01-01' } as unknown as Transaction,
+        { id: 't2', date: '2024-02-01' } as unknown as Transaction,
+      ];
+      component.filterEndDate = '2024-01-15';
+
+      component.applyFilters();
+
+      expect(component.filteredRowData.map((t) => t.id)).toEqual(['t1']);
+    });
+
+    it('embedded: treats a missing status as an empty string when filtering by status', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' };
+      component.rowData = [{ id: 't1' } as unknown as Transaction];
+      component.filterStatus.Approved = true;
+
+      component.applyFilters();
+
+      expect(component.filteredRowData).toEqual([]);
+    });
+
+    it('embedded: filters by type', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' };
+      component.rowData = [
+        { id: 't1', type: 'Incoming' } as unknown as Transaction,
+        { id: 't2', type: 'Outgoing' } as unknown as Transaction,
+      ];
+      component.filterType.Incoming = true;
+
+      component.applyFilters();
+
+      expect(component.filteredRowData.map((t) => t.id)).toEqual(['t1']);
+    });
+
+    it('embedded: treats a missing type as an empty string when filtering by type', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' };
+      component.rowData = [{ id: 't1' } as unknown as Transaction];
+      component.filterType.Incoming = true;
+
+      component.applyFilters();
+
+      expect(component.filteredRowData).toEqual([]);
+    });
+  });
+
+  describe('getTransactions (private, via ngOnInit/refreshTransactions)', () => {
+    it('falls back to an empty array when the response has no data', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' };
+      transactionServiceMock.getByBusinessPartnerId.mockReturnValue(of({}));
+
+      component.refreshTransactions();
+
+      expect(component.rowData).toEqual([]);
+    });
+
+    it('stops loading without throwing when the request errors', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' };
+      transactionServiceMock.getByBusinessPartnerId.mockReturnValue(
+        throwError(() => new Error('fail')),
+      );
+
+      component.refreshTransactions();
+
+      expect(component.loading).toBe(false);
+    });
+
+    it('runs without a callback when called directly with none', () => {
+      const component = createComponent();
+      transactionServiceMock.getAll.mockReturnValue(of({ data: [] }));
+
+      expect(() => (component as any).getTransactions()).not.toThrow();
+    });
   });
 
   describe('pagedDataSource', () => {
@@ -264,6 +435,16 @@ describe('TransactionsComponent', () => {
         expect.objectContaining({ statuses: ['Delayed'] }),
       );
     });
+
+    it('falls back to undefined dates when no date filter is set', () => {
+      const component = createComponent();
+
+      component.pagedDataSource({ page: 1, pageSize: 10 });
+
+      expect(transactionServiceMock.getAllPaged).toHaveBeenCalledWith(
+        expect.objectContaining({ startDate: undefined, endDate: undefined, statuses: [] }),
+      );
+    });
   });
 
   describe('setFiltersFromQueryParams (via ngOnInit)', () => {
@@ -271,7 +452,7 @@ describe('TransactionsComponent', () => {
       window.history.pushState(
         {},
         '',
-        '/transactions?status=Approved&type=Incoming&startDate=2024-01-01',
+        '/transactions?status=Approved&type=Incoming&startDate=2024-01-01&endDate=2024-01-31',
       );
       const component = createComponent();
 
@@ -280,7 +461,37 @@ describe('TransactionsComponent', () => {
       expect(component.filterStatus.Approved).toBe(true);
       expect(component.filterType.Incoming).toBe(true);
       expect(component.filterStartDate).toBe('2024-01-01');
+      expect(component.filterEndDate).toBe('2024-01-31');
       expect(component.showFiltersOnInit).toBe(true);
+    });
+
+    it('ignores status/type values that are not known filter keys', () => {
+      window.history.pushState({}, '', '/transactions?status=Bogus,Approved&type=Bogus,Incoming');
+      const component = createComponent();
+
+      component.ngOnInit();
+
+      expect(component.filterStatus.Approved).toBe(true);
+      expect(component.filterType.Incoming).toBe(true);
+      expect((component.filterStatus as any).Bogus).toBeUndefined();
+      expect((component.filterType as any).Bogus).toBeUndefined();
+    });
+
+    it('sets showFiltersOnInit true when only a type filter is active', () => {
+      window.history.pushState({}, '', '/transactions?type=Incoming');
+      const component = createComponent();
+
+      component.ngOnInit();
+
+      expect(component.showFiltersOnInit).toBe(true);
+    });
+
+    it('leaves showFiltersOnInit false with no query params', () => {
+      const component = createComponent();
+
+      component.ngOnInit();
+
+      expect(component.showFiltersOnInit).toBe(false);
     });
   });
 
@@ -298,6 +509,24 @@ describe('TransactionsComponent', () => {
       );
     });
 
+    it('falls back to an empty string when the condition is missing entirely', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'condition')!;
+
+      expect((column.valueFormatter as (params: any) => string)({ value: null })).toBe('');
+    });
+
+    it('resolves the condition filterValueGetter from the row data', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'condition')!;
+
+      expect(
+        (column.filterValueGetter as (p: any) => string)({ data: { condition: 'InPayments' } }),
+      ).toBe('TRANSACTIONS.IN_PAYMENTS');
+    });
+
     it('colors the status badge based on the status', () => {
       const component = createComponent();
       component.ngOnInit();
@@ -309,6 +538,109 @@ describe('TransactionsComponent', () => {
 
       expect(html).toContain('bg-danger');
       expect(html).toContain('REPORTS.STATUS_DELAYED');
+    });
+
+    it('falls back to the raw value and default color for an unknown status', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'status')!;
+
+      const html = (column.cellRenderer as (params: any) => string)({ value: 'Weird' });
+
+      expect(html).toContain('bg-secondary');
+      expect(html).toContain('Weird');
+    });
+
+    it('resolves the status filterValueGetter from the row data', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'status')!;
+
+      expect(
+        (column.filterValueGetter as (p: any) => string)({ data: { status: 'Approved' } }),
+      ).toBe('REPORTS.STATUS_PAID');
+    });
+
+    it('renders the description as a link, falling back to an empty string', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'description')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: 'Desc' })).toContain('Desc');
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toContain('ag-link');
+    });
+
+    it('applies a success/danger cell class to positive payment/expense values, none otherwise', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const paymentColumn = component.columnDefs.find((c) => c.field === 'paymentTotalPrice')!;
+      const expenseColumn = component.columnDefs.find((c) => c.field === 'expenseTotalPrice')!;
+
+      expect((paymentColumn.cellClass as (p: any) => string)({ value: 10 })).toBe('text-success');
+      expect((paymentColumn.cellClass as (p: any) => string)({ value: 0 })).toBe('');
+      expect((expenseColumn.cellClass as (p: any) => string)({ value: 10 })).toBe('text-danger');
+      expect((expenseColumn.cellClass as (p: any) => string)({ value: 0 })).toBe('');
+      expect(
+        (paymentColumn.valueFormatter as (p: any) => string)({ value: 10 } as any),
+      ).toContain('R$');
+      expect(
+        (expenseColumn.valueFormatter as (p: any) => string)({ value: 10 } as any),
+      ).toContain('R$');
+    });
+
+    it('falls back to an empty string for a completely missing status', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'status')!;
+
+      const html = (column.cellRenderer as (params: any) => string)({ value: undefined });
+
+      expect(html).toContain('bg-secondary');
+      expect(html).not.toContain('undefined');
+    });
+
+    it('formats date as a BR date', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'date')!;
+
+      expect(
+        (column.valueFormatter as (p: any) => string)({ value: '2024-01-15' } as any),
+      ).toContain('/');
+    });
+
+    it('renders businessPartnerName, falling back to N/A, and hides the column when embedded', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'businessPartnerName')!;
+
+      expect(column.hide).toBe(true);
+      expect((column.cellRenderer as (p: any) => string)({ value: 'Cliente A' })).toBe(
+        'Cliente A',
+      );
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toBe('N/A');
+    });
+
+    it('renders orderNumber, falling back to N/A', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'orderNumber')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: '123' })).toBe('123');
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toBe('N/A');
+    });
+
+    it('renders the actions column buttons', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs[component.columnDefs.length - 1];
+
+      const html = (column.cellRenderer as () => string)();
+
+      expect(html).toContain('data-action="view"');
+      expect(html).toContain('data-action="edit"');
+      expect(html).toContain('data-action="delete"');
     });
   });
 });
