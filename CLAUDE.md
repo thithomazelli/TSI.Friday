@@ -174,6 +174,18 @@ código novo; todo componente novo é standalone e declara seus próprios `impor
   componente/serviço/guard/interceptor novo, e toda mudança de comportamento relevante em um já
   existente, ganha spec correspondente (`npm test` deve passar limpo antes de considerar o
   trabalho concluído).
+- **Descrição do teste — `should ... when ...`**: toda chamada `it(...)` (e `it.each`) descreve o
+  teste no formato `should <comportamento esperado> when <condição/cenário>` — em inglês, mesmo o
+  resto do arquivo estando em português. Ex.: `it('should return an empty array when the response
+  has no data', ...)`, `it('should mark the form as touched when submit is called with an invalid
+  form', ...)`. Não usar frases soltas tipo `'works'`, `'handles the edge case'` ou descrições em
+  português.
+- **Corpo do teste em AAA (Arrange / Act / Assert)**: dentro de cada `it(...)`, marcar as três
+  seções com comentários `// Arrange`, `// Act`, `// Assert`, nessa ordem — mesmo quando uma seção
+  tem uma única linha ou está vazia (ex.: um teste que só monta o componente sem chamar nada ainda
+  cria a seção `// Act` comentando a ação, ainda que trivial). `// Arrange` cobre criação do
+  componente/mocks e estado inicial; `// Act` é a chamada ao método/ação sob teste; `// Assert` são
+  as `expect(...)`. Seguido por todo spec novo ou reescrito a partir de agora.
 - **Organização de pastas/nomenclatura**: seguir a mesma estrutura já usada nas outras features —
   `<feature>/components/<entidade>-list`, `<entidade>-form`, `<entidade>-details-modal` (ou
   `-details-page`), etc. (ver `business-partner/components/` como referência:
