@@ -129,6 +129,20 @@ describe('BusinessPartnersComponent', () => {
 
       expect(gridRef.gridApi.purgeInfiniteCache).not.toHaveBeenCalled();
     });
+
+    it('does not throw when destroyed before ngOnInit ever subscribed', () => {
+      const component = createComponent('/clients');
+
+      expect(() => component.ngOnDestroy()).not.toThrow();
+    });
+
+    it('falls back to an empty title/baseEndPoint when the url matches neither route', () => {
+      const component = createComponent('/other');
+      component.ngOnInit();
+
+      expect(component.baseEndPoint).toBe('');
+      expect(component.title).toBe('');
+    });
   });
 
   describe('pagedDataSource', () => {
@@ -157,6 +171,18 @@ describe('BusinessPartnersComponent', () => {
         expect.objectContaining({ data: { type: BusinessPartnerType.Client } }),
       );
     });
+
+    it('tags the initial state with the supplier type', () => {
+      const component = createComponent('/suppliers');
+      component.ngOnInit();
+
+      component.openModal({ isEdit: false, data: {} });
+
+      expect(modalServiceMock.showTemplateModal).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ data: { type: BusinessPartnerType.Supplier } }),
+      );
+    });
   });
 
   describe('deleteBusinessPartner', () => {
@@ -177,6 +203,20 @@ describe('BusinessPartnersComponent', () => {
         ResponseStatus.Success,
       );
     });
+
+    it('does not purge the grid cache when the deletion fails', () => {
+      const component = createComponent('/clients');
+      const gridRef = mockGridRef();
+      (component as any).gridRef = gridRef;
+      businessPartnerServiceMock.delete.mockReturnValue(
+        of({ status: ResponseStatus.Error, message: 'Falha' }),
+      );
+
+      component.deleteBusinessPartner({ id: 'bp1' } as BusinessPartner);
+
+      expect(gridRef.gridApi.purgeInfiniteCache).not.toHaveBeenCalled();
+      expect(modalServiceMock.hideModal).toHaveBeenCalled();
+    });
   });
 
   describe('refreshBusinessPartners', () => {
@@ -196,6 +236,19 @@ describe('BusinessPartnersComponent', () => {
       );
     });
 
+    it('shows a suppliers-specific success message', () => {
+      const component = createComponent('/suppliers');
+      component.ngOnInit();
+      businessPartnerServiceMock.refresh.mockReturnValue(of(undefined));
+
+      component.refreshBusinessPartners();
+
+      expect(notificationServiceMock.showMessage).toHaveBeenCalledWith(
+        ResponseStatus.Success,
+        'BUSINESS_PARTNER.SUPPLIERS_REFRESHED',
+      );
+    });
+
     it('shows a suppliers-specific error message on failure', () => {
       const component = createComponent('/suppliers');
       component.ngOnInit();
@@ -208,6 +261,21 @@ describe('BusinessPartnersComponent', () => {
       expect(notificationServiceMock.showMessage).toHaveBeenCalledWith(
         ResponseStatus.Error,
         'BUSINESS_PARTNER.SUPPLIERS_REFRESH_ERROR',
+      );
+    });
+
+    it('shows a clients-specific error message on failure', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      businessPartnerServiceMock.refresh.mockReturnValue(
+        throwError(() => new Error('fail')),
+      );
+
+      component.refreshBusinessPartners();
+
+      expect(notificationServiceMock.showMessage).toHaveBeenCalledWith(
+        ResponseStatus.Error,
+        'BUSINESS_PARTNER.CLIENTS_REFRESH_ERROR',
       );
     });
   });
@@ -239,6 +307,144 @@ describe('BusinessPartnersComponent', () => {
       });
 
       expect(result).toBe('11.222.333/0001-81');
+    });
+
+    it('falls back to an empty string when the individual document is missing', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find(
+        (c) => c.headerName === 'BUSINESS_PARTNER.CPF_CNPJ',
+      )!;
+
+      const result = (column.cellRenderer as (params: any) => string)({
+        data: { documentType: 'Física' },
+      });
+
+      expect(result).toBe('');
+    });
+
+    it('falls back to an empty string when the company document is missing', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find(
+        (c) => c.headerName === 'BUSINESS_PARTNER.CPF_CNPJ',
+      )!;
+
+      const result = (column.cellRenderer as (params: any) => string)({
+        data: { documentType: 'Jurídica' },
+      });
+
+      expect(result).toBe('');
+    });
+
+    it('returns the raw value when the digit count matches neither CPF nor CNPJ', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find(
+        (c) => c.headerName === 'BUSINESS_PARTNER.CPF_CNPJ',
+      )!;
+
+      const result = (column.cellRenderer as (params: any) => string)({
+        data: { documentType: 'Física', socialSecurityCard: '123' },
+      });
+
+      expect(result).toBe('123');
+    });
+  });
+
+  describe('name column cell renderer', () => {
+    it('renders the value as a link, falling back to an empty string when missing', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'name')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: 'Cliente A' })).toContain(
+        'Cliente A',
+      );
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toContain('ag-link');
+    });
+  });
+
+  describe('email column cell renderer', () => {
+    it('renders the value as a link, falling back to an empty string when missing', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'email')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: 'a@b.com' })).toContain(
+        'a@b.com',
+      );
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toContain('ag-link');
+    });
+  });
+
+  describe('phone column cell renderer', () => {
+    it('formats a 10-digit phone number', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'phone')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: '1122223333' })).toBe(
+        '(11) 2222-3333',
+      );
+    });
+
+    it('returns the raw value when it does not have 10 digits', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'phone')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: '123' })).toBe('123');
+    });
+
+    it('treats a missing value as an empty string', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'phone')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toBe('');
+    });
+  });
+
+  describe('mobile column cell renderer', () => {
+    it('formats an 11-digit mobile number', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'mobile')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: '11922223333' })).toBe(
+        '(11) 9 2222-3333',
+      );
+    });
+
+    it('returns the raw value when it does not have 11 digits', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'mobile')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: '123' })).toBe('123');
+    });
+
+    it('treats a missing value as an empty string', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'mobile')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toBe('');
+    });
+  });
+
+  describe('actions column cell renderer', () => {
+    it('renders the view, edit and delete buttons', () => {
+      const component = createComponent('/clients');
+      component.ngOnInit();
+      const column = component.columnDefs[component.columnDefs.length - 1];
+
+      const html = (column.cellRenderer as () => string)();
+
+      expect(html).toContain('data-action="view"');
+      expect(html).toContain('data-action="edit"');
+      expect(html).toContain('data-action="delete"');
     });
   });
 });
