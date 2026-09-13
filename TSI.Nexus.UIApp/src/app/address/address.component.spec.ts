@@ -95,6 +95,26 @@ describe('AddressComponent', () => {
 
       expect(addressServiceMock.getAllByBusinessPartnerId).not.toHaveBeenCalled();
     });
+
+    it('does not throw when destroyed before ngOnInit ever subscribed', () => {
+      const component = createComponent();
+
+      expect(() => component.ngOnDestroy()).not.toThrow();
+    });
+  });
+
+  describe('openModal', () => {
+    it('shows the address details modal with the given initial state', () => {
+      const component = createComponent();
+      const initialState = { address: { id: 'a1' } };
+
+      component.openModal(initialState);
+
+      expect(modalServiceMock.showTemplateModal).toHaveBeenCalledWith(
+        expect.anything(),
+        initialState,
+      );
+    });
   });
 
   describe('deleteAddress', () => {
@@ -152,6 +172,26 @@ describe('AddressComponent', () => {
         'ADDRESS.ADDRESSES_REFRESH_ERROR',
       );
     });
+
+    it('falls back to an empty string id when there is no parentData yet', () => {
+      const component = createComponent();
+      component.parentData = null;
+      addressServiceMock.refresh.mockReturnValue(of({ data: [] }));
+
+      component.refreshAddresses();
+
+      expect(addressServiceMock.refresh).toHaveBeenCalledWith('');
+    });
+
+    it('falls back to an empty array when the response has no data', () => {
+      const component = createComponent();
+      component.parentData = { id: 'bp1' } as BusinessPartner;
+      addressServiceMock.refresh.mockReturnValue(of({}));
+
+      component.refreshAddresses();
+
+      expect(component.rowData).toEqual([]);
+    });
   });
 
   describe('updateDefaultAddress', () => {
@@ -181,6 +221,29 @@ describe('AddressComponent', () => {
       expect(component.rowData).toEqual([]);
       expect(addressServiceMock.getAllByBusinessPartnerId).not.toHaveBeenCalled();
     });
+
+    it('falls back to an empty array when the response has no data', () => {
+      const component = createComponent();
+      component.parentData = { id: 'bp1' } as BusinessPartner;
+      addressServiceMock.getAllByBusinessPartnerId.mockReturnValue(of({}));
+      component.ngOnInit();
+
+      addressChanged$.next();
+
+      expect(component.rowData).toEqual([]);
+      expect(component.loading).toBe(false);
+    });
+
+    it('stops loading without throwing when the request errors', () => {
+      const component = createComponent();
+      component.parentData = { id: 'bp1' } as BusinessPartner;
+      addressServiceMock.getAllByBusinessPartnerId.mockReturnValue(throwError(() => new Error('fail')));
+      component.ngOnInit();
+
+      addressChanged$.next();
+
+      expect(component.loading).toBe(false);
+    });
   });
 
   describe('isDefault column cell renderer', () => {
@@ -202,6 +265,104 @@ describe('AddressComponent', () => {
 
       expect(html).not.toContain('checked');
       expect(html).not.toContain('disabled');
+    });
+  });
+
+  describe('type column', () => {
+    it('renders the value as a link, falling back to an empty string when missing', () => {
+      const component = createComponent();
+      const column = component.columnDefs.find((c) => c.field === 'type')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: 'Residencial' })).toContain('Residencial');
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toContain('ag-link');
+    });
+  });
+
+  describe('zipCode column', () => {
+    function formatter(params: any) {
+      const column = component.columnDefs.find((c) => c.field === 'zipCode')!;
+      return (column.valueFormatter as (p: any) => string)(params);
+    }
+    let component: ReturnType<typeof createComponent>;
+
+    beforeEach(() => {
+      component = createComponent();
+    });
+
+    it('formats an 8-digit CEP with a dash', () => {
+      expect(formatter({ value: '12345678' })).toBe('12345-678');
+    });
+
+    it('strips non-digit characters before checking the length', () => {
+      expect(formatter({ value: '12345-678' })).toBe('12345-678');
+    });
+
+    it('returns the raw value when it does not resolve to 8 digits', () => {
+      expect(formatter({ value: '123' })).toBe('123');
+    });
+
+    it('treats a missing value as an empty string when formatting', () => {
+      expect(formatter({ value: null })).toBeNull();
+    });
+
+    it('renders the cell value as a link, falling back to an empty string when missing', () => {
+      const column = component.columnDefs.find((c) => c.field === 'zipCode')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: '12345-678' })).toContain('12345-678');
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toContain('ag-link');
+    });
+  });
+
+  describe('address (street/number) column', () => {
+    function valueGetter(data: any) {
+      const column = component.columnDefs.find((c) => c.headerName === 'COMMON.ADDRESS')!;
+      return (column.valueGetter as (p: any) => string)({ data });
+    }
+    let component: ReturnType<typeof createComponent>;
+
+    beforeEach(() => {
+      component = createComponent();
+    });
+
+    it('joins street and number when both are present', () => {
+      expect(valueGetter({ street: 'Rua A', number: '123' })).toBe('Rua A, 123');
+    });
+
+    it('treats a numeric zero number as falsy, falling back to just the street', () => {
+      // `street && number` short-circuits on a falsy 0, so it drops through to `street || number`
+      // instead of joining - the ", 0" suffix is lost, unlike a real "0" string would be.
+      expect(valueGetter({ street: 'Rua A', number: 0 })).toBe('Rua A');
+    });
+
+    it('falls back to just the street when there is no number', () => {
+      expect(valueGetter({ street: 'Rua A', number: null })).toBe('Rua A');
+    });
+
+    it('falls back to just the number when there is no street', () => {
+      expect(valueGetter({ street: '', number: '123' })).toBe('123');
+    });
+
+    it('falls back to an empty string when there is no data at all', () => {
+      expect(valueGetter(undefined)).toBe('');
+    });
+
+    it('renders the resolved value as a link, falling back to an empty string when missing', () => {
+      const column = component.columnDefs.find((c) => c.headerName === 'COMMON.ADDRESS')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: 'Rua A, 123' })).toContain('Rua A, 123');
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toContain('ag-link');
+    });
+  });
+
+  describe('actions column', () => {
+    it('renders the edit and delete buttons', () => {
+      const component = createComponent();
+      const column = component.columnDefs[component.columnDefs.length - 1];
+
+      const html = (column.cellRenderer as () => string)();
+
+      expect(html).toContain('data-action="edit"');
+      expect(html).toContain('data-action="delete"');
     });
   });
 });
