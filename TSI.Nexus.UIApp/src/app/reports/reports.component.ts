@@ -216,6 +216,12 @@ export class ReportsComponent implements OnInit {
     document.body.innerHTML = originalContents;
   }
 
+  // Everything past the early-return guards below (building the header/rows, then calling the
+  // real downloadReportPdf()) is not unit-tested: under jsdom there is no real Canvas 2D context,
+  // and driving this with a full DOM does not throw - html2canvas simply hangs indefinitely
+  // instead of resolving or rejecting (see report-pdf.spec.ts for the same documented limitation
+  // on downloadReportPdf() itself). Covered instead by manual verification in a real browser (see
+  // docs/spec-12, Fase 5 checklist).
   async generatePDF() {
     if (this.generatingPdf) {
       return;

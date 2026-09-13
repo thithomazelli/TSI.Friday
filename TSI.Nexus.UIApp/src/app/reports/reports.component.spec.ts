@@ -91,6 +91,68 @@ describe('ReportsComponent', () => {
       expect(component.filteredData.map((p) => p.id)).toEqual(['p1']);
     });
 
+    it('excludes items with no date when a date filter is active', () => {
+      const component = createComponent();
+      component.data = [
+        { id: 'p1' } as unknown as Payment,
+        { id: 'p2', date: '2024-01-01' } as unknown as Payment,
+      ];
+      component.filterStartDate = '2024-01-01';
+
+      component.applyFilters();
+
+      expect(component.filteredData.map((p) => p.id)).toEqual(['p2']);
+    });
+
+    it('filters by start date only', () => {
+      const component = createComponent();
+      component.data = [
+        { id: 'p1', date: '2024-01-01' } as unknown as Payment,
+        { id: 'p2', date: '2024-02-01' } as unknown as Payment,
+      ];
+      component.filterStartDate = '2024-01-15';
+
+      component.applyFilters();
+
+      expect(component.filteredData.map((p) => p.id)).toEqual(['p2']);
+    });
+
+    it('filters by end date only', () => {
+      const component = createComponent();
+      component.data = [
+        { id: 'p1', date: '2024-01-01' } as unknown as Payment,
+        { id: 'p2', date: '2024-02-01' } as unknown as Payment,
+      ];
+      component.filterEndDate = '2024-01-15';
+
+      component.applyFilters();
+
+      expect(component.filteredData.map((p) => p.id)).toEqual(['p1']);
+    });
+
+    it('treats a missing status as an empty string when filtering by status', () => {
+      const component = createComponent();
+      component.data = [{ id: 'p1' } as unknown as Payment];
+      component.filterStatus.Approved = true;
+
+      component.applyFilters();
+
+      expect(component.filteredData).toEqual([]);
+    });
+
+    it('filters by type', () => {
+      const component = createComponent();
+      component.data = [
+        { id: 'p1', type: 'Incoming' } as unknown as Payment,
+        { id: 'p2', type: 'Outgoing' } as unknown as Payment,
+      ];
+      component.filterType.Incoming = true;
+
+      component.applyFilters();
+
+      expect(component.filteredData.map((p) => p.id)).toEqual(['p1']);
+    });
+
     it('clearFilters resets state and shows all data', () => {
       const component = createComponent();
       component.data = [{ id: 'p1' } as Payment];
@@ -123,6 +185,17 @@ describe('ReportsComponent', () => {
       expect(component.getStatusLabel(PaymentStatus.Delayed)).toBe('REPORTS.STATUS_DELAYED');
       expect(component.getStatusColor(PaymentStatus.Delayed)).toBe('danger');
     });
+
+    it('falls back to the raw type/status when not found in the translation map', () => {
+      const component = createComponent();
+      expect(component.getTypeLabel('SomethingElse' as PaymentType)).toBe('SomethingElse');
+      expect(component.getStatusLabel('SomethingElse' as PaymentStatus)).toBe('SomethingElse');
+    });
+
+    it('falls back to the default color for an unknown status', () => {
+      const component = createComponent();
+      expect(component.getStatusColor('SomethingElse' as PaymentStatus)).toBe('secondary');
+    });
   });
 
   describe('totals', () => {
@@ -136,6 +209,25 @@ describe('ReportsComponent', () => {
       expect(component.getTotalIncoming()).toBe(100);
       expect(component.getTotalOutgoing()).toBe(40);
       expect(component.getTotal()).toBe(60);
+    });
+
+    it('excludes items with a null price', () => {
+      const component = createComponent();
+      component.filteredData = [
+        { type: 'Incoming', price: null } as unknown as Payment,
+        { type: 'Outgoing', price: null } as unknown as Payment,
+      ];
+
+      expect(component.getTotalIncoming()).toBe(0);
+      expect(component.getTotalOutgoing()).toBe(0);
+      expect(component.getTotal()).toBe(0);
+    });
+
+    it('treats a type that is neither Incoming nor Outgoing as zero in the net total', () => {
+      const component = createComponent();
+      component.filteredData = [{ type: 'Other', price: 50 } as unknown as Payment];
+
+      expect(component.getTotal()).toBe(0);
     });
   });
 
@@ -185,5 +277,28 @@ describe('ReportsComponent', () => {
       expect(modalServiceMock.showPdfProgress).not.toHaveBeenCalled();
       expect(component.generatingPdf).toBe(false);
     });
+
+    it('does nothing when the table has no thead', async () => {
+      const component = createComponent();
+      const section = document.createElement('div');
+      section.id = 'print-section';
+      const table = document.createElement('table');
+      table.id = 'report-data-table';
+      section.appendChild(table);
+      document.body.appendChild(section);
+
+      await component.generatePDF();
+
+      expect(modalServiceMock.showPdfProgress).not.toHaveBeenCalled();
+      section.remove();
+    });
+
+    // The rest of generatePDF() - from showPdfProgress() onward - builds the header/rows and then
+    // calls the real downloadReportPdf() (report-pdf.ts) via dynamic import. Empirically, driving
+    // it with a full valid DOM under jsdom does not throw and does not resolve either: html2canvas
+    // hangs indefinitely (no real Canvas 2D context available, see report-pdf.spec.ts's own
+    // documented rationale for why that function isn't unit-testable here), so a test that
+    // triggers it would hang rather than fail cleanly. That leaves this success path as an
+    // accepted, documented residual - the same class of gap as downloadReportPdf() itself.
   });
 });
