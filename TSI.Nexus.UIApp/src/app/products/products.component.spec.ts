@@ -136,6 +136,14 @@ describe('ProductsComponent', () => {
     });
   });
 
+  describe('ngOnDestroy', () => {
+    it('does not throw when called before ngOnInit ever subscribed', () => {
+      const component = createComponent();
+
+      expect(() => component.ngOnDestroy()).not.toThrow();
+    });
+  });
+
   describe('openModal', () => {
     it('opens the product details modal', () => {
       const component = createComponent();
@@ -196,6 +204,71 @@ describe('ProductsComponent', () => {
   });
 
   describe('column cell renderers', () => {
+    it('renders the sku and name as links, falling back to empty when the value is missing', () => {
+      const component = createComponent();
+      const skuColumn = component.columnDefs.find((c) => c.field === 'sku')!;
+      const nameColumn = component.columnDefs.find((c) => c.field === 'name')!;
+
+      expect((skuColumn.cellRenderer as (params: any) => string)({ value: 'SKU1' })).toContain('SKU1');
+      expect((skuColumn.cellRenderer as (params: any) => string)({ value: null })).toContain('ag-link');
+      expect((nameColumn.cellRenderer as (params: any) => string)({ value: 'Produto 1' })).toContain('Produto 1');
+      expect((nameColumn.cellRenderer as (params: any) => string)({ value: null })).toContain('ag-link');
+    });
+
+    it('shows an "available" badge for an in-stock, non-service product', () => {
+      const component = createComponent();
+      const statusColumn = component.columnDefs.find((c) => c.headerName === 'COMMON.STATUS')!;
+
+      const html = (statusColumn.cellRenderer as (params: any) => string)({
+        value: 5,
+        data: { type: 'Sale' },
+      });
+
+      expect(html).toContain('bg-success');
+    });
+
+    it('formats the price column with formatCurrencyBRL', () => {
+      const component = createComponent();
+      const priceColumn = component.columnDefs.find((c) => c.field === 'price')!;
+
+      const formatted = (priceColumn.valueFormatter as (params: any) => string)({ value: 1234.5 });
+
+      expect(typeof formatted).toBe('string');
+    });
+
+    it('renders the action buttons column', () => {
+      const component = createComponent();
+      const actionsColumn = component.columnDefs[component.columnDefs.length - 1];
+
+      const html = (actionsColumn.cellRenderer as () => string)();
+
+      expect(html).toContain('data-action="view"');
+      expect(html).toContain('data-action="edit"');
+      expect(html).toContain('data-action="delete"');
+    });
+
+    it('exposes filterValueGetter for unit and type, matching the cell renderer output', () => {
+      const component = createComponent();
+      const unitColumn = component.columnDefs.find((c) => c.field === 'unit')!;
+      const typeColumn = component.columnDefs.find((c) => c.field === 'type')!;
+
+      expect((unitColumn.filterValueGetter as (params: any) => string)({ data: { unit: 'Unit' } })).toBe(
+        'PRODUCTS.UNIT_UNIT',
+      );
+      expect((typeColumn.filterValueGetter as (params: any) => string)({ data: { type: 'Sale' } })).toBe(
+        'PRODUCTS.TYPE_SALE',
+      );
+    });
+
+    it('falls back to an empty string when the unit/type is nullish', () => {
+      const component = createComponent();
+      const unitColumn = component.columnDefs.find((c) => c.field === 'unit')!;
+      const typeColumn = component.columnDefs.find((c) => c.field === 'type')!;
+
+      expect((unitColumn.cellRenderer as (params: any) => string)({ data: { unit: undefined } })).toBe('');
+      expect((typeColumn.cellRenderer as (params: any) => string)({ data: { type: undefined } })).toBe('');
+    });
+
     it('shows an "available" badge for a service regardless of stock', () => {
       const component = createComponent();
       const statusColumn = component.columnDefs.find((c) => c.headerName === 'COMMON.STATUS')!;
