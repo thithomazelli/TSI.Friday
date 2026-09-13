@@ -10,7 +10,7 @@ import {
   TranslationService,
 } from '@nexus/core';
 import { GridApi } from 'ag-grid-community';
-import { Subject, of } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { QuotesComponent } from './quotes.component';
 import { GridComponent } from '../shared/grid/grid.component';
 
@@ -138,6 +138,24 @@ describe('QuotesComponent', () => {
 
       expect(gridRef.gridApi.purgeInfiniteCache).not.toHaveBeenCalled();
     });
+
+    it('rebuilds the grid on language change', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const before = component.columnDefs;
+
+      language$.next('en');
+
+      expect(component.columnDefs).not.toBe(before);
+    });
+  });
+
+  describe('ngOnDestroy', () => {
+    it('does not throw when destroyed before ngOnInit ever subscribed', () => {
+      const component = createComponent();
+
+      expect(() => component.ngOnDestroy()).not.toThrow();
+    });
   });
 
   describe('openModal', () => {
@@ -209,6 +227,24 @@ describe('QuotesComponent', () => {
 
       expect(component.filteredRowData).toEqual([{ id: 'q2' }]);
     });
+
+    it('does not touch the grid/rows when the deletion fails, but still notifies', () => {
+      const component = createComponent();
+      const gridRef = mockGridRef();
+      (component as any).gridRef = gridRef;
+      quoteServiceMock.delete.mockReturnValue(
+        of({ status: ResponseStatus.Error, message: 'Falha' }),
+      );
+
+      component.deleteQuote({ id: 'q1' } as Quote);
+
+      expect(gridRef.gridApi.purgeInfiniteCache).not.toHaveBeenCalled();
+      expect(modalServiceMock.showSweetNotification).toHaveBeenCalledWith(
+        '',
+        'Falha',
+        ResponseStatus.Error,
+      );
+    });
   });
 
   describe('refreshQuotes', () => {
@@ -278,6 +314,74 @@ describe('QuotesComponent', () => {
       });
       expect(component.filteredRowData).toEqual([{ id: 'q1' }]);
     });
+
+    it('top-level: clearFilters purges the grid cache without touching filteredRowData', () => {
+      const component = createComponent();
+      const gridRef = mockGridRef();
+      (component as any).gridRef = gridRef;
+      component.filterStatus.Open = true;
+
+      component.clearFilters();
+
+      expect(gridRef.gridApi.purgeInfiniteCache).toHaveBeenCalled();
+    });
+
+    it('embedded: excludes rows with no createDate when a date filter is active', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      component.rowData = [
+        { id: 'q1' } as unknown as Quote,
+        { id: 'q2', createDate: '2024-01-01' } as unknown as Quote,
+      ];
+      component.filterStartDate = '2024-01-01';
+
+      component.applyFilters();
+
+      expect(component.filteredRowData.map((q) => q.id)).toEqual(['q2']);
+    });
+
+    it('embedded: filters by start date only', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      component.rowData = [
+        { id: 'q1', createDate: '2024-01-01' } as unknown as Quote,
+        { id: 'q2', createDate: '2024-02-01' } as unknown as Quote,
+      ];
+      component.filterStartDate = '2024-01-15';
+
+      component.applyFilters();
+
+      expect(component.filteredRowData.map((q) => q.id)).toEqual(['q2']);
+    });
+
+    it('embedded: filters by end date only', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      component.rowData = [
+        { id: 'q1', createDate: '2024-01-01' } as unknown as Quote,
+        { id: 'q2', createDate: '2024-02-01' } as unknown as Quote,
+      ];
+      component.filterEndDate = '2024-01-15';
+
+      component.applyFilters();
+
+      expect(component.filteredRowData.map((q) => q.id)).toEqual(['q1']);
+    });
+
+    it('embedded: treats a missing status as an empty string when filtering by status', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      component.rowData = [{ id: 'q1' } as unknown as Quote];
+      component.filterStatus.Open = true;
+
+      component.applyFilters();
+
+      expect(component.filteredRowData).toEqual([]);
+    });
   });
 
   describe('pagedDataSource', () => {
@@ -293,16 +397,81 @@ describe('QuotesComponent', () => {
     });
   });
 
+  describe('getQuotes (private, via ngOnInit/refreshQuotes)', () => {
+    it('falls back to an empty array when the response has no data', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      quoteServiceMock.getByBusinessPartnerId.mockReturnValue(of({}));
+
+      component.refreshQuotes();
+
+      expect(component.rowData).toEqual([]);
+    });
+
+    it('stops loading without throwing when the request errors', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      quoteServiceMock.getByBusinessPartnerId.mockReturnValue(
+        throwError(() => new Error('fail')),
+      );
+
+      component.refreshQuotes();
+
+      expect(component.loading).toBe(false);
+    });
+
+    it('runs without a callback when called directly with none', () => {
+      const component = createComponent();
+      quoteServiceMock.getAll.mockReturnValue(of({ data: [] }));
+
+      expect(() => (component as any).getQuotes()).not.toThrow();
+    });
+  });
+
   describe('setFiltersFromQueryParams (via ngOnInit)', () => {
     it('reads filters from the URL', () => {
-      window.history.pushState({}, '', '/quotes?status=Open&startDate=2024-01-01');
+      window.history.pushState(
+        {},
+        '',
+        '/quotes?status=Open&startDate=2024-01-01&endDate=2024-01-31',
+      );
       const component = createComponent();
 
       component.ngOnInit();
 
       expect(component.filterStatus.Open).toBe(true);
       expect(component.filterStartDate).toBe('2024-01-01');
+      expect(component.filterEndDate).toBe('2024-01-31');
       expect(component.showFiltersOnInit).toBe(true);
+    });
+
+    it('ignores status values that are not known filter keys', () => {
+      window.history.pushState({}, '', '/quotes?status=Bogus,Open');
+      const component = createComponent();
+
+      component.ngOnInit();
+
+      expect(component.filterStatus.Open).toBe(true);
+      expect((component.filterStatus as any).Bogus).toBeUndefined();
+    });
+
+    it('sets showFiltersOnInit true when only a status filter is active (no dates)', () => {
+      window.history.pushState({}, '', '/quotes?status=Open');
+      const component = createComponent();
+
+      component.ngOnInit();
+
+      expect(component.showFiltersOnInit).toBe(true);
+    });
+
+    it('leaves showFiltersOnInit false with no query params', () => {
+      const component = createComponent();
+
+      component.ngOnInit();
+
+      expect(component.showFiltersOnInit).toBe(false);
     });
   });
 
@@ -325,6 +494,95 @@ describe('QuotesComponent', () => {
       const html = (column.cellRenderer as (params: any) => string)({ value: 'Product' });
 
       expect(html).toContain('PRODUCTS.SINGULAR');
+    });
+
+    it('renders the quoteNumber value as a link, falling back to an empty string', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'quoteNumber')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: '123' })).toContain('123');
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toContain('ag-link');
+    });
+
+    it('renders the businessPartnerName value as a link, falling back to an empty string', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'businessPartnerName')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: 'Cliente A' })).toContain(
+        'Cliente A',
+      );
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toContain('ag-link');
+    });
+
+    it('hides the businessPartnerName column when embedded in a business partner', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'businessPartnerName')!;
+
+      expect(column.hide).toBe(true);
+    });
+
+    it('formats totalPrice as BRL currency', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'totalPrice')!;
+
+      expect((column.valueFormatter as (p: any) => string)({ value: 100 } as any)).toContain(
+        'R$',
+      );
+    });
+
+    it('formats date as BR date', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'date')!;
+
+      expect(
+        (column.valueFormatter as (p: any) => string)({ value: '2024-01-15' } as any),
+      ).toContain('/');
+    });
+
+    describe('status column', () => {
+      it.each([
+        ['Closed', 'success', 'QUOTES.STATUS_CLOSED'],
+        ['Open', 'info', 'QUOTES.STATUS_OPEN'],
+        ['WaitingPayment', 'warning', 'QUOTES.STATUS_WAITING_PAYMENT'],
+      ])('renders status %s with the %s color and translated label', (status, color, label) => {
+        const component = createComponent();
+        component.ngOnInit();
+        const column = component.columnDefs.find((c) => c.headerName === 'COMMON.STATUS')!;
+
+        const html = (column.cellRenderer as (p: any) => string)({ value: status });
+
+        expect(html).toContain(`bg-${color}`);
+        expect(html).toContain(label);
+      });
+
+      it('falls back to a secondary badge with the raw value for an unknown status', () => {
+        const component = createComponent();
+        component.ngOnInit();
+        const column = component.columnDefs.find((c) => c.headerName === 'COMMON.STATUS')!;
+
+        const html = (column.cellRenderer as (p: any) => string)({ value: 'Unknown' });
+
+        expect(html).toContain('bg-secondary');
+        expect(html).toContain('Unknown');
+      });
+    });
+
+    it('renders the actions column buttons', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs[component.columnDefs.length - 1];
+
+      const html = (column.cellRenderer as () => string)();
+
+      expect(html).toContain('data-action="view"');
+      expect(html).toContain('data-action="edit"');
+      expect(html).toContain('data-action="delete"');
     });
   });
 });
