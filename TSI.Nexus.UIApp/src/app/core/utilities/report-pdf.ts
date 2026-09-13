@@ -39,7 +39,11 @@ export interface ReportPdfInput {
   pageLabel: (current: number, total: number) => string;
 }
 
-function buildReportPageElement(
+// Exported (not just for downloadReportPdf's internal use) for the same reason chunkRows is: pure
+// DOM construction with no canvas/PDF dependency, so the pagination markup itself - including the
+// totalsHtml ?? '' fallback on non-final pages - can be unit tested under jsdom without needing to
+// mock html2canvas/jsPDF (see report-pdf.spec.ts for why that part of the flow isn't testable here).
+export function buildReportPageElement(
   headerHtml: string,
   theadHtml: string,
   rowsHtml: string[],
