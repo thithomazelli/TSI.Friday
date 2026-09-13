@@ -60,6 +60,19 @@ describe('GridComponent', () => {
     expect(component.overlayLoadingTemplate).toContain('COMMON.LOADING');
   });
 
+  it('falls back to the pt-BR locale when the current language has no matching ag-Grid locale', () => {
+    const component = new GridComponent(
+      { showSweetConfirmation: vi.fn() } as unknown as ModalService,
+      { navigateByUrl: vi.fn() } as unknown as Router,
+      { paramMap: new Subject() } as unknown as ActivatedRoute,
+      { current: 'fr', instant: vi.fn((key: string) => key), language$: new Subject() } as unknown as TranslationService,
+      { markForCheck: vi.fn() } as unknown as ChangeDetectorRef,
+    );
+
+    expect(component.localeText).toEqual(component.localeText);
+    expect(Object.keys(component.localeText).length).toBeGreaterThan(0);
+  });
+
   describe('ngOnInit', () => {
     it('sets the grid style from compactView', () => {
       const component = createComponent();
@@ -124,6 +137,29 @@ describe('GridComponent', () => {
     });
   });
 
+  describe('onFilterTextBoxChanged', () => {
+    it('falls back to an empty string when the input has no value', () => {
+      const component = createComponent();
+
+      component.onFilterTextBoxChanged({ target: {} } as unknown as Event);
+
+      expect(component.quickFilter).toBe('');
+    });
+
+    it('does not touch the infinite cache when not server-side', async () => {
+      const component = createComponent();
+      component.serverSide = false;
+      component.ngOnInit();
+      const gridApi = mockGridApi();
+      component.gridApi = gridApi;
+
+      component.onFilterTextBoxChanged({ target: { value: 'abc' } } as unknown as Event);
+      await new Promise((resolve) => setTimeout(resolve, 320));
+
+      expect(gridApi.purgeInfiniteCache).not.toHaveBeenCalled();
+    });
+  });
+
   describe('ngOnChanges', () => {
     it('applies the loading overlay when loading changes after the first change', () => {
       const component = createComponent();
@@ -161,6 +197,73 @@ describe('GridComponent', () => {
 
       expect(component.gridApi).toBe(gridApi);
       expect(gridApi.showLoadingOverlay).toHaveBeenCalled();
+    });
+  });
+
+  describe('onFirstDataRendered', () => {
+    it('does nothing when params is missing', () => {
+      const component = createComponent();
+
+      expect(() => component.onFirstDataRendered(null)).not.toThrow();
+    });
+
+    it('does nothing when params has no columnApi', () => {
+      const component = createComponent();
+
+      expect(() => component.onFirstDataRendered({})).not.toThrow();
+    });
+
+    it('does nothing when columnApi.getAllColumns is not a function', () => {
+      const component = createComponent();
+
+      expect(() =>
+        component.onFirstDataRendered({ columnApi: {} }),
+      ).not.toThrow();
+    });
+
+    it('auto-sizes every column, resolving ids via getColId or the raw colId field', () => {
+      const component = createComponent();
+      const autoSizeColumns = vi.fn();
+      const columnApi = {
+        getAllColumns: () => [
+          { getColId: () => 'col1' },
+          { colId: 'col2' },
+        ],
+        autoSizeColumns,
+      };
+
+      component.onFirstDataRendered({ columnApi });
+
+      expect(autoSizeColumns).toHaveBeenCalledWith(['col1', 'col2'], false);
+    });
+
+    it('skips columns with neither getColId nor a string colId', () => {
+      const component = createComponent();
+      const autoSizeColumns = vi.fn();
+      const columnApi = {
+        getAllColumns: () => [{}],
+        autoSizeColumns,
+      };
+
+      component.onFirstDataRendered({ columnApi });
+
+      expect(autoSizeColumns).not.toHaveBeenCalled();
+    });
+
+    it('does not throw when getAllColumns returns nothing', () => {
+      const component = createComponent();
+      const columnApi = { getAllColumns: () => undefined, autoSizeColumns: vi.fn() };
+
+      expect(() => component.onFirstDataRendered({ columnApi })).not.toThrow();
+    });
+
+    it('does not call autoSizeColumns when it is not a function, even with resolved column ids', () => {
+      const component = createComponent();
+      const columnApi = {
+        getAllColumns: () => [{ getColId: () => 'col1' }],
+      };
+
+      expect(() => component.onFirstDataRendered({ columnApi })).not.toThrow();
     });
   });
 
@@ -208,6 +311,15 @@ describe('GridComponent', () => {
       }
       return { event: { target }, data } as any;
     }
+
+    it('ignores a click event with no target', () => {
+      const component = createComponent();
+      const emitted: any[] = [];
+      component.openModal.subscribe((v) => emitted.push(v));
+
+      expect(() => component.onCellClicked({ event: {}, data: { id: 'r1' } } as any)).not.toThrow();
+      expect(emitted).toHaveLength(0);
+    });
 
     it('ignores clicks with no recognized action', () => {
       const component = createComponent();
@@ -257,6 +369,15 @@ describe('GridComponent', () => {
 
       component.onCellClicked(cellEvent('delete', { id: 'r1' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.delete).not.toHaveBeenCalled();
+    });
+
+    it('confirmDelete does nothing when called with no data (direct call)', () => {
+      const component = createComponent();
+      component.delete = vi.fn();
+
+      expect(() => (component as any).confirmDelete(null)).not.toThrow();
 
       expect(component.delete).not.toHaveBeenCalled();
     });
@@ -371,6 +492,32 @@ describe('GridComponent', () => {
       component.gridDatasource.getRows(params);
 
       expect(params.failCallback).toHaveBeenCalled();
+    });
+  });
+
+  describe('applyLoadingOverlay (via ngOnChanges)', () => {
+    it('does nothing when there is no gridApi yet', () => {
+      const component = createComponent();
+      component.loading = true;
+
+      expect(() =>
+        component.ngOnChanges({
+          loading: { firstChange: false, currentValue: true, previousValue: false, isFirstChange: () => false },
+        }),
+      ).not.toThrow();
+    });
+
+    it('hides the overlay when loading is false', () => {
+      const component = createComponent();
+      const gridApi = mockGridApi();
+      component.gridApi = gridApi;
+      component.loading = false;
+
+      component.ngOnChanges({
+        loading: { firstChange: false, currentValue: false, previousValue: true, isFirstChange: () => false },
+      });
+
+      expect(gridApi.hideOverlay).toHaveBeenCalled();
     });
   });
 });
