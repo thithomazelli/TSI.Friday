@@ -9,7 +9,7 @@ import {
   TranslationService,
 } from '@nexus/core';
 import { GridApi } from 'ag-grid-community';
-import { Subject, of } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { OrdersComponent } from './orders.component';
 import { GridComponent } from '../shared/grid/grid.component';
 
@@ -130,6 +130,27 @@ describe('OrdersComponent', () => {
     });
   });
 
+  describe('ngOnDestroy', () => {
+    it('stops reacting to orderChanged$', () => {
+      const component = createComponent();
+      const gridRef = mockGridRef();
+      (component as any).gridRef = gridRef;
+      component.ngOnInit();
+      component.ngOnDestroy();
+
+      orderChanged$.next();
+      orderChanged$.next();
+
+      expect(gridRef.gridApi.purgeInfiniteCache).not.toHaveBeenCalled();
+    });
+
+    it('does not throw when destroyed before ngOnInit ever subscribed', () => {
+      const component = createComponent();
+
+      expect(() => component.ngOnDestroy()).not.toThrow();
+    });
+  });
+
   describe('openModal', () => {
     it('prefills a new order with the parent business partner on add', () => {
       const component = createComponent();
@@ -189,6 +210,25 @@ describe('OrdersComponent', () => {
 
       expect(component.filteredRowData).toEqual([{ id: 'o2' }]);
     });
+
+    it('does not touch the grid/rows when the deletion fails, but still notifies', () => {
+      const component = createComponent();
+      const gridRef = mockGridRef();
+      (component as any).gridRef = gridRef;
+      orderServiceMock.delete.mockReturnValue(
+        of({ status: ResponseStatus.Error, message: 'Falha' }),
+      );
+
+      component.deleteOrder({ id: 'o1' } as Order);
+
+      expect(gridRef.gridApi.purgeInfiniteCache).not.toHaveBeenCalled();
+      expect(modalServiceMock.hideModal).toHaveBeenCalled();
+      expect(modalServiceMock.showSweetNotification).toHaveBeenCalledWith(
+        '',
+        'Falha',
+        ResponseStatus.Error,
+      );
+    });
   });
 
   describe('refreshOrders', () => {
@@ -246,6 +286,18 @@ describe('OrdersComponent', () => {
       expect(component.filteredRowData.map((o) => o.id)).toEqual(['o1']);
     });
 
+    it('embedded: treats a missing status as an empty string when filtering by status', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      component.rowData = [{ id: 'o1' } as unknown as Order];
+      component.filterStatus.Open = true;
+
+      component.applyFilters();
+
+      expect(component.filteredRowData).toEqual([]);
+    });
+
     it('embedded: filters client-side rows by date range', () => {
       const component = createComponent();
       component.entity = 'BusinessPartner';
@@ -255,6 +307,36 @@ describe('OrdersComponent', () => {
         { id: 'o2', createDate: '2024-02-01' } as unknown as Order,
       ];
       component.filterStartDate = '2024-01-15';
+
+      component.applyFilters();
+
+      expect(component.filteredRowData.map((o) => o.id)).toEqual(['o2']);
+    });
+
+    it('embedded: filters client-side rows by end date only', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      component.rowData = [
+        { id: 'o1', createDate: '2024-01-01' } as unknown as Order,
+        { id: 'o2', createDate: '2024-02-01' } as unknown as Order,
+      ];
+      component.filterEndDate = '2024-01-15';
+
+      component.applyFilters();
+
+      expect(component.filteredRowData.map((o) => o.id)).toEqual(['o1']);
+    });
+
+    it('embedded: excludes rows with no createDate when a date filter is active', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      component.rowData = [
+        { id: 'o1' } as unknown as Order,
+        { id: 'o2', createDate: '2024-01-01' } as unknown as Order,
+      ];
+      component.filterStartDate = '2024-01-01';
 
       component.applyFilters();
 
@@ -277,6 +359,22 @@ describe('OrdersComponent', () => {
       });
       expect(component.filteredRowData).toEqual([{ id: 'o1' }]);
     });
+
+    it('top-level: clearFilters purges the grid cache without touching filteredRowData', () => {
+      const component = createComponent();
+      const gridRef = mockGridRef();
+      (component as any).gridRef = gridRef;
+      component.filterStatus.Open = true;
+
+      component.clearFilters();
+
+      expect(gridRef.gridApi.purgeInfiniteCache).toHaveBeenCalled();
+      expect(component.filterStatus).toEqual({
+        Open: false,
+        WaitingPayment: false,
+        Closed: false,
+      });
+    });
   });
 
   describe('pagedDataSource', () => {
@@ -295,6 +393,140 @@ describe('OrdersComponent', () => {
           statuses: ['Closed'],
         }),
       );
+    });
+
+    it('falls back to undefined dates when no date filter is set', () => {
+      const component = createComponent();
+
+      component.pagedDataSource({ page: 1, pageSize: 10 });
+
+      expect(orderServiceMock.getAllPaged).toHaveBeenCalledWith(
+        expect.objectContaining({ startDate: undefined, endDate: undefined, statuses: [] }),
+      );
+    });
+  });
+
+  describe('getOrders (private, via ngOnInit/refreshOrders)', () => {
+    it('falls back to an empty array when the response has no data', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      orderServiceMock.getByBusinessPartnerId.mockReturnValue(of({}));
+
+      component.refreshOrders();
+
+      expect(component.rowData).toEqual([]);
+    });
+
+    it('stops loading without throwing when the request errors', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.parentData = { id: 'bp1' } as Company;
+      orderServiceMock.getByBusinessPartnerId.mockReturnValue(
+        throwError(() => new Error('fail')),
+      );
+
+      component.refreshOrders();
+
+      expect(component.loading).toBe(false);
+    });
+
+    it('runs without a callback when called directly with none', () => {
+      const component = createComponent();
+      orderServiceMock.getAll.mockReturnValue(of({ data: [] }));
+
+      expect(() => (component as any).getOrders()).not.toThrow();
+    });
+  });
+
+  describe('column defs cell renderers', () => {
+    it('renders the orderNumber value as a link, falling back to an empty string', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'orderNumber')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: '123' })).toContain('123');
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toContain('ag-link');
+    });
+
+    it('renders the businessPartnerName value as a link, falling back to an empty string', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'businessPartnerName')!;
+
+      expect((column.cellRenderer as (p: any) => string)({ value: 'Cliente A' })).toContain(
+        'Cliente A',
+      );
+      expect((column.cellRenderer as (p: any) => string)({ value: null })).toContain('ag-link');
+    });
+
+    it('hides the businessPartnerName column when embedded in a business partner', () => {
+      const component = createComponent();
+      component.entity = 'BusinessPartner';
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'businessPartnerName')!;
+
+      expect(column.hide).toBe(true);
+    });
+
+    it('formats totalPrice as BRL currency', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'totalPrice')!;
+
+      expect((column.valueFormatter as (p: any) => string)({ value: 100 } as any)).toContain(
+        'R$',
+      );
+    });
+
+    it('formats date as BR date', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs.find((c) => c.field === 'date')!;
+
+      expect(
+        (column.valueFormatter as (p: any) => string)({ value: '2024-01-15' } as any),
+      ).toContain('/');
+    });
+
+    describe('status column', () => {
+      it.each([
+        ['Closed', 'success', 'QUOTES.STATUS_CLOSED'],
+        ['Open', 'info', 'QUOTES.STATUS_OPEN'],
+        ['WaitingPayment', 'warning', 'QUOTES.STATUS_WAITING_PAYMENT'],
+      ])('renders status %s with the %s color and translated label', (status, color, label) => {
+        const component = createComponent();
+        component.ngOnInit();
+        const column = component.columnDefs.find((c) => c.headerName === 'COMMON.STATUS')!;
+
+        const html = (column.cellRenderer as (p: any) => string)({ value: status });
+
+        expect(html).toContain(`bg-${color}`);
+        expect(html).toContain(label);
+      });
+
+      it('falls back to a secondary badge with the raw value for an unknown status', () => {
+        const component = createComponent();
+        component.ngOnInit();
+        const column = component.columnDefs.find((c) => c.headerName === 'COMMON.STATUS')!;
+
+        const html = (column.cellRenderer as (p: any) => string)({ value: 'Unknown' });
+
+        expect(html).toContain('bg-secondary');
+        expect(html).toContain('Unknown');
+      });
+    });
+
+    it('renders the actions column buttons', () => {
+      const component = createComponent();
+      component.ngOnInit();
+      const column = component.columnDefs[component.columnDefs.length - 1];
+
+      const html = (column.cellRenderer as () => string)();
+
+      expect(html).toContain('data-action="view"');
+      expect(html).toContain('data-action="edit"');
+      expect(html).toContain('data-action="delete"');
     });
   });
 
@@ -323,6 +555,25 @@ describe('OrdersComponent', () => {
       component.ngOnInit();
 
       expect(component.showFiltersOnInit).toBe(false);
+    });
+
+    it('ignores status values that are not known filter keys', () => {
+      window.history.pushState({}, '', '/orders?status=Bogus,Open');
+      const component = createComponent();
+
+      component.ngOnInit();
+
+      expect(component.filterStatus.Open).toBe(true);
+      expect((component.filterStatus as any).Bogus).toBeUndefined();
+    });
+
+    it('sets showFiltersOnInit true when only a status filter is active (no dates)', () => {
+      window.history.pushState({}, '', '/orders?status=Open');
+      const component = createComponent();
+
+      component.ngOnInit();
+
+      expect(component.showFiltersOnInit).toBe(true);
     });
   });
 });
